@@ -1,0 +1,13 @@
+[editor]
+font_family = "JetBrains Mono Nerd Font"
+font_size = 16.0
+tab_size = 4
+auto_save = false
+word_wrap = true
+default_mode = "source"
+
+[appearance]
+theme = "catppuccin-mocha"
+opacity = 1.0
+content_width = 800
+sidebar_width = 250
