@@ -1134,3 +1134,32 @@ fn confirmation_actions_without_prompt_do_not_save_or_discard() {
         assert!(app.operations.active().is_none());
     }
 }
+
+#[test]
+fn cancelling_confirmation_preserves_source_and_query_contexts() {
+    for context in 0..3 {
+        let mut app = app();
+        edit(&mut app);
+        if context == 1 {
+            app.search.open = true;
+            app.search.query = "Original".into();
+        } else if context == 2 {
+            app.go_to.show(1, 2);
+        }
+        let before = app.document.snapshot();
+        let text = app.document.buffer_text();
+        let _ = app.update(Message::NewFile);
+        let _ = app.update(Message::CancelPendingAction);
+        assert!(app.pending_action.is_none());
+        assert!(app.operations.active().is_none());
+        assert_eq!(app.search.open, context == 1);
+        assert_eq!(app.go_to.open, context == 2);
+        if context == 1 {
+            assert_eq!(app.search.query, "Original");
+        } else if context == 2 {
+            assert_eq!(app.go_to.query, "1:2");
+        }
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), text);
+    }
+}

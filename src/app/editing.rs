@@ -37,6 +37,21 @@ impl Hylite {
         }
     }
 
+    /// A full-screen confirmation removes the editor/input widget tree. When
+    /// it is dismissed, restore the logical input context instead of relying
+    /// on the old widget's focus surviving. No document mutation is involved.
+    pub(super) fn restore_input_focus(&self) -> Task<Message> {
+        if self.mode == EditMode::Preview {
+            Task::none()
+        } else if self.go_to.open {
+            iced::widget::text_input::focus(crate::ui::navigation::query_id())
+        } else if self.search.open {
+            iced::widget::text_input::focus(crate::ui::search::query_id())
+        } else {
+            crate::source_focus::task()
+        }
+    }
+
     fn refocus_source(&self) -> Task<Message> {
         if self.search.open || self.go_to.open {
             Task::none()

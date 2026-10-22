@@ -66,7 +66,7 @@ impl Hylite {
             PendingAction::New => {
                 self.replace_document(None, "");
                 self.status_message = "New file".into();
-                Task::none()
+                self.restore_input_focus()
             }
             PendingAction::Open => {
                 let token = self.start_operation(OperationKind::Open);

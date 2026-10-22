@@ -163,6 +163,7 @@ impl Hylite {
                     self.pending_action = None;
                     self.file_error = None;
                     self.status_message = "Action cancelled; document kept".into();
+                    return self.restore_input_focus();
                 }
                 Task::none()
             }
