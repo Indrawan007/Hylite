@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6h
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6i
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6h mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6i mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -474,3 +474,28 @@ Apply/Cancel memulihkan logical input context dan mode, search hanya refresh saa
 commit. Tidak ada free typing atau glyph caret mapping Preview. [Kontrak/tes/batas
 Stage 6h](testing-stage6h.md). Suite GUI kelima privat tidak mengurangi 116+9+9+9
 gate lama; tiap alarm180s/step5min dan budget job45min tetap.
+
+## Cell draft traversal dan explicit Apply & Next (Stage 6i)
+
+`preview_cell::neighbor` menghitung row-major bounded index, tidak mengautentikasi
+snapshot/range. Document menuntut warm current root membership 6h sebelum mengambil
+real neighbor dari `editable_cells`; tidak ada wrap lintas tabel/padding/row baru.
+Previous/Next tidak mengubah Source/caret/revision/history. Controller menolak
+modified/invalid draft tanpa membuang value; notice navigasi bukan validation
+error sehingga valid Apply tetap tersedia.
+
+Apply & Next meminta explicit commit. Target lama diautentikasi, candidate Source
+hanya mengganti satu payload, lalu full parser projection dipreflight agar root
+start/dimensions/next cell metadata cocok sebelum satu Atomic `PreviewTable`.
+Cache candidate dipasang sesudah commit, next target distamp full snapshot baru.
+No-op hanya berpindah tanpa revision/redo side effect; last-cell command menolak
+sebelum commit. Ini pengecualian eager preflight terhadap lazy model biasa, bukan
+incremental parsing atau speedup. Parse/reconstruction tetap O(n).
+
+State draft kini memiliki `navigation_notice` terpisah dari error. Apply & Next
+mempertahankan focus input draft, search refresh pada commit, guard modal/file/
+history/checkpoint lama tetap. Cancel membuang hanya draft terkini, bukan rollback
+Apply terdahulu. Enter/Apply-close dan Escape-Cancel lama tidak berubah. Title
+memperlihatkan row/column saat ini. Panel top-aligned/fixed control rows mencegah
+footer/error menggeser input/navigation, tanpa menyentuh main Preview bar. Suite
+GUI keenam privat mempertahankan lima gate lama utuh. [Kontrak dan bukti 6i](testing-stage6i.md).

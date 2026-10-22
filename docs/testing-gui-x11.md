@@ -524,3 +524,29 @@ diperiksa, screenshot belum direview visual. `table-cells/cells-preview.png`,
 `cells-invalid.png`, `cells-split.png` bukan pixel/glyph oracle. Query/Go-to modal
 focus runtime, header/empty/EOF UI, input16KiB/Tab/IME/RTL/accessibility/HiDPI dan
 Arch/Hyprland/Wayland/portal/GPU belum diverifikasi. Ini bukan inline WYSIWYG.
+
+## Stage 6i: navigasi draft dalam suite privat keenam
+
+`--suite cell-navigation` memakai Xvfb/app/XDG/env/clipboard sendiri, alarm180s/
+step5min dan job45min tetap. Semua16 body exercise lama (12 regression phases,
+4 suite independen) sama secara AST dengan6h; oracle bytes, koordinat, no-refocus
+dan deadline lama tidak berubah. Tidak ada runtime test hook atau retry.
+
+[CI 39863457232](https://github.com/Indrawan007/Hylite/actions/runs/39863457232),
+`983b517`, **success**, **632 Cargo /231 strict core (subset) /35 Python**.
+Suite keenam **16 checks** = 15 exact Copy (8 Source + 7 draft) + natural exit0.
+Previous/Next melintasi header/body, dirty refusal mempertahankan input, explicit
+Unicode Apply & Next memuat neighbor fresh setelah offset berubah. Last-cell
+boundary, no-op tanpa extra history, Cancel setelah prior Apply, Preview Undo/
+Redo dan Split Source caret/focus tanpa refocus teruji. 13 klik kontrol produk;
+semua Copy `refocus=False`. Dua helper baru mengunci literal oracle/action
+sequence dan exclusive dispatch; private DISPLAY guard mencakup enam suite.
+
+Total **173 GUI = 116+9+9+9+14+16**: 154 clipboard (145 Source + 9 draft input),
+12 title, 7 natural exits. Artifact `12462558973`, 1.975.135 bytes, belum expired
+saat diperiksa; screenshot belum direview visual. Evidence `cell-navigation/`
+(`cell-navigation-draft.png`, `cell-navigation-split.png`) bukan pixel oracle.
+Run22 Oktober UTC /23 Oktober2026 Makassar. Header Apply & Next/EOF UI, query/
+Go-to focus runtime, menu keyboard, glyph/HiDPI/accessibility dan desktop Arch/
+Hyprland/Wayland/portal/GPU/IME/RTL tetap belum terverifikasi. Tidak ada shortcut
+baru atau inline WYSIWYG. [Kontrak dan batas Stage6i](testing-stage6i.md).
