@@ -1449,17 +1449,18 @@ fn queued_preview_targets_cannot_navigate_after_edits_or_document_replacement() 
     }
 }
 
-fn table_cell_target(app: &Hylite) -> crate::preview_navigation::Target {
-    let block = &app.document.preview_blocks()[1];
-    let crate::document::preview_model::Kind::Table(table) = &block.kind else {
-        panic!("table")
-    };
+fn table_cell_target(
+    app: &Hylite,
+    range: std::ops::Range<usize>,
+) -> crate::preview_navigation::Target {
+    // Controller tests use literal fixture offsets, not the private parser's
+    // cell data as their oracle. Only the parent block provenance is borrowed.
     crate::preview_navigation::Target::cell(
         app.document.snapshot(),
-        block.source.clone(),
+        app.document.preview_blocks()[1].source.clone(),
         1,
         1,
-        table.rows[1].cells[1].source.clone(),
+        range,
     )
 }
 
@@ -1471,7 +1472,8 @@ fn cell_reveal_opens_split_at_raw_markup_and_retains_source_cache_and_redo() {
     edit(&mut app);
     assert!(app.document.undo());
     app.mode = EditMode::Split;
-    let target = table_cell_target(&app);
+    let start = source.find("**3**").unwrap();
+    let target = table_cell_target(&app, start..start + 5);
     assert_eq!(target.range.start, source.find("**3**").unwrap());
     let _ = app.update(Message::OpenFind(false));
     let _ = app.update(Message::FindQueryChanged("Name".into()));
@@ -1501,7 +1503,8 @@ fn cell_reveal_uses_existing_prompt_open_mode_and_save_export_guards() {
         } else {
             EditMode::Preview
         };
-        let target = table_cell_target(&app);
+        let start = "# head\n\na|b\n-|-\nc|d\n".find("c|d").unwrap() + 2;
+        let target = table_cell_target(&app, start..start + 1);
         assert!(app.document.set_caret(3));
         if case == 1 {
             app.pending_action = Some(PendingAction::New);

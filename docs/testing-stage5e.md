@@ -49,7 +49,7 @@ sel dengan konten lebih pendek belum dipaksa setinggi seluruh row.
 
 ## Regresi
 
-15 tes Rust baru direncanakan dalam suite native:
+15 tes Rust baru ditambahkan untuk suite native:
 
 - 4 core: parent bounds/UTF-8, raw marker vs display, empty/stale, serta kontrak
   bahwa bounds resolver saja tidak mengautentikasi indeks model.
@@ -75,6 +75,13 @@ dan `cell-split.png` bukan pixel oracle.
 Lokal: **162 core** strict mandiri dan **19 helper Python** lulus; format/diff
 juga diperiksa. Build/Clippy/Cargo/Iced/GUI native baru masih menunggu CI; hasil
 core tidak menggantikan verifikasi tersebut.
+
+Percobaan [CI 39731115281](https://github.com/Indrawan007/Hylite/actions/runs/39731115281)
+lulus format/162 core/19 Python, tetapi kompilasi target tes saat lint menemukan
+helper controller mengakses modul parser privat (`E0603`). Helper diperbaiki
+untuk membuat range dari literal fixture independen; visibility model tidak
+diperluas dan tidak ada gate yang dilemahkan. Gate build/Cargo/GUI pada percobaan
+tersebut belum dijalankan dan bukan hasil lulus.
 
 ## Batas dan pengujian manual yang belum dinyatakan lulus
 
