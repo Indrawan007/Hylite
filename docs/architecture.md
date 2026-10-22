@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j dan preview read-only 5a–5e
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe task 6a
 
-Stage 5e: build debug, Clippy dan **411 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **19 helper Python dan 84 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 6a: build debug, Clippy dan **439 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **20 helper Python dan 92 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -8,9 +8,10 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task 6a punya guard provenance sendiri, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
+- **`preview_task.rs`**: target item/marker/checked/snapshot dan planner satu byte; Document memeriksa exact cached task membership sebelum jalur Atomic Source.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
 - **`document/state.rs`**: memiliki satu buffer `text_editor::Content`, path aktif, ID dokumen, revisi operasi monotonik, checkpoint konten, checkpoint terakhir disimpan, dan bounded history. Edit efektif melalui `apply`/`change`; penggantian dokumen melalui `replace`; hasil save melalui `mark_saved`.
@@ -42,7 +43,7 @@ bukan budget CPU/memori total atau jaminan untuk file besar.
 Font strong/emphasis/code digabung, strike/underline memakai dekorasi span native,
 heading memakai ukuran per level. List/quote mempertahankan child blocks;
 code payload tidak di-trim. Warna berasal dari tema aplikasi. Tidak ada callback
-link, image loader, HTML execution, worker I/O, atau message pengubah teks Source. Tombol provenance 5d hanya menerbitkan permintaan navigasi tervalidasi.
+link, image loader, HTML execution atau worker I/O. Span inline tetap inert; tombol provenance 5d hanya navigasi. Checkbox task 6a menjadi pengecualian explicit edit yang divalidasi controller/Document, bukan mutasi AST.
 Fallback unsupported tetap terlihat sebagai source, bukan dipipihkan/dihapus.
 
 `app::view_preview` mengambil proyeksi dari Document yang pada cache miss memakai
@@ -151,6 +152,30 @@ check clipboard membuktikan Source/fokus/dua Undo; bukan hit-testing glyph atau
 scroll/selection sync. Native Document menguji header/body/nested/forged/stale
 secara terpisah; GUI belum membuktikan klik nested/whitespace/scroll jauh atau
 layout desktop target. [Kontrak dan batas Stage 5e](testing-stage5e.md).
+
+## Prototipe task checkbox (Stage 6a)
+
+`Kind::Item` kini memuat optional TaskMarker: checked state dan optional canonical
+range. Core menormalisasi prefix event 0–3 spasi sebelum `[ ]`/`[x]`/`[X]`;
+unsupported marker seperti tab tetap terlihat sebagai checkbox disabled. Target
+UI menyertakan full snapshot, exact item range, marker range dan expected state.
+Planner memeriksa byte/UTF-8/state; Document juga menuntut cache warm serta exact
+membership pada task item saat ini. Stale/cold/forged/code targets tidak di-rebase.
+
+Hanya `TogglePreviewTask` boleh mengedit dari Preview/Split dengan guard prompt/
+Open dan penolakan mode Source. Save/Export biasa tetap diizinkan. Planner
+mengganti satu byte melalui `Document::change`, jadi Atomic history, checkpoint/
+revisi/dirty, redo branching, invalidasi cache dan caret reconstruction memakai
+jalur Source yang sudah ada. Caret setelah karakter toggle, selection collapse;
+mode tetap, search di-refresh, query/Source focus dipulihkan sesuai konteks Split.
+Tidak ada edit AST atau serialisasi Markdown; seluruh byte lain dipertahankan.
+
+Native typing/formatting/Undo Preview tetap ditolak; Undo/Redo di Source/Split
+memulihkan source/caret lama (termasuk X kapital). Ini satu interaksi prototype,
+bukan WYSIWYG umum atau kebijakan history Preview baru. GUI membuktikan checkbox
+Preview/Split, satu transaksi per klik, Undo/Redo dan fokus Source tanpa refocus;
+checkbox nested/disabled/query-focus runtime/viewport/Wayland belum dinyatakan
+lulus. [Kontrak, hasil dan checklist Stage 6a](testing-stage6a.md).
 
 ## Invariant dokumen
 

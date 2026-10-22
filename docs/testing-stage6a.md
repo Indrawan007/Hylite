@@ -75,9 +75,20 @@ controller dapat berubah. UI command tetap merupakan typing-group boundary.
 
 ## Status eksekusi
 
-Lokal **172 core strict** dan **20 Python** lulus; format/diff diperiksa. Gate
-Cargo/Clippy/build/Iced serta klik GUI native baru masih menunggu CI; tes core
-bukan pengganti runtime native.
+[CI run 39733641430](https://github.com/Indrawan007/Hylite/actions/runs/39733641430)
+**success** pada commit `c774f2a6cadbfcd3491232e1a3dd294ead656a54`, job
+`119674183293`, Ubuntu 24.04 / Rust stable, durasi 3m11s. Format, **172 core
+strict mandiri**, Clippy/build debug `--locked --all-targets --all-features`,
+**439 Cargo**, **20 Python** dan **92 GUI X11** semuanya lulus. 172 core adalah
+subset 439, bukan tambahan. Delta 28 Rust = 10 core + 3 model + 8 Document +
+2 adapter + 5 controller. 92 GUI = 78 clipboard + 12 title + 2 exit normal.
+Semua gate lama tetap lulus; tidak ada expected byte/timeout/refocus yang
+dilonggarkan. Pemeriksaan lokal format/diff/172 core/20 Python juga lulus;
+full native dirujuk ke runner, bukan disimpulkan dari harness saja.
+
+[Artifact gui-x11-smoke](https://github.com/Indrawan007/Hylite/actions/runs/39733641430/artifacts/12405688405)
+dikonfirmasi ada melalui API: 996439 bytes, belum expired saat diperiksa,
+retensi 7 hari. Screenshot belum ditinjau visual dan bukan pixel oracle.
 
 Percobaan [CI 39733392375](https://github.com/Indrawan007/Hylite/actions/runs/39733392375)
 lulus format/core/Python/Clippy/build dan 438 tes Cargo, tetapi satu fixture

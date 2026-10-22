@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 411 pada Stage 5e). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 439 pada Stage 6a). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -283,3 +283,26 @@ jendela, belum ditinjau visual dan bukan pixel oracle. Header/nested/padded/
 whitespace/stale/forged guards juga diuji di Cargo tetapi belum semua diklik di
 GUI. Tidak ada hook aplikasi, relaksasi timeout/expected bytes atau klaim
 Wayland/Hyprland. [Detail dan manual checklist Stage 5e](testing-stage5e.md).
+
+
+## Tambahan runner Stage 6a: task checkbox sebagai Source edit
+
+**Lulus** pada [CI run 39733641430](https://github.com/Indrawan007/Hylite/actions/runs/39733641430),
+commit `c774f2a`: **92 GUI** (78 clipboard, 12 title, 2 exit normal), **439 Cargo**,
+**172 core mandiri** (subset Cargo), dan **20 Python**. Delapan clipboard check
+baru mempertahankan seluruh gate lama:
+
+1. Fixture canonical unchecked, kapital X lain, café🙂, fenced task literal dan tab.
+2. Klik checkbox Preview lalu pilih Split: hanya marker pertama menjadi `[x]`.
+3. Satu Undo mengembalikan fixture; Redo memulihkan checked (dua checks).
+4. Klik checkbox di panel Split: uncheck dan Source menerima Copy tanpa refocus.
+5. Undo kedua toggle kembali checked; Undo pertama toggle kembali fixture; Undo
+   paste fixture kembali welcome clean (tiga checks).
+
+Semua Copy `refocus=False`; dua klik produk bukan klik tambahan pada editor.
+Expected bytes literal memakai replacement pertama saja, bukan planner/parser
+produksi. `task-preview.png`/`task-split.png` adalah evidence runtime, belum
+ditinjau visual. Tidak ada assertion pixel atau gate klik checkbox nested/
+disabled/query-focus runtime; itu masih checklist manual. Undo tetap Source/
+Split, native typing Preview tetap diblokir. Tidak ada hook/timeout/expected
+byte yang dilonggarkan. [Kontrak dan batas prototipe Stage 6a](testing-stage6a.md).

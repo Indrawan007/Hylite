@@ -1,5 +1,9 @@
 # Stage 5a — fondasi preview Markdown native read-only
 
+> Pembaruan [Stage 6a](testing-stage6a.md): checkbox task kanonis kini dapat
+> mengirim one-byte Source edit tervalidasi. Selain pengecualian prototype ini,
+> blok tetap tidak editable; catatan/count di bawah adalah hasil iterasi historis.
+
 > Pembaruan [Stage 5d](testing-stage5d.md): tombol provenance leaf dapat
 > menavigasi ke awal rentang Source dalam Split. Ini bukan glyph/selection map;
 > hasil/count iterasi di bawah tetap catatan historis, bukan suite terbaru.

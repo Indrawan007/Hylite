@@ -96,6 +96,19 @@ saat lint: helper tes mengakses modul privat; helper sekarang menggunakan offset
 literal fixture tanpa memperluas visibility atau melemahkan gate. Detail dan
 batas bukti ada di [Stage 5e](testing-stage5e.md); belum edit/glyph/selection map.
 
+Update task prototype Stage 6a: [CI run 39733641430](https://github.com/Indrawan007/Hylite/actions/runs/39733641430),
+commit `c774f2a`, lulus **439 Cargo**, **172 core mandiri** (subset Cargo),
+**20 Python**, **92 GUI X11**, format/build debug/Clippy strict. Tambahan 28 Rust
+menguji canonical marker/source provenance, item membership/stale/cold/code,
+Atomic history/cache/metadata, adapter dan controller guards/query/save race.
+Delapan clipboard check baru mengklik checkbox Preview dan Split, memeriksa
+one-byte Source edit serta Undo/Redo byte-exact Unicode/X lain/code/trailing tab,
+tanpa refocus Source. Undo masih Source/Split, bukan editing umum Preview.
+Percobaan `39733392375` lulus lint/build tetapi fixture model salah menempatkan
+baris task penginterupsi tabel sebagai sel; fixture diperbaiki dengan leading
+pipe, assert node Table, dan assert kasus interupsi sebagai task nyata. Tidak
+mengubah parser atau melemahkan gate. [Kontrak dan batas Stage 6a](testing-stage6a.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

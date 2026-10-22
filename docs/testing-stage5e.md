@@ -1,5 +1,9 @@
 # Stage 5e — navigasi provenance sel tabel ke Source
 
+> Pembaruan [Stage 6a](testing-stage6a.md): checkbox task kanonis kini dapat
+> mengirim one-byte Source edit tervalidasi. Selain pengecualian prototype ini,
+> blok tetap tidak editable; catatan/count di bawah adalah hasil iterasi historis.
+
 Melanjutkan [Stage 5d](testing-stage5d.md). Ini **bukan edit tabel langsung,
 cell selection, glyph hit testing, WYSIWYG atau synchronized scrolling**.
 

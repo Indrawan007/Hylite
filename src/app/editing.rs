@@ -1,4 +1,4 @@
-//! All Source edits share the same guard and document transaction/history path.
+//! Source edits share transaction/history; explicit preview tasks have a narrow guard.
 
 use super::Hylite;
 use crate::block_edit::BlockStyle;
