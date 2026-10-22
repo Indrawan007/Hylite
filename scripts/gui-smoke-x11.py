@@ -42,8 +42,8 @@ class Desktop:
         self.owners = []
         self.passed = []
 
-    def command(self, *args, **kwargs):
-        return subprocess.run(args, env=self.env, check=True, timeout=3,
+    def command(self, *args, timeout=3, **kwargs):
+        return subprocess.run(args, env=self.env, check=True, timeout=timeout,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs).stdout
 
     def wait(self, description, condition, seconds=12):
@@ -140,7 +140,7 @@ class Desktop:
 
     def screenshot(self, path):
         if self.window:
-            self.command("import", "-window", self.window, str(path))
+            self.command("import", "-silent", "-limit", "thread", "1", "-window", self.window, str(path), timeout=15)
 
     def cleanup(self):
         # Deliberate process cleanup, NOT a successful native close-window test.
