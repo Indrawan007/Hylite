@@ -2,6 +2,7 @@
 
 > Catatan historis fondasi 5a. Tabel yang pada iterasi ini masih fallback kini
 > diperluas menjadi grid native pada [Stage 5b](testing-stage5b.md).
+> [Stage 5c](testing-stage5c.md) menambah cache proyeksi dan borrowed renderer.
 
 Source tetap otoritatif; ini **bukan WYSIWYG** dan bukan pernyataan Tahap 4 telah
 selesai. Tidak ada perubahan serializer, format save, undo/history, atau worker

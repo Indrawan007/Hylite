@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j dan preview read-only 5a–5b
+# Arsitektur: Source 4a–4j dan preview read-only 5a–5c
 
-Stage 5b: build debug, Clippy dan **361 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **16 tes helper Python dan 71 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [hasil tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland atau visual/pixel oracle.
+Stage 5c: build debug, Clippy dan **374 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **17 helper Python dan 76 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -37,19 +37,20 @@ math); tidak memakai `Options::all`. Nesting block dan stack gaya inline dibatas
 24; bagian lebih dalam tampil sebagai source literal, bukan hilang. Batas ini
 bukan budget CPU/memori total atau jaminan untuk file besar.
 
-`document/preview.rs` mengonsumsi model menjadi widget Iced, bukan HTML/WebView.
+`document/preview.rs` meminjam model untuk membangun widget Iced, bukan HTML/WebView.
 Font strong/emphasis/code digabung, strike/underline memakai dekorasi span native,
 heading memakai ukuran per level. List/quote mempertahankan child blocks;
 code payload tidak di-trim. Warna berasal dari tema aplikasi. Tidak ada callback
 link, image loader, HTML execution, worker I/O, atau message pengubah dokumen.
 Fallback unsupported tetap terlihat sebagai source, bukan dipipihkan/dihapus.
 
-`app::view_preview` memakai **buffer_text raw**, bukan serializer yang dapat
-menambah LF. Source dan Split tetap menggunakan satu native buffer otoritatif.
+`app::view_preview` mengambil proyeksi dari Document yang pada cache miss memakai
+**buffer_text raw**, bukan serializer yang dapat menambah LF. Source dan Split tetap menggunakan satu native buffer otoritatif.
 Rentang UTF-8 di model/tooltip hanya provenance; entity, escape dan soft break
 mengubah display text. Ini belum AST editable, WYSIWYG, hit-testing caret,
-selection mapping atau sinkronisasi scroll. Parsing dan widget dibangun ulang
-per view; caching/incremental parsing/virtualisasi belum diimplementasikan.
+selection mapping atau sinkronisasi scroll. Mulai 5c, parsing hanya pada cache
+miss dan renderer meminjam payload model. Widget tetap dibangun per view; belum
+ada incremental parsing, layout cache atau virtualisasi.
 Lihat [cakupan, batas, dan bukti pengujian](testing-stage5a.md).
 
 ## Tabel native (Stage 5b)
@@ -60,7 +61,7 @@ setiap row/sel memiliki source range. Parser GFM menentukan padding sel kosong
 (rentang dapat kosong di akhir row) dan mengabaikan body cell ekstra hanya dalam
 preview. Source dan rentang row tetap mempertahankan seluruh byte.
 
-Grid `preview_table_view.rs` mengonsumsi model menjadi row teks dan layer divider
+Grid `preview_table_view.rs` meminjam model untuk membangun row teks dan layer divider
 native. Row teks menentukan tinggi maksimal terlebih dahulu; overlay divider
 mengikuti tinggi itu tanpa menyebarkan Fill-height ke outer vertical scroll.
 Kolom fixed 160 logical px termasuk padding, alignment native per kolom,
@@ -73,6 +74,34 @@ menjadi fallback literal; tail setelah tabel/quote tidak tertelan. Ini batas
 eager widget count, bukan memori/CPU total atau budget global seluruh dokumen.
 Belum auto-size kolom, editing tabel, virtualisasi atau source↔caret mapping.
 Lihat [cakupan dan batas Stage 5b](testing-stage5b.md).
+
+## Cache proyeksi dan mode fokus (Stage 5c)
+
+Document memiliki satu `OnceCell<Vec<Block>>` lazy, terpisah dari native Content.
+`preview_blocks()` melakukan raw snapshot + parse di closure cache miss saja.
+`advance_revision()` menggabungkan kenaikan revision dan `take()` model lama;
+semua edit efektif/transaction dan undo/redo melewati jalur ini. Replace membuat
+Document baru (cache kosong), termasuk teks identik. Masa berlaku model adalah
+revisi konten saat ini, bukan checkpoint yang bisa dikunjungi ulang oleh undo.
+
+Caret/selection/no-op/save/tema/layout/mode mempertahankan model. Khusus
+`set_caret`, native buffer dapat direkonstruksi dan render key highlighting
+berubah, tetapi byte Source tidak berubah sehingga model tetap valid. Parser
+menghasilkan model owned; view paragraph/list/table/code/fallback meminjam teks
+model lewat lifetime Rust. Tidak ada clone AST per view, counter produksi,
+unsafe, async parse, atau RefCell guard dalam view. Widget/span vectors/label
+masih dibangun ulang dan engine Iced dapat menyalin teks untuk layout sendiri.
+
+Cache single-entry bukan byte-bounded: satu model bisa bertahan di Source hingga
+edit/replace berikutnya. History budget bukan budget cache/RAM. Edit saat Split
+tetap full parse di thread UI pada view berikutnya; tidak ada angka speedup atau
+latensi/RSS yang sudah diukur. [Bukti dan batas cache](testing-stage5c.md).
+
+Mode switch/cycle menjalankan `restore_input_focus()` pada tree baru: Preview
+no-op, query Go to Line/Find bila masih terbuka, selain itu scoped Source.
+Probe keyboard-only menemukan kehilangan fokus Split → Source dan perbaikan
+menggunakan operasi idempoten yang sama, bukan klik fallback atau `focus_next`.
+Getter/cache serta task fokus tidak menaikkan snapshot atau dirty/history.
 
 ## Invariant dokumen
 

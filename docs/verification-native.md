@@ -62,6 +62,17 @@ memeriksa Source byte-exact sebelum/sesudah mode cycle, input/wheel saat Preview
 dan satu Undo kembali ke baseline. 150 core tetap subset 361; scrollbar/glyph/
 layout visual bukan assertion otomatis. Lihat [bukti dan batas tabel](testing-stage5b.md).
 
+Update cache/mode fokus Stage 5c: [CI run 39719585330](https://github.com/Indrawan007/Hylite/actions/runs/39719585330),
+commit `b614f98`, lulus **374 tes Cargo**, **17 helper Python**, **76 pemeriksaan
+GUI X11**, format/build debug/Clippy strict. Tambahan 13 tes Rust menguji cache
+lazy, invalidasi/reuse, span borrowed dan invariant/routing view. Lima clipboard
+check baru melatih warm Split, Go to Line Unicode ke sel tabel, edit/undo/redo
+serta Source clean kembali tanpa klik. 150 core adalah subset 374.
+Percobaan awal lulus 373 Rust tetapi menemukan fokus hilang saat Split → Source;
+controller sekarang memakai task scoped restore, bukan melemahkan probe.
+Lihat [detail dan batas cache](testing-stage5c.md); ini bukan benchmark speedup,
+layout/pixel oracle atau source↔selection mapping.
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -100,6 +111,6 @@ layout visual bukan assertion otomatis. Lihat [bukti dan batas tabel](testing-st
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
-Stage 5a renderer read-only kini mulai diimplementasikan; hasil terbaru dan batasnya
-dipisahkan di [catatan Stage 5a](testing-stage5a.md). WYSIWYG tetap belum ada.
+Stage 5a renderer read-only, 5b tabel dan 5c cache tersedia; hasil dan batas terbaru
+ada di [catatan Stage 5c](testing-stage5c.md). WYSIWYG tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

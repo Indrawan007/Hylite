@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 361 pada Stage 5b). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 374 pada Stage 5c). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -217,3 +217,22 @@ klaim pemulihan fokus otomatis.
 `tables-native.png`, `tables-horizontal.png`, `tables-split.png` merekam jendela
 sebenarnya. Screenshot bukan assertion posisi scrollbar, alignment/glyph atau
 batas sel secara pixel. Detail dan manual checklist ada di [Stage 5b](testing-stage5b.md).
+
+## Tambahan runner Stage 5c: warm cache dan mode fokus
+
+**Lulus** pada [CI run 39719585330](https://github.com/Indrawan007/Hylite/actions/runs/39719585330),
+commit `b614f98`: **76 pemeriksaan GUI** (62 clipboard, 12 title, 2 native exit),
+374 tes Cargo dan 17 helper Python. Lima clipboard check baru tidak menggantikan
+71 gate lama. Semua Copy pada probe baru memakai `refocus=False`.
+
+Source fixture di-copy, Preview dihangatkan lalu Split dibuka. Ctrl+G ke `5:11`
+menempatkan caret sebelum angka Count pada baris `| café🙂 | 3 |`; ketik `9`
+harus menghasilkan `| café🙂 | 93 |`. Undo/redo dibandingkan byte-exact, lalu
+kembali Source dan Undo fixture harus menghasilkan welcome clean tanpa klik.
+Percobaan awal menemukan Source kehilangan fokus setelah mode switch; controller
+sekarang mengembalikan task konteks query/scoped Source pada tree baru. Tidak
+menambah klik, mengubah expected bytes atau memperpanjang timeout untuk lolos.
+
+`cache-split.png` dan `cache-split-edited.png` merekam runtime tetapi tidak
+menguji stale pixels/parse count. Kesegaran model/cache occupancy diuji terpisah
+pada suite Document. Detail dan batas benchmark/desktop ada di [Stage 5c](testing-stage5c.md).

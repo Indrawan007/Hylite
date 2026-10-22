@@ -1,5 +1,8 @@
 # Stage 5b — tabel Markdown native read-only
 
+> Catatan hasil tabel 5b. Mulai [Stage 5c](testing-stage5c.md), renderer
+> meminjam model cached, bukan mengonsumsi model baru pada setiap view.
+
 Melanjutkan [fondasi Stage 5a](testing-stage5a.md), bukan WYSIWYG dan bukan
 pernyataan seluruh Tahap 5 selesai. Source tetap satu buffer Iced otoritatif.
 Tidak mengubah serializer, save/export, history, konfigurasi, dependensi atau

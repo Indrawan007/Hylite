@@ -58,6 +58,8 @@ sama tetap dapat dirender dengan palet/ukuran/layout berbeda.
   model, bukan klaim text engine internal tidak menyalin.
 - **1 tes controller/view baru**: model yang sama dipakai lintas tema/mode/sidebar/
   layout tanpa mengubah snapshot, raw text, render key, dirty atau history.
+- **1 tes routing mode/fokus baru** menjaga konteks query Find/Go to Line saat
+  Source/Split dan menutupnya pada Preview; task fokus diuji nyata oleh GUI.
 - Tes renderer lama diadaptasi untuk lifetime borrowed; semua gate struktur,
   decoration, inert link, tabel dan fallback dipertahankan.
 - GUI menambahkan **5 pemeriksaan clipboard**: Source fixture; warm Preview→Split,
@@ -72,12 +74,44 @@ pengukuran parse count, stale-pixel oracle atau pembuktian sel preview terlihat
 berubah. Invalidation/model freshness dibuktikan oleh tes Document/native.
 Tidak menambah parse counter produksi, debug UI, environment flag atau hook GUI.
 
-## Status eksekusi
+## Status eksekusi — lulus
 
-Lokal: 150 core Source dan 17 helper Python lulus; format dan diff diperiksa.
-Tes parser murni tetap ada dalam suite. Tes Document/Iced/borrowed renderer,
-Clippy/build/Cargo dan GUI baru menunggu hasil CI native; hasil tidak diasumsikan
-lulus hanya karena tes core/helper lokal lulus.
+[CI run 39719585330](https://github.com/Indrawan007/Hylite/actions/runs/39719585330),
+commit `b614f98d2481e3a472bac9ab15faca397d0b26c1`, job `119629706167`:
+**success**, Ubuntu 24.04 / Rust stable, 2m43s.
+
+| Gate | Hasil yang diamati |
+| --- | --- |
+| Format / independent Source core dengan lint ketat | Lulus; 150 core |
+| Clippy `--locked --all-targets --all-features -- -D warnings` | Lulus |
+| Build native debug semua target/fitur | Lulus |
+| Cargo test semua target/fitur | **374 passed**, 0 failed, 0 ignored |
+| Python helper | **17 passed**: 3 reporter + 14 runner GUI |
+| GUI X11/Xvfb + tiny-skia | **76 pemeriksaan lulus**: 62 clipboard + 12 title + 2 native exit |
+
+150 core, 35 tes parser model dan 13 tes Rust baru Stage 5c **termasuk dalam 374
+tes Cargo**, bukan tambahan di luar angka itu. Lokal: core/helper/format/diff
+serta 35 tes parser murni dengan source parser versi lockfile juga lulus.
+
+[Artifact screenshot/log/summary](https://github.com/Indrawan007/Hylite/actions/runs/39719585330/artifacts/12400019548)
+merekam jendela sebenarnya, mengikuti retensi 7 hari. Tidak ada assertion visual
+pixel, benchmark latensi atau pengukuran RSS dalam kelulusan ini.
+
+### Bug fokus yang ditemukan GUI
+
+[Percobaan awal](https://github.com/Indrawan007/Hylite/actions/runs/39719222750)
+lulus build/Clippy dan 373 tes Rust, serta edit sel/undo/redo di Split. Namun
+Split → Source menghilangkan fokus native editor sehingga Undo fixture tidak
+diterima; title tidak kembali clean. Ini bukan bukti cache stale dan bukan
+alasan menambahkan klik ke probe.
+
+`SwitchMode` dan `CycleMode` sekarang mengembalikan task `restore_input_focus()`:
+Preview no-op; pada mode editable query Go to Line/Find yang masih terbuka
+didahulukan, selain itu operasi scoped Source idempoten. Tidak memakai
+`focus_next`, caret mutation atau akses private widget. Satu regression routing
+headless ditambahkan; probe GUI asli tetap keyboard-only sampai kembali ke
+welcome byte-exact dan title clean. Gate lama, batas waktu dan assertions tidak
+dilonggarkan. Fokus query lintas mode secara visual tetap perlu desktop target.
 
 ## Batas / pekerjaan berikutnya
 
