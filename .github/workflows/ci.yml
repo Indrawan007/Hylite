@@ -28,7 +28,8 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             build-essential pkg-config libfontconfig1-dev \
             libxkbcommon-dev libwayland-dev libegl1-mesa-dev \
-            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
+            xvfb xauth xdotool xclip imagemagick fonts-dejavu-core
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,8 +37,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - name: Test CI diagnostic helper
-        run: python3 -m unittest discover -s scripts -p 'test_ci_report.py'
+      - name: Test CI and GUI diagnostic helpers
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Check formatting
         run: |
           cargo fmt --all -- --check
@@ -50,3 +51,14 @@ jobs:
         run: ./scripts/ci-cargo.sh cargo build --locked --all-targets --all-features
       - name: Run tests without a display server
         run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
+      - name: Smoke test actual GUI on isolated X11
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --artifacts "$RUNNER_TEMP/hylite-gui-smoke"
+      - name: Upload GUI smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-x11-smoke
+          path: ${{ runner.temp }}/hylite-gui-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
