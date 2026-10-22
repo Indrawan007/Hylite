@@ -1,6 +1,6 @@
 //! Native read-only renderer for the preview projection; no browser, network,
 //! filesystem reads, link launching or document mutation.
-use super::preview_model::{self, Block, Kind, Run, Style};
+use super::preview_model::{Block, Kind, Run, Style};
 use crate::commands::Message;
 use iced::widget::{column, container, horizontal_rule, rich_text, row, text, tooltip};
 use iced::{font, Border, Color, Element, Font, Length, Theme};
@@ -31,10 +31,9 @@ impl Colors {
     }
 }
 
-pub fn render_preview(markdown: &str, theme: &Theme) -> Element<'static, Message> {
+pub fn render_preview<'a>(blocks: &'a [Block], theme: &Theme) -> Element<'a, Message> {
     let colors = Colors::new(theme);
-    let blocks = preview_model::parse(markdown);
-    let content: Element<'static, Message> = if blocks.is_empty() {
+    let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
         render_blocks(blocks, colors)
@@ -70,13 +69,13 @@ fn styled_font(style: &Style, heading: bool) -> Font {
     }
 }
 
-fn styled_span(run: Run, heading: bool, colors: Colors) -> text::Span<'static, Message> {
+fn styled_span(run: &Run, heading: bool, colors: Colors) -> text::Span<'_, Message> {
     debug_assert!(run.source.start <= run.source.end);
     let is_link = run.style.link.is_some();
     let font = styled_font(&run.style, heading);
     // Iced Rich uses its Link generic as the widget Message type. Keep it
     // compatible with the app, but never set a Span::link action.
-    let mut span = text::Span::new(run.text)
+    let mut span = text::Span::new(run.text.as_str())
         .font(font)
         .color(if is_link { colors.accent } else { colors.text })
         .underline(is_link)
@@ -87,97 +86,98 @@ fn styled_span(run: Run, heading: bool, colors: Colors) -> text::Span<'static, M
     span
 }
 
-fn render_blocks(blocks: Vec<Block>, colors: Colors) -> Element<'static, Message> {
-    column(blocks.into_iter().map(|block| render_block(block, colors)))
+fn render_blocks(blocks: &[Block], colors: Colors) -> Element<'_, Message> {
+    column(blocks.iter().map(|block| render_block(block, colors)))
         .spacing(10)
         .width(Length::Fill)
         .into()
 }
 
-fn render_block(block: Block, colors: Colors) -> Element<'static, Message> {
+fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
     );
-    let element: Element<'static, Message> = match block.kind {
-        Kind::Paragraph | Kind::Heading(_) => {
-            let heading = matches!(block.kind, Kind::Heading(_));
-            let size = match block.kind {
-                Kind::Heading(1) => 32,
-                Kind::Heading(2) => 27,
-                Kind::Heading(3) => 23,
-                Kind::Heading(4) => 20,
-                Kind::Heading(5) => 18,
-                _ => 16,
-            };
-            let spans: Vec<text::Span<'static, Message>> = block
-                .runs
-                .into_iter()
-                .map(|run| styled_span(run, heading, colors))
-                .collect();
-            rich_text(spans).size(size).width(Length::Fill).into()
-        }
-        Kind::Quote => container(render_blocks(block.children, colors))
-            .padding([8, 16])
-            .width(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(colors.surface.into()),
-                border: Border {
-                    color: colors.accent,
-                    width: 1.0,
-                    ..Border::default()
-                },
-                ..container::Style::default()
-            })
-            .into(),
-        Kind::List(start) => {
-            let items = block.children.into_iter().enumerate().map(
-                |(index, item)| -> Element<'static, Message> {
-                    let marker = start.map_or_else(
-                        || "•".into(),
-                        |start| format!("{}.", start.saturating_add(index as u64)),
-                    );
-                    match item.kind {
-                        Kind::Item(checked) => {
-                            let checkbox = match checked {
-                                Some(true) => "[x] ",
-                                Some(false) => "[ ] ",
-                                None => "",
-                            };
-                            row![
-                                text(format!("{marker} {checkbox}")).color(colors.text),
-                                render_blocks(item.children, colors)
-                            ]
-                            .spacing(8)
-                            .into()
+    let element: Element<'_, Message> =
+        match &block.kind {
+            Kind::Paragraph | Kind::Heading(_) => {
+                let heading = matches!(block.kind, Kind::Heading(_));
+                let size = match block.kind {
+                    Kind::Heading(1) => 32,
+                    Kind::Heading(2) => 27,
+                    Kind::Heading(3) => 23,
+                    Kind::Heading(4) => 20,
+                    Kind::Heading(5) => 18,
+                    _ => 16,
+                };
+                let spans: Vec<text::Span<'_, Message>> = block
+                    .runs
+                    .iter()
+                    .map(|run| styled_span(run, heading, colors))
+                    .collect();
+                rich_text(spans).size(size).width(Length::Fill).into()
+            }
+            Kind::Quote => container(render_blocks(&block.children, colors))
+                .padding([8, 16])
+                .width(Length::Fill)
+                .style(move |_| container::Style {
+                    background: Some(colors.surface.into()),
+                    border: Border {
+                        color: colors.accent,
+                        width: 1.0,
+                        ..Border::default()
+                    },
+                    ..container::Style::default()
+                })
+                .into(),
+            Kind::List(start) => {
+                let items = block.children.iter().enumerate().map(
+                    |(index, item)| -> Element<'_, Message> {
+                        let marker = start.map_or_else(
+                            || "•".into(),
+                            |start| format!("{}.", start.saturating_add(index as u64)),
+                        );
+                        match &item.kind {
+                            Kind::Item(checked) => {
+                                let checkbox = match checked {
+                                    Some(true) => "[x] ",
+                                    Some(false) => "[ ] ",
+                                    None => "",
+                                };
+                                row![
+                                    text(format!("{marker} {checkbox}")).color(colors.text),
+                                    render_blocks(&item.children, colors)
+                                ]
+                                .spacing(8)
+                                .into()
+                            }
+                            _ => row![text(marker).color(colors.text), render_block(item, colors)]
+                                .spacing(8)
+                                .into(),
                         }
-                        _ => row![text(marker).color(colors.text), render_block(item, colors)]
-                            .spacing(8)
-                            .into(),
-                    }
-                },
-            );
-            column(items).spacing(6).width(Length::Fill).into()
-        }
-        Kind::Item(_) => render_blocks(block.children, colors),
-        Kind::Code {
-            info,
-            text: payload,
-        } => {
-            let label = if info.is_empty() {
-                "Code".to_owned()
-            } else {
-                format!("Code · {info}")
-            };
-            code_panel(label, payload, colors)
-        }
-        Kind::Literal {
-            label,
-            text: payload,
-        } => code_panel(label.into(), payload, colors),
-        Kind::Table(table) => table::render(table, colors),
-        Kind::Rule => horizontal_rule(1).into(),
-    };
+                    },
+                );
+                column(items).spacing(6).width(Length::Fill).into()
+            }
+            Kind::Item(_) => render_blocks(&block.children, colors),
+            Kind::Code {
+                info,
+                text: payload,
+            } => {
+                let label = if info.is_empty() {
+                    "Code".to_owned()
+                } else {
+                    format!("Code · {info}")
+                };
+                code_panel(label, payload, colors)
+            }
+            Kind::Literal {
+                label,
+                text: payload,
+            } => code_panel((*label).into(), payload, colors),
+            Kind::Table(table) => table::render(table, colors),
+            Kind::Rule => horizontal_rule(1).into(),
+        };
     // Provenance is inspectable without pretending source byte ranges already
     // support WYSIWYG hit testing or a reverse mapping from shaped text.
     tooltip(
@@ -188,7 +188,7 @@ fn render_block(block: Block, colors: Colors) -> Element<'static, Message> {
     .into()
 }
 
-fn code_panel(label: String, payload: String, colors: Colors) -> Element<'static, Message> {
+fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {
     container(
         column![
             text(label).size(11).color(colors.accent),
@@ -239,19 +239,16 @@ mod tests {
     fn spans_use_native_decoration_and_theme_colors_without_link_actions() {
         for theme in [Theme::Dark, Theme::Light] {
             let colors = Colors::new(&theme);
-            let span = styled_span(
-                Run {
-                    text: "label".into(),
-                    source: 0..5,
-                    style: Style {
-                        strike: true,
-                        link: Some("javascript:alert(1)".into()),
-                        ..Style::default()
-                    },
+            let run = Run {
+                text: "label".into(),
+                source: 0..5,
+                style: Style {
+                    strike: true,
+                    link: Some("javascript:alert(1)".into()),
+                    ..Style::default()
                 },
-                false,
-                colors,
-            );
+            };
+            let span = styled_span(&run, false, colors);
             assert!(span.underline && span.strikethrough);
             assert_eq!(span.color, Some(theme.palette().primary));
             assert!(span.link.is_none()); // Merely styled: no URL launch message.
@@ -260,10 +257,23 @@ mod tests {
     }
 
     #[test]
-    fn renderer_builds_owned_widgets_for_nested_and_unsupported_content() {
+    fn renderer_builds_borrowed_widgets_for_nested_and_unsupported_content() {
         for theme in [Theme::Dark, Theme::Light] {
             let source = "# **Title**\n\n> - [x] item\n>   - child\n\n```rs\na\n\n```\n\n|a|b|\n|-|-|\n|c|d|\n\n<script>inert</script>\n";
-            let _view: Element<'static, Message> = render_preview(source, &theme);
+            let blocks = super::super::preview_model::parse(source);
+            let _view = render_preview(&blocks, &theme);
         }
+    }
+    #[test]
+    fn native_span_borrows_cached_text_instead_of_cloning_the_string() {
+        let run = Run {
+            text: "café🙂 cached".into(),
+            source: 0..15,
+            style: Style::default(),
+        };
+        let span = styled_span(&run, false, Colors::new(&Theme::Dark));
+        assert!(matches!(span.text, std::borrow::Cow::Borrowed(_)));
+        assert_eq!(span.text.as_ptr(), run.text.as_ptr());
+        assert_eq!(span.text.as_ref(), run.text);
     }
 }

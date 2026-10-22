@@ -378,6 +378,37 @@ def exercise_tables(desktop, artifacts):
     desktop.expect_copy("Table rendering adds no undo entries or document edits", welcome, refocus=False)
 
 
+
+def exercise_preview_cache(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("# Cache\n\n| Name | Count |\n| --- | ---: |\n| café🙂 | 3 |\n\n"
+              "```rs\n\tcode  \n\n```\n\t").encode("utf-8")
+    edited = source.replace(b"| 3 |", b"| 93 |")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Cache fixture: exact Source before warming preview", source, refocus=False)
+    desktop.key("ctrl+shift+m")  # Warm Preview, then keep the model in Split.
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "cache-split.png")
+    # Public navigation rebuilds the Source native buffer without changing
+    # its content revision. Typing then edits the cached table's Count cell.
+    desktop.key("ctrl+g")
+    desktop.key("ctrl+a")
+    desktop.type_ascii("5:11")  # Unicode scalar position immediately before 3.
+    desktop.key("Return")
+    desktop.type_ascii("9")
+    desktop.expect_copy("Warm Split: table cell edit is byte-exact after Go to Line", edited, refocus=False)
+    desktop.screenshot(artifacts / "cache-split-edited.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Warm Split: undo restores the original table cell", source, refocus=False)
+    desktop.key("ctrl+shift+z")
+    desktop.expect_copy("Warm Split: redo restores the edited table cell", edited, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+shift+m")  # Split -> Source.
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Cached preview and navigation add no undo entries", welcome, refocus=False)
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -492,6 +523,7 @@ def main():
                 exercise_navigation(desktop, artifacts)
                 exercise_preview(desktop, artifacts)
                 exercise_tables(desktop, artifacts)
+                exercise_preview_cache(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -511,7 +543,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

@@ -19,11 +19,11 @@ fn alignment(value: Alignment) -> alignment::Horizontal {
     }
 }
 
-fn cell(cell: Cell, align: Alignment, header: bool, colors: Colors) -> Element<'static, Message> {
+fn cell(cell: &Cell, align: Alignment, header: bool, colors: Colors) -> Element<'_, Message> {
     debug_assert!(cell.source.start <= cell.source.end);
-    let mut spans: Vec<text::Span<'static, Message>> = cell
+    let mut spans: Vec<text::Span<'_, Message>> = cell
         .runs
-        .into_iter()
+        .iter()
         .map(|run| styled_span(run, header, colors))
         .collect();
     // Empty and parser-padded cells still need a line box. This display-only
@@ -43,22 +43,22 @@ fn cell(cell: Cell, align: Alignment, header: bool, colors: Colors) -> Element<'
     .into()
 }
 
-pub(super) fn render(table: Table, colors: Colors) -> Element<'static, Message> {
+pub(super) fn render(table: &Table, colors: Colors) -> Element<'_, Message> {
     let columns = table.alignments.len();
     debug_assert!(columns > 0);
     let width = CELL_WIDTH * columns as f32 + columns.saturating_sub(1) as f32;
-    let mut lines: Vec<Element<'static, Message>> = Vec::new();
-    for (index, table_row) in table.rows.into_iter().enumerate() {
+    let mut lines: Vec<Element<'_, Message>> = Vec::new();
+    for (index, table_row) in table.rows.iter().enumerate() {
         debug_assert!(table_row.source.start <= table_row.source.end);
         debug_assert_eq!(table_row.cells.len(), columns);
         if index > 0 {
             lines.push(horizontal_rule(1).into());
         }
-        let mut cells: Vec<Element<'static, Message>> = Vec::new();
-        let mut separators: Vec<Element<'static, Message>> = Vec::new();
+        let mut cells: Vec<Element<'_, Message>> = Vec::new();
+        let mut separators: Vec<Element<'_, Message>> = Vec::new();
         for (index, (value, align)) in table_row
             .cells
-            .into_iter()
+            .iter()
             .zip(table.alignments.iter().copied())
             .enumerate()
         {
@@ -126,10 +126,10 @@ mod tests {
         let source = "| **a** | b | c | d |\n| --- | :--- | :---: | ---: |\n| | *é* | `x` | [link](javascript:alert%281%29) |\n| <b>raw</b> | ![alt](file:///no-read) | $x$ | |\n";
         for theme in [Theme::Dark, Theme::Light] {
             let blocks = preview_model::parse(source);
-            let preview_model::Kind::Table(table) = blocks.into_iter().next().unwrap().kind else {
+            let preview_model::Kind::Table(table) = &blocks[0].kind else {
                 panic!("expected table")
             };
-            let view: Element<'static, Message> = render(table, Colors::new(&theme));
+            let view = render(table, Colors::new(&theme));
             assert_eq!(view.as_widget().size_hint().height, Length::Shrink);
         }
     }

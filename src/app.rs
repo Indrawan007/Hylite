@@ -388,7 +388,7 @@ impl Hylite {
     }
 
     fn view_preview(&self) -> Element<'_, Message> {
-        let parsed = crate::document::render_preview(&self.document.buffer_text(), &self.theme());
+        let parsed = crate::document::render_preview(self.document.preview_blocks(), &self.theme());
 
         container(
             iced::widget::scrollable(

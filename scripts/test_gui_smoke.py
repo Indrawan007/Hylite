@@ -125,6 +125,21 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(desktop.command.call_args.args[-1], "7")
         self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 3)
 
+    def test_cache_probe_checks_warm_split_edits_undo_redo_without_refocusing(self):
+        desktop = Mock(window="42")
+        gui.exercise_preview_cache(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        edited = source.replace(b"| 3 |", b"| 93 |")
+        self.assertNotEqual(source, edited)
+        self.assertTrue(source.endswith(b"\n\t"))
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:4]], [source, edited, source, edited])
+        self.assertEqual(len(copies), 5)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        desktop.command.assert_not_called()  # No click/windowfocus workaround.
+        self.assertIn("5:11", [c.args[0] for c in desktop.type_ascii.call_args_list])
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]

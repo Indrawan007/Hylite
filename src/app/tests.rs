@@ -1206,3 +1206,42 @@ fn native_preview_and_split_views_do_not_change_source_revisions_or_history() {
         }
     }
 }
+
+#[test]
+fn theme_mode_and_layout_changes_reuse_the_document_projection() {
+    let mut app = app();
+    app.document = Document::new("# Cache\n\n|name|count|\n|---|---:|\n|café🙂|3|\n");
+    let cached = app.document.preview_blocks().as_ptr();
+    let before = (
+        app.document.buffer_text(),
+        app.document.snapshot(),
+        app.document.render_key(),
+    );
+    for theme in [
+        editor::ThemeName::Light,
+        editor::ThemeName::Dark,
+        editor::ThemeName::Nord,
+    ] {
+        app.config.appearance.theme = theme;
+        for mode in [EditMode::Preview, EditMode::Split, EditMode::Source] {
+            let _ = app.update(Message::SwitchMode(mode));
+            let _ = app.update(Message::ToggleSidebar);
+            app.config.appearance.content_width = 640;
+            {
+                let _view = app.view();
+                assert_eq!(app.document.preview_blocks().as_ptr(), cached);
+            }
+            assert_eq!(
+                before,
+                (
+                    app.document.buffer_text(),
+                    app.document.snapshot(),
+                    app.document.render_key()
+                )
+            );
+            assert!(
+                !app.document.is_dirty() && !app.document.can_undo() && !app.document.can_redo()
+            );
+        }
+    }
+}

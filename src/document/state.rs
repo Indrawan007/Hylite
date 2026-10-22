@@ -1,10 +1,12 @@
 //! Single native buffer plus monotonic operation revisions and undo checkpoints.
 
 use super::history::{EditKind, History, Record};
+use super::preview_model::{self, Block};
 use super::Snapshot;
 use crate::block_edit::{self, BlockStyle};
 use crate::text_edit::{self, InlineStyle, TextChange};
 use iced::widget::text_editor::{self, Action, Edit, Motion};
+use std::cell::OnceCell;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,6 +21,8 @@ pub struct Document {
     next_state_id: u64,
     history: History,
     buffer_generation: u64,
+    /// One lazy projection of the current content revision; never widget state.
+    preview: OnceCell<Vec<Block>>,
 }
 
 impl Document {
@@ -38,7 +42,22 @@ impl Document {
             next_state_id: 0,
             history: History::default(),
             buffer_generation: 0,
+            preview: OnceCell::new(),
         }
+    }
+
+    /// Theme, caret, save acknowledgments and native-buffer reconstruction do
+    /// not change Markdown semantics. Only effective content revisions clear
+    /// this cache. The source snapshot is allocated only on a cache miss.
+    pub(crate) fn preview_blocks(&self) -> &[Block] {
+        self.preview
+            .get_or_init(|| preview_model::parse(&self.buffer_text()))
+    }
+
+    fn advance_revision(&mut self) {
+        self.snapshot.revision += 1;
+        // Drop the previous projection immediately, even while in Source mode.
+        let _ = self.preview.take();
     }
 
     pub fn content(&self) -> &text_editor::Content {
@@ -186,7 +205,7 @@ impl Document {
             .record_edit(before, after, caret, next, kind, now);
         self.next_state_id = next;
         self.snapshot.state_id = next;
-        self.snapshot.revision += 1;
+        self.advance_revision();
     }
 
     pub fn replace(&mut self, path: Option<PathBuf>, text: &str) {
@@ -341,7 +360,7 @@ impl Document {
             self.history.undo(current);
         }
         self.replace_content(content);
-        self.snapshot.revision += 1;
+        self.advance_revision();
         self.snapshot.state_id = target.state_id;
         true
     }
@@ -390,3 +409,7 @@ fn content_at(text: &str, caret: usize) -> Option<text_editor::Content> {
 #[cfg(test)]
 #[path = "state_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "preview_cache_tests.rs"]
+mod preview_cache_tests;
