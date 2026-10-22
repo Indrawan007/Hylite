@@ -1245,3 +1245,37 @@ fn theme_mode_and_layout_changes_reuse_the_document_projection() {
         }
     }
 }
+
+#[test]
+fn mode_focus_restoration_keeps_queries_until_preview_and_never_changes_content() {
+    for go_to in [false, true] {
+        let mut app = app();
+        if go_to {
+            let _ = app.update(Message::OpenGoTo);
+            let _ = app.update(Message::GoToQueryChanged("1:2".into()));
+        } else {
+            let _ = app.update(Message::OpenFind(false));
+            let _ = app.update(Message::FindQueryChanged("query".into()));
+        }
+        let before = app.document.snapshot();
+        for mode in [EditMode::Split, EditMode::Source] {
+            let _ = app.update(Message::SwitchMode(mode));
+            assert_eq!(app.go_to.open, go_to);
+            assert_eq!(app.search.open, !go_to);
+            if go_to {
+                assert_eq!(app.go_to.query, "1:2");
+            } else {
+                assert_eq!(app.search.query, "query");
+            }
+            assert_eq!(app.document.snapshot(), before);
+        }
+        let _ = app.update(Message::CycleMode); // Source -> Preview clears input panels.
+        assert_eq!(app.mode, EditMode::Preview);
+        assert!(!app.go_to.open && !app.search.open);
+        let _ = app.update(Message::CycleMode); // Preview -> Split uses Source scope.
+        assert_eq!(app.mode, EditMode::Split);
+        assert!(!app.go_to.open && !app.search.open);
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), "Original\n");
+    }
+}

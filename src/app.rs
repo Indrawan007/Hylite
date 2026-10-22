@@ -209,7 +209,7 @@ impl Hylite {
                     self.go_to.close();
                 }
                 self.status_message = format!("Mode: {}", mode.label());
-                Task::none()
+                self.restore_input_focus()
             }
 
             Message::CycleMode => {
@@ -219,7 +219,7 @@ impl Hylite {
                     self.go_to.close();
                 }
                 self.status_message = format!("Mode: {}", self.mode.label());
-                Task::none()
+                self.restore_input_focus()
             }
 
             // ── Zen Mode ──

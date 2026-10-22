@@ -37,9 +37,9 @@ impl Hylite {
         }
     }
 
-    /// A full-screen confirmation removes the editor/input widget tree. When
-    /// it is dismissed, restore the logical input context instead of relying
-    /// on the old widget's focus surviving. No document mutation is involved.
+    /// Confirmations and mode switches can replace the editor/input widget
+    /// tree. Restore the logical input context instead of relying on the old
+    /// widget's focus surviving. Preview never steals focus; no document mutation.
     pub(super) fn restore_input_focus(&self) -> Task<Message> {
         if self.mode == EditMode::Preview {
             Task::none()
