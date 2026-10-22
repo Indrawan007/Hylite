@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 510 pada Stage 6d). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 530 pada Stage 6e). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -397,3 +397,40 @@ ATX, Source frontier, clipboard tab/Unicode dan lifecycle tetap dijalankan.
 
 Query-focus Setext runtime, disabled/HiDPI/accessibility dan desktop
 Arch/Hyprland/Wayland belum diverifikasi. [Kontrak Stage 6d](testing-stage6d.md).
+
+## Tambahan runner Stage 6e: batch task dalam suite privat terpisah
+
+[CI 39771530257](https://github.com/Indrawan007/Hylite/actions/runs/39771530257),
+commit `3fb4199`: **530 Cargo**, **201 core strict** (subset Cargo), **27 Python**,
+**116 regression + 9 task-batch GUI**. Total 125 (110 clipboard, 12 title, 3 exit
+alami), bukan menggabungkan ke satu suite dengan timeout yang dinaikkan.
+
+Default `--suite regression` mempertahankan seluruh 116 checks lama dan urutan
+exercise/lifecycle. Workflow menambah step `--suite task-batch` dengan wrapper
+Xvfb terpisah (app/XDG/env/clipboard temporer baru); alarm 180s dan step 5 menit
+masing-masing, job lama 45 menit. Helper mengunci dispatch lama lengkap, suite
+unknown ditolak, serta private-display guard kedua mode sebelum start subprocess.
+
+```sh
+./scripts/test-gui-x11.sh --artifacts "$(mktemp -d)"
+./scripts/test-gui-x11.sh --suite task-batch --artifacts "$(mktemp -d)"
+```
+
+Suite batch punya 8 fresh Copy: welcome awal, fixture mixed Unicode/X/quoted/
+unsupported tab/fenced literal/terminal tab; Check; Undo Preview; Redo + Check
+no-op; Split Clear + sentinel `X` sesudah middle marker byte sebelum `]`; dua
+Undo kembali checked (Source typing/Clear terpisah); Undo Check/paste kembali
+welcome clean. Setelah initial window/Source setup, semua Copy `refocus=False`;
+tiga klik hanya kontrol produk. Satu clean client Close harus exit alami 0;
+cleanup paksa bukan PASS. `batch-preview.png`/`batch-split.png` bukan pixel oracle.
+
+Artifact root menyimpan evidence regresi lama; subfolder `task-batch/` menyimpan
+summary/log/screenshot baru tanpa overwrite. Summary mencatat suite. Job
+`119799991102` success: regresi 11:35:08–11:37:48 UTC dan batch 11:37:48–11:38:01
+UTC pada 22 Oktober 2026. Screenshot belum direview visual.
+
+CI awal `39770915857` menemukan label fixed-width wrap yang menggeser toolbar;
+font produk diubah dari default 16 ke 14, bukan menggeser koordinat probe atau
+menambah Source refocus. Run hijau tetap memeriksa seluruh gate lama. Disabled/
+tooltip/query-focus batch runtime dan desktop Arch/Hyprland/Wayland tetap manual.
+[Kontrak/cap/auth/history Stage 6e](testing-stage6e.md).

@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6d
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6e
 
-Stage 6d: build debug, Clippy dan **510 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **24 helper Python dan 116 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 6e: build debug, Clippy dan **530 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **27 helper Python serta 116 regresi + 9 batch checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -8,12 +8,12 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading 6a–6d mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading 6a–6e mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
 - **`preview_setext.rs`**: planner penggantian run underline root Setext H1↔H2, preserving panjang/indent/raw body/suffix, tanpa konversi ATX. Field metadata dan message terpisah, guard/Atomic commit/history sama dengan heading ATX.
-- **`preview_task.rs`**: target item/marker/checked/snapshot dan planner satu byte; Document memeriksa exact cached task membership sebelum jalur Atomic Source.
+- **`preview_task.rs`**: target item/marker/checked/snapshot dan planner satu byte; planner batch mengganti hanya middle bytes yang perlu berubah pada rentang source verbatim. Document memeriksa exact cached membership (daftar lengkap untuk batch), dengan cap 1024 sebelum jalur Atomic Source.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
 - **`document/state.rs`**: memiliki satu buffer `text_editor::Content`, path aktif, ID dokumen, revisi operasi monotonik, checkpoint konten, checkpoint terakhir disimpan, dan bounded history. Edit efektif melalui `apply`/`change`; penggantian dokumen melalui `replace`; hasil save melalui `mark_saved`.
@@ -244,6 +244,33 @@ Split dapat menerima keyboard Source setelah fokus scoped dipulihkan.
 GUI byte-exact memeriksa perubahan/Undo/Redo dan sentinel Source, tanpa refocus
 click, bukan bukti pixel/layout/Wayland. Tidak mengubah grammar/options parser,
 serializer, lockfile atau worker file. [Kontrak dan bukti Stage 6d](testing-stage6d.md).
+
+## Batch task kanonis yang didukung model (Stage 6e)
+
+`BatchTarget` membawa snapshot, daftar lengkap Target kanonis source-order
+(termasuk anggota no-op), dan desired checked state. `canonical_preview_tasks`
+hanya membaca model warm, mengabaikan unsupported marker dan mengembalikan None
+bila lebih dari 1024, bukan subset/prefix. Apply menuntut equality seluruh daftar,
+lalu planner memvalidasi setiap token/snapshot/expected state, order dan marker
+non-overlap. Item range nested boleh overlap; marker range tidak boleh.
+
+Planner menyalin rentang middle-byte pertama hingga terakhir yang berubah,
+memodifikasi hanya byte ASCII `x`/space yang perlu, lalu mengembalikan satu
+TextChange (panjang sama). `[X]` yang sudah checked tidak dinormalisasi. Satu
+commit `PreviewTask` Atomic, bukan loop single-task; Dalam batas budget history,
+Preview Undo memulihkan seluruh batch dengan tag yang sama. No-op/cold/stale/
+omission/reorder/duplicate/forged/cap overflow menolak tanpa redo/checkpoint baru.
+
+App mengizinkan Preview/Split + guard navigasi lama, Save/Export tetap boleh;
+Source mode tidak membuka action atau menghangatkan model. UI action getter
+menggunakan projection cached setelah guard; Check/Clear fixed width 112 dengan
+label 14 px agar tidak wrap/menambah tinggi toolbar. Source/query focus, search,
+cache, checkpoint dan history frontier tetap jalur lama. Native main Preview
+input tidak dibuka. [Kontrak dan bukti Stage 6e](testing-stage6e.md).
+
+GUI regression default tetap seluruh 116 checks/180s; batch berjalan dalam
+invokasi Xvfb/temporary environment terpisah dengan alarm 180s sendiri, evidence
+subfolder dan exit alami. Ini ekspansi suite, bukan relaksasi deadline lama.
 
 ## Invariant dokumen
 

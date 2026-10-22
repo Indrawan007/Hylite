@@ -165,6 +165,32 @@ konversi format. Tidak mengubah grammar/options parser, dependensi/lockfile,
 serializer, worker file, budget history/timeout/lifecycle gate atau menambah
 hook/retry. [Kontrak dan batas Stage 6d](testing-stage6d.md).
 
+Update batch task Stage 6e:
+[CI run 39771530257](https://github.com/Indrawan007/Hylite/actions/runs/39771530257),
+commit `3fb4199beffc62afca5fb7c5f40899bc2cbbb0aa`, **success**. Job
+`119799991102`, 2026-10-22 11:33:56–11:38:05 UTC: **530 Cargo**, **201 strict core**
+(subset Cargo), **27 Python**, **116 regression + 9 task-batch GUI** (dua suite:
+total 110 clipboard, 12 title, 3 exit alami 0), format/build debug/Clippy strict.
+20 Rust baru: planner7/Document8/controller5. Batch Check/Clear menjaga source
+bytes/kapital X/unsupported/literal, one-step Preview Undo, no-op dan Source
+focus Split; complete-list warm membership dan cap 1024 menolak subset/forged/
+stale/cold/oversized tanpa prefix parsial. Tidak membuka general Preview input.
+
+Regresi default tetap semua 116 gates/180s; suite batch memakai invokasi Xvfb
+privat terpisah dengan XDG/app/clipboard baru dan alarm 180s sendiri. Workflow
+menambah step 5 menit, tidak menaikkan deadline regresi atau mengurangi pemeriksaan
+lama. Regresi 11:35:08–11:37:48 UTC; batch 11:37:48–11:38:01 UTC. Artifact API
+`12422742801`, `gui-x11-smoke`, 1.520.409 bytes, belum expired saat diperiksa;
+root evidence lama + `task-batch/` baru, screenshot belum direview visual.
+
+CI awal `39770915857` lulus Rust tetapi gagal reveal source: label batch 16 px
+pada width 112 dan default horizontal padding 20 px dapat wrap dan menambah tinggi
+toolbar. Fix produk `3fb4199` memakai label 14 px; seluruh probe lama kembali
+lulus dengan koordinat/bytes/refocus/deadline yang sama. Ini bukan mengabaikan
+failure atau menambah retry runtime. Startup kedua 6b exit 101 lama masih belum
+diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
+[Kontrak dan batas Stage 6e](testing-stage6e.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -203,7 +229,7 @@ hook/retry. [Kontrak dan batas Stage 6d](testing-stage6d.md).
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
-Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext
-terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6d](testing-stage6d.md).
+Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
+6e batch task terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6e](testing-stage6e.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

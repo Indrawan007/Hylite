@@ -12,7 +12,8 @@ Successor [Setext 6d](testing-stage6d.md). Ini batch checkbox, bukan WYSIWYG umu
 - Check mengubah `[ ]` ke `[x]`; `[X]`/`[x]` yang sudah checked tetap persis.
   Clear mengubah kedua kasus checked ke `[ ]`. Byte selain marker middle byte
   yang perlu berubah dipertahankan, termasuk raw inline, Unicode dan terminal tab.
-- Satu batch adalah **satu transaksi Atomic**/checkpoint/revision dan satu Undo,
+- Satu batch adalah **satu transaksi Atomic**/checkpoint/revision dan satu Undo
+  jika budget history memungkinkan,
   bukan loop commit single-task. Replacement dapat melintasi banyak blok tetapi
   byte di antaranya disalin verbatim. Caret sesudah middle byte marker terakhir
   yang berubah (sebelum `]`), selection collapse. Tidak ada serialisasi AST.
@@ -37,7 +38,7 @@ Successor [Setext 6d](testing-stage6d.md). Ini batch checkbox, bukan WYSIWYG umu
 
 ## Tes
 
-20 Rust baru (expected Cargo 530, menunggu CI):
+20 Rust baru (total Cargo 530, lulus pada CI di bawah):
 
 - **7 portable planner**: check/clear exact bytes/case/Unicode, empty/no-op,
   outer/member snapshot, ordering/duplicate/malformed/late mismatch, exact cap
@@ -85,17 +86,26 @@ kedua suite sebelum subprocess dimulai.
 
 ## Status eksekusi
 
-Lokal **201 strict core** dan **27 Python** lulus; format/diff diperiksa.
+[CI 39771530257](https://github.com/Indrawan007/Hylite/actions/runs/39771530257)
+**success** pada `3fb4199beffc62afca5fb7c5f40899bc2cbbb0aa`. Job
+`119799991102`, 2026-10-22 11:33:56–11:38:05 UTC: **530 Cargo**, **201 strict core**
+(subset Cargo), **27 Python**, **116 regression + 9 task-batch GUI**, format/build
+debug/Clippy `-D warnings` lulus. Total 125 checks di **dua** suite (110 clipboard,
+12 title, 3 exit alami), bukan satu suite tunggal dengan deadline lebih besar.
+Regresi 11:35:08–11:37:48 UTC; batch 11:37:48–11:38:01 UTC, masing-masing alarm
+180s dan step timeout 5 menit. Artifact API `12422742801`, `gui-x11-smoke`,
+1.520.409 bytes, belum expired saat diperiksa. Screenshot belum direview visual;
+ini bukan pixel/layout oracle atau verifikasi Wayland/Hyprland.
+
 Percobaan [CI 39770915857](https://github.com/Indrawan007/Hylite/actions/runs/39770915857)
 lulus 530 Cargo/build/Clippy, tetapi regresi GUI gagal pada probe block-source:
 click y=151 tidak menghasilkan Source Copy. Tombol baru fixed 112 px memakai
 font default 16 dan padding horizontal bawaan 20 px; label Check tasks dapat
-wrap, menambah tinggi editing bar. Font label baru sekarang explicit 14 agar
-muat dan tidak menambah tinggi bar lama. Koordinat/copy/refocus/timeout dan
-expected bytes probe lama tidak diubah. Ini perbaikan layout produk; hasil
-kedua suite berikutnya masih harus diamati. Expected total
-125 checks di dua suite (110 clipboard, 12 title, 3 exit alami), bukan satu
-suite tunggal yang telah diasumsikan lulus.
+wrap dan menambah tinggi editing bar. Font label produk menjadi explicit 14
+agar muat. Run di atas lulus seluruh probe lama, termasuk click block source,
+heading/task/source focus, tanpa mengubah koordinat/copy/refocus/timeout atau
+expected bytes probe lama. Suite batch kini juga terbukti pada runtime nyata,
+bukan hanya mock Python. [Detail GUI](testing-gui-x11.md).
 
 ## Batas/manual
 
