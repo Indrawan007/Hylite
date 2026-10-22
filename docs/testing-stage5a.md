@@ -71,14 +71,42 @@ incremental parse, atau virtualisasi. Parse/model/widget dibangun ulang per view
   Screenshot preview, fallback setelah wheel, dan Split disimpan tanpa assertion
   pixel. Seluruh gate navigasi/lifecycle lama tetap aktif.
 
-### Status eksekusi
+### Status eksekusi — lulus
 
-Lokal: 23 tes model lulus melalui rustc dengan source parser/dependensi dari tag
-GitHub resmi pada versi yang sama dengan lockfile (tanpa fitur HTML/getopts yang
-tidak diperlukan model). 150 tes core Source, 14 Python helper, format dan
-`git diff --check` juga lulus. Harness model sementara tidak mengganti gate Cargo
-penuh; renderer Iced dan controller menunggu hasil build/Clippy/Cargo/GUI strict
-pada CI. Hasil CI akan dicatat setelah benar-benar diamati.
+[CI run 39716266646](https://github.com/Indrawan007/Hylite/actions/runs/39716266646),
+commit `ea182b19bb8fdcc696d01cde2f911a4ac9706310`, job `119619006896`,
+Ubuntu 24.04 / Rust stable: **success**, 2m49s.
+
+| Gate | Hasil yang diamati |
+| --- | --- |
+| Format dan harness core dengan lint ketat | Lulus; 150 core |
+| Clippy semua target/fitur, `-D warnings` | Lulus |
+| Build native debug semua target/fitur | Lulus |
+| Cargo test semua target/fitur | **347 passed**, 0 failed, 0 ignored |
+| Python helper | **15 passed**: 3 reporter + 12 helper GUI |
+| GUI aplikasi nyata, X11/Xvfb + tiny-skia | **67 pemeriksaan lulus**: 53 clipboard + 12 title + 2 natural exit |
+
+150 tes core dan 27 tes preview/controller baru **termasuk dalam 347 tes Cargo**;
+67 pemeriksaan GUI dan 15 helper Python bukan tes Rust tambahan. Batas waktu,
+clipboard acknowledgment dan perbandingan byte-exact tetap dipertahankan.
+
+[Artifact screenshot/log/summary](https://github.com/Indrawan007/Hylite/actions/runs/39716266646/artifacts/12399880245)
+tersedia mengikuti retensi 7 hari. Screenshot merekam preview pada aplikasi
+sebenarnya, bukan bukti pixel/glyph, tata letak seluruh Markdown atau tema Light
+sudah ditinjau manual.
+
+CI menemukan dua hal sebelum hijau:
+
+1. `Rich` Iced memakai generic Link sebagai tipe Message widget. Adapter memakai
+   `Span<Message>` tanpa mengisi action link; unit test tetap menuntut `None`.
+2. Probe GUI awal keliru mengirim Ctrl+B (toggle Sidebar), bukan Ctrl+Shift+B
+   (bold). Sidebar yang hilang mengubah batas Split sehingga klik Copy tepat di
+   preview. Driver dikoreksi dan satu helper regression ditambahkan; tidak ada
+   perubahan aplikasi atau pelonggaran ekspektasi clipboard untuk melewatinya.
+
+Tes model juga lulus lokal dengan source parser/dependensi tag resmi pada versi
+lockfile. Hasil lokal itu bukan pengganti Cargo penuh: hasil native di atas
+menggunakan dependensi asli dan lockfile yang sama. Tidak ada merge ke `main`.
 
 ### Gate standar
 

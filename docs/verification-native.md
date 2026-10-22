@@ -44,6 +44,15 @@ clean close benar-benar menghasilkan exit 0 sebelum fallback cleanup, bukan
 SIGTERM. Lihat [bukti dan batas lifecycle](testing-lifecycle-x11.md). Portal file
 serta close ketika save in-flight tetap belum diuji end-to-end.
 
+Update renderer Stage 5a: [CI run 39716266646](https://github.com/Indrawan007/Hylite/actions/runs/39716266646),
+commit `ea182b1`, lulus **347 tes Cargo**, **15 tes helper Python**, **67
+pemeriksaan GUI X11**, build debug/format/Clippy strict. Tambahan 27 tes Rust
+menguji model owned block/inline, adapter Iced dan invariant Source saat view
+berubah; 4 pemeriksaan clipboard baru menguji Preview read-only dan round-trip
+Source/Preview/Split tanpa perubahan/undo tambahan. 150 core adalah subset 347.
+Screenshot bukan pixel assertion; model range belum menjadi source↔caret map.
+Lihat [detail, artifact dan batas Stage 5a](testing-stage5a.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

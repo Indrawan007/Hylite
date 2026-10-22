@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan 320 tes Cargo. Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 347 pada Stage 5a). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -159,7 +159,7 @@ per-command/wait dan timeout step CI 5 menit.
 Sebelas unit test helper menguji isolasi environment, child exit, timeout,
 komparasi byte-exact, pencegahan false-positive clipboard, polling tanpa write
 Copy tambahan, mode tanpa refocus, ASCII-only typing, protokol WM_DELETE_WINDOW,
-dan exit alami vs signal/timeout. Bersama tiga tes reporter CI, ada **14 tes
+dan exit alami vs signal/timeout. Pada baseline lifecycle, bersama tiga tes reporter CI ada **14 tes
 Python**; unit test helper ini **bukan** bukti runtime GUI.
 
 ## Batas bukti
@@ -181,6 +181,12 @@ masih membutuhkan [checklist desktop Tahap 4](testing-stage4.md) beserta
 menjadikan Tahap 4 selesai atau aplikasi siap menyimpan dokumen penting.
 
 ## Tambahan runner Stage 5a: Preview/Split
+
+**Lulus** pada [CI run 39716266646](https://github.com/Indrawan007/Hylite/actions/runs/39716266646),
+commit `ea182b1`: **67 pemeriksaan GUI** (53 clipboard, 12 title, 2 native exit),
+347 tes Cargo dan 15 helper Python. Empat pemeriksaan clipboard baru ditambahkan
+ke 63 gate lifecycle lama. Satu helper regression menjaga Ctrl+Shift+B (bold),
+bukan Ctrl+B (toggle sidebar yang mengubah geometri Split).
 
 Setelah navigasi dan sebelum lifecycle, runner memasang fixture Unicode dengan
 heading/inline/list/quote/code/table/HTML/image/math, lalu menjalankan

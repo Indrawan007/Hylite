@@ -67,15 +67,12 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 ### Status verifikasi — 22 Oktober 2026
 
-Implementasi Stage 5a menambahkan gate renderer dan siklus Preview/Split; hasil terbaru dicatat di [Stage 5a](docs/testing-stage5a.md). Angka baseline berikut adalah bukti historis sebelum perubahan renderer.
-
-- Format seluruh sumber sudah diperiksa dengan rustfmt 1.8.0 / Rust 1.88.0.
-- `Cargo.lock` dihasilkan oleh Cargo 1.88.0 menggunakan data indeks crates.io resmi melalui GitHub; bukan lockfile buatan tangan.
-- **150 test inti Source** (history, pencarian, transformasi inline/block, lexer syntax, continuation list, navigasi baris/kolom, operasi baris, tracker operasi) lolos dengan rustc melalui `./scripts/test-source-core.sh`, tanpa dependensi Cargo. Harness memakai modul produksi langsung; ini bukan pengujian integrasi Iced atau seluruh suite aplikasi.
-- **Baseline sebelum Stage 5a: build native debug, Clippy `-D warnings`, dan 320 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39713905090](https://github.com/Indrawan007/Hylite/actions/runs/39713905090), commit `d03197b`. Sebanyak 150 tes core di atas juga termasuk dalam 320 tes Cargo, bukan tambahan 150 tes unik.
-- **Baseline sebelum Stage 5a: smoke GUI X11/Xvfb + tiny-skia lulus**: 63 pemeriksaan (49 clipboard, 12 title konfirmasi, 2 exit native normal). Selain navigasi Go to Line/Find, alur New/Cancel/Discard dan close dirty/clean telah diuji. Cancel memulihkan fokus Source atau query tanpa klik. Close memakai WM_DELETE_WINDOW, bukan force-kill. [Bukti GUI](docs/testing-gui-x11.md) dan [lifecycle](docs/testing-lifecycle-x11.md).
-- **14 tes Python helper** (3 reporter + 11 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat, cakupan, dan batas bukti.
-- Wayland/Hyprland, portal file dialog, IPC, IME/RTL, fokus pada desktop target/viewport dan renderer GPU tetap membutuhkan sesi desktop target. Smoke X11 dan unit test tidak menggantikan pengujian tersebut.
+- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a.
+- **Build native debug, Clippy `-D warnings`, dan 347 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39716266646](https://github.com/Indrawan007/Hylite/actions/runs/39716266646), commit `ea182b1`.
+- **150 tes inti Source** juga lulus mandiri dengan `clippy-driver` melalui `./scripts/test-source-core.sh`. Tes ini merupakan **subset 347 tes Cargo**, bukan tambahan 150 tes unik. Sebanyak 27 tes Rust baru mencakup model preview, adapter Iced dan invariant view/controller.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus: 67 pemeriksaan** (53 clipboard, 12 title konfirmasi, 2 exit native normal). Siklus Preview/Split mempertahankan Source byte-exact dan tidak menambah undo; gate navigasi/fokus, New/Cancel/Discard serta close dirty/clean tetap lulus. Screenshot bukan assertion pixel/glyph. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [renderer Stage 5a](docs/testing-stage5a.md).
+- **15 tes Python helper** (3 reporter + 12 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat dan batas bukti.
+- WYSIWYG/source↔caret mapping belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
 
 ## Konfigurasi
 
@@ -118,7 +115,7 @@ Font, ukuran font, wrapping, dan binding Tab dipakai oleh widget source yang sam
 
 Tab tanpa seleksi menyisipkan spasi menuju tab stop sebagai satu edit. Dengan seleksi, Tab mengindentasi seluruh baris tersentuh; Shift+Tab menghapus satu tingkat indentasi. Tab literal yang sudah ada/pasted tidak dikonversi; lebar visualnya masih ditentukan text engine Iced. Kolom dihitung dalam Unicode scalar, bukan lebar visual/grapheme.
 
-Tema yang diterima: `catppuccin-mocha`, `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `nord`, `dracula`, `gruvbox-dark`, `tokyo-night`, `dark`, dan `light`. Sebagian warna UI/preview masih hardcoded sehingga tema terang belum sepenuhnya konsisten.
+Tema yang diterima: `catppuccin-mocha`, `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `nord`, `dracula`, `gruvbox-dark`, `tokyo-night`, `dark`, dan `light`. Preview Stage 5a mengikuti palet tema aktif; sebagian warna UI lain masih hardcoded sehingga konsistensi tema terang seluruh aplikasi belum lengkap.
 
 ### Validasi dan migrasi
 
@@ -323,7 +320,9 @@ src/
 │   ├── workflow_tests.rs # Oracle scalar, seeded workflow dan invariant budget
 │   ├── state_tests.rs  # Regresi model yang membutuhkan dependensi Iced
 │   ├── snapshot.rs     # Identitas revisi tanpa dependensi UI
-│   └── preview.rs      # Renderer Markdown native
+│   ├── preview_model.rs # Proyeksi block/inline owned dan provenance UTF-8
+│   ├── preview_model_tests.rs # Struktur, fallback, code whitespace, nesting
+│   └── preview.rs      # Renderer read-only rich text/widget Iced
 ├── operations.rs       # Serialisasi operasi dan penolakan hasil kedaluwarsa
 ├── export/mod.rs       # Konversi/ekspor HTML
 ├── file_io.rs          # Dialog native dan worker I/O blocking
@@ -333,15 +332,15 @@ src/
 └── ui/                 # Toolbar, sidebar, status, konfirmasi, notifikasi
 ```
 
-Model dokumen masih memakai `text_editor::Content` milik Iced sebagai satu-satunya buffer teks. Ini belum model AST atau editor WYSIWYG. Detail invariant dan batas antar modul dijelaskan di [docs/architecture.md](docs/architecture.md).
+Model dokumen masih memakai `text_editor::Content` milik Iced sebagai satu-satunya buffer teks. Model preview adalah proyeksi read-only; buffer belum digantikan editable AST dan editor WYSIWYG belum ada. Detail invariant dan batas antar modul dijelaskan di [docs/architecture.md](docs/architecture.md).
 
 ## Urutan pengembangan
 
-1. Fondasi build, test, CI, dan dokumentasi — sedang dikerjakan; verifikasi build/lint/test masih tertunda.
-2. Keamanan dokumen dan perbaikan save/export — implementasi tersedia; verifikasi runtime masih tertunda.
-3. Pemisahan model dokumen, operasi file, dan konfigurasi — implementasi tersedia; verifikasi penuh masih tertunda.
+1. Fondasi build, test, CI, dan dokumentasi — gate native Linux lulus; release/packaging terpisah.
+2. Keamanan dokumen dan perbaikan save/export — tes model/filesystem lulus; portal dan failure runtime masih perlu diuji.
+3. Pemisahan model dokumen, operasi file, dan konfigurasi — teruji dalam suite Cargo; desktop target belum diverifikasi.
 4. Source editor untuk penggunaan harian — iterasi 4a–4j tersedia; integrasi desktop dan fitur Source lanjutan belum selesai.
-5. Renderer Markdown native lengkap.
+5. Renderer Markdown native — Stage 5a read-only terstruktur tersedia; cakupan Markdown dan optimasi belum lengkap.
 6. Prototipe WYSIWYG dan pemetaan posisi sumber.
 7. Pengalaman editing ala MarkText.
 8. Workspace, recovery, dan integrasi Hyprland yang tangguh.

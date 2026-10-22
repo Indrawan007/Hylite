@@ -1,6 +1,6 @@
 # Arsitektur: Source 4a–4j dan preview read-only 5a
 
-Baseline sebelum Stage 5a: build debug, Clippy dan **320 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
+Stage 5a: build debug, Clippy dan **347 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **15 tes helper Python dan 67 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [hasil renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland atau visual/pixel oracle.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
