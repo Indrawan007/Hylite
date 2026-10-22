@@ -472,6 +472,27 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
             }
         }
     }
+    // Row moves follow the complete 6l prefix; never cross header/delimiter.
+    if let Some(lines) = &table.body_lines {
+        for (index, line) in lines.iter().enumerate() {
+            let target = crate::preview_table_row::Target {
+                snapshot,
+                table: block.source.clone(),
+                row: index + 1,
+                rows: table.rows.len(),
+                columns: table.alignments.len(),
+                line: line.clone(),
+            };
+            for action in [
+                crate::preview_table_row::Action::MoveUp,
+                crate::preview_table_row::Action::MoveDown,
+            ] {
+                if crate::preview_table_row::neighbor(&target, action).is_some() {
+                    choices.push(TableActionChoice::Row(target.clone(), action));
+                }
+            }
+        }
+    }
     choices
 }
 
@@ -1226,5 +1247,109 @@ mod tests {
                 assert!(!table.insertable_columns);
             }
         }
+    }
+    #[test]
+    fn row_move_choices_follow_entire_old_prefix_and_stamp_body_only_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n| short |\n");
+        let snapshot = Snapshot {
+            document_id: 8,
+            revision: 3,
+            state_id: 11,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 16);
+        assert_eq!(
+            choices[..14]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Row 2: Duplicate",
+                "Row 2: Delete",
+                "Row 1: Insert blank before",
+                "Row 1: Insert blank after",
+                "Row 2: Insert blank before",
+                "Row 2: Insert blank after",
+            ]
+        );
+        for (index, row, action, line) in [
+            (14, 1, crate::preview_table_row::Action::MoveDown, 12..18),
+            (15, 2, crate::preview_table_row::Action::MoveUp, 18..28),
+        ] {
+            let TableActionChoice::Row(target, a) = &choices[index] else {
+                panic!("move")
+            };
+            assert_eq!(*a, action);
+            assert_eq!(target.snapshot, snapshot);
+            assert_eq!(target.table, 0..28);
+            assert_eq!(target.line, line);
+            assert_eq!((target.row, target.rows, target.columns), (row, 3, 2));
+            assert_eq!(choices[index].to_string(), format!("Row {row}: {action}"));
+            assert!(
+                matches!(choices[index].clone().message(),Message::EditPreviewTableRow(_,a) if a==action)
+            );
+        }
+    }
+    #[test]
+    fn row_move_choices_do_not_cross_header_single_body_or_unsupported_shapes() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(
+                    !table_picker_choices(block, Snapshot::default()).iter().any(
+                        |choice| matches!(
+                            choice,
+                            TableActionChoice::Row(
+                                _,
+                                crate::preview_table_row::Action::MoveUp
+                                    | crate::preview_table_row::Action::MoveDown
+                            )
+                        )
+                    )
+                );
+                check(&block.children);
+            }
+        }
+        for source in [
+            "|a|b|\n|-|-|\n",
+            "|a|b|\n|-|-|\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|\n|z|w|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n> |z|w|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n  |z|w|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn row_moves_offer_only_available_neighbors_even_when_growth_is_capped() {
+        let source = format!("|a|b|c|d|\n|-|-|-|-|\n{}", "|x|y|z|w|\n".repeat(127));
+        let blocks = super::super::preview_model::parse(&source);
+        let choices = table_picker_choices(&blocks[0], Snapshot::default());
+        let moves: Vec<_> = choices
+            .iter()
+            .filter_map(|choice| match choice {
+                TableActionChoice::Row(
+                    t,
+                    a @ (crate::preview_table_row::Action::MoveUp
+                    | crate::preview_table_row::Action::MoveDown),
+                ) => Some((t.row, *a)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(moves.len(), 252);
+        assert_eq!(moves[0], (1, crate::preview_table_row::Action::MoveDown));
+        assert_eq!(
+            *moves.last().unwrap(),
+            (127, crate::preview_table_row::Action::MoveUp)
+        );
+        assert!(!moves.contains(&(1, crate::preview_table_row::Action::MoveUp)));
+        assert!(!moves.contains(&(127, crate::preview_table_row::Action::MoveDown)));
     }
 }

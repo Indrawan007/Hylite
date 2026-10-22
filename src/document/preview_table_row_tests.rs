@@ -397,3 +397,217 @@ fn insert_checkpoint_save_ack_and_source_history_barrier_remain_scoped() {
     assert!(doc.edit_preview_table_row(&t, Action::InsertBefore));
     assert!(!doc.can_redo());
 }
+
+#[test]
+fn row_moves_preserve_exact_raw_lines_dimensions_and_one_atomic_caret_history() {
+    let source =
+        "|a|b|\n  | --- | --: |\n  | café🙂 **raw** | a\\|b &amp; |\n| short |\n\nafter\n\t";
+    let expected =
+        "|a|b|\n  | --- | --: |\n| short |\n  | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t";
+    for (row, action, caret) in [(1, Action::MoveDown, 32), (2, Action::MoveUp, 22)] {
+        let mut doc = Document::new(source);
+        let t = target(&doc, row);
+        assert!(doc.edit_preview_table_row(&t, action));
+        assert_eq!(doc.buffer_text(), expected);
+        assert_eq!(doc.caret_offset(), caret);
+        assert_eq!(doc.snapshot().revision, 1);
+        assert!(doc.preview.get().is_none());
+        let preview_model::Kind::Table(table) = &doc.preview_blocks()[0].kind else {
+            panic!("table")
+        };
+        assert_eq!(table.rows.len(), 3);
+        assert_eq!(table.alignments.len(), 2);
+        assert!(doc.restore_preview_history(false));
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.is_dirty() && !doc.can_undo());
+        assert!(doc.restore_preview_history(true));
+        assert_eq!(doc.buffer_text(), expected);
+        assert_eq!(doc.caret_offset(), caret);
+    }
+}
+#[test]
+fn row_move_authentication_requires_warm_exact_current_root_and_fresh_after_undo_replace() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+    for (row, action) in [(1, Action::MoveDown), (2, Action::MoveUp)] {
+        let mut doc = Document::new(source);
+        let good = target(&doc, row);
+        doc.preview.take();
+        assert!(!doc.edit_preview_table_row(&good, action));
+        let _ = doc.preview_blocks();
+        for case in 0..10 {
+            let mut t = good.clone();
+            match case {
+                0 => t.snapshot.document_id += 1,
+                1 => t.snapshot.revision += 1,
+                2 => t.snapshot.state_id += 1,
+                3 => t.row = 0,
+                4 => t.row = usize::MAX,
+                5 => t.rows += 1,
+                6 => t.columns = 1,
+                7 => t.line.start += 1,
+                8 => t.line.end -= 1,
+                _ => t.table.end -= 1,
+            }
+            let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+            assert!(!doc.edit_preview_table_row(&t, action));
+            assert_eq!(
+                (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+                before
+            );
+            assert_eq!(doc.buffer_text(), source);
+            assert!(!doc.can_undo());
+        }
+        assert!(doc.edit_preview_table_row(&good, action));
+        assert!(doc.restore_preview_history(false));
+        let _ = doc.preview_blocks();
+        assert!(!doc.edit_preview_table_row(&good, action));
+        assert!(doc.can_redo());
+        doc.replace(None, source);
+        let _ = doc.preview_blocks();
+        assert!(!doc.edit_preview_table_row(&good, action));
+    }
+}
+#[test]
+fn boundary_and_identical_raw_row_noops_preserve_redo_checkpoint_and_caret() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    let t = target(&doc, 1);
+    let align = crate::preview_table_edit::Target {
+        snapshot: doc.snapshot(),
+        table: t.table,
+        column: 0,
+        columns: 2,
+        marker: 7..8,
+        alignment: crate::preview_table_edit::Alignment::Default,
+    };
+    assert!(doc.align_preview_table(&align, crate::preview_table_edit::Alignment::Center));
+    assert!(doc.restore_preview_history(false));
+    for (row, action) in [
+        (1, Action::MoveUp),
+        (2, Action::MoveDown),
+        (1, Action::MoveDown),
+        (2, Action::MoveUp),
+    ] {
+        let t = target(&doc, row);
+        let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+        assert!(!doc.edit_preview_table_row(&t, action));
+        assert_eq!(
+            (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+            before
+        );
+        assert_eq!(doc.buffer_text(), source);
+        assert!(doc.can_redo() && !doc.is_dirty());
+    }
+    assert!(doc.restore_preview_history(true));
+}
+#[test]
+fn row_moves_work_at_row_cell_caps_and_branch_without_growing_tables() {
+    for columns in [2, 4] {
+        let first = format!("|{}\n", "a|".repeat(columns));
+        let other = format!("|{}\n", "b|".repeat(columns));
+        let header = format!("|{}\n|{}\n", "h|".repeat(columns), "---|".repeat(columns));
+        let source = format!("{header}{first}{}", other.repeat(126));
+        let mut doc = Document::new(&source);
+        let t = target(&doc, 1);
+        assert!(doc.edit_preview_table_row(&t, Action::MoveDown));
+        assert!(doc
+            .buffer_text()
+            .starts_with(&format!("{header}{other}{first}")));
+        let preview_model::Kind::Table(table) = &doc.preview_blocks()[0].kind else {
+            panic!("table")
+        };
+        assert_eq!(table.rows.len(), 128);
+        assert!(doc.restore_preview_history(false));
+        let t = target(&doc, 2);
+        assert!(doc.edit_preview_table_row(&t, Action::MoveUp));
+        assert!(!doc.can_redo());
+    }
+}
+#[test]
+fn moving_nested_fenced_html_noncanonical_eof_or_fallback_rows_is_rejected() {
+    let wide = format!(
+        "|{}\n|{}\n{}",
+        "h|".repeat(13),
+        "---|".repeat(13),
+        format!("|{}\n", "x|".repeat(13)).repeat(2)
+    );
+    for source in [
+        "> |a|b|\n> |-|-|\n> |x|y|\n> |z|w|\n",
+        "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n  |z|w|\n",
+        "```\n|a|b|\n|-|-|\n|x|y|\n|z|w|\n```\n",
+        "<div>\n|a|b|\n|-|-|\n|x|y|\n|z|w|\n</div>\n",
+        "|a|b|\n|-|-|\n|x|y|\n|z|w|",
+        "a|b\n-|-\nx|y\nz|w\n",
+        &wide,
+    ] {
+        let mut doc = Document::new(source);
+        let _ = doc.preview_blocks();
+        let table = if source.starts_with("```") {
+            4..source.len() - 4
+        } else {
+            0..source.len()
+        };
+        let start = source.find("|x|y|").unwrap_or(0);
+        let t = Target {
+            snapshot: doc.snapshot(),
+            table,
+            row: 1,
+            rows: 3,
+            columns: 2,
+            line: start..(start + 6).min(source.len()),
+        };
+        assert!(!doc.edit_preview_table_row(&t, Action::MoveDown));
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.can_undo());
+    }
+}
+#[test]
+fn moved_rows_have_fresh_cell_provenance_and_independent_explicit_cell_apply_history() {
+    let mut doc = Document::new("|a|b|\n|-|-|\n|café🙂|x|\n|second|y|\n");
+    let t = target(&doc, 1);
+    assert!(doc.edit_preview_table_row(&t, Action::MoveDown));
+    let moved = doc.buffer_text();
+    let block = &doc.preview_blocks()[0];
+    let preview_model::Kind::Table(table) = &block.kind else {
+        panic!("table")
+    };
+    let cell = crate::preview_cell::Target {
+        snapshot: doc.snapshot(),
+        table: block.source.clone(),
+        row: 2,
+        column: 0,
+        rows: 3,
+        columns: 2,
+        payload: table.editable_cells.as_ref().unwrap()[2][0].clone(),
+    };
+    assert_eq!(doc.preview_cell_payload(&cell).as_deref(), Some("café🙂"));
+    assert!(doc.edit_preview_cell(&cell, "fresh"));
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), moved);
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), "|a|b|\n|-|-|\n|café🙂|x|\n|second|y|\n");
+}
+#[test]
+fn row_move_save_ack_checkpoint_identity_and_native_source_history_barrier_remain() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+    let mut doc = Document::new(source);
+    let t = target(&doc, 1);
+    assert!(doc.edit_preview_table_row(&t, Action::MoveDown));
+    let saved = doc.snapshot();
+    assert!(doc.restore_preview_history(false));
+    assert!(doc.mark_saved(saved, "moved.md".into()));
+    assert!(doc.is_dirty());
+    assert!(doc.restore_preview_history(true));
+    assert!(!doc.is_dirty());
+    assert!(doc.change(TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(!doc.restore_preview_history(false));
+    assert!(doc.undo());
+    assert!(doc.restore_preview_history(false));
+    let t = target(&doc, 2);
+    assert!(doc.edit_preview_table_row(&t, Action::MoveUp));
+    assert!(!doc.can_redo());
+}

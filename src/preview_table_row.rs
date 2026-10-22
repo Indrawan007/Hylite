@@ -15,6 +15,8 @@ pub enum Action {
     Delete,
     InsertBefore,
     InsertAfter,
+    MoveUp,
+    MoveDown,
 }
 impl std::fmt::Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -23,6 +25,8 @@ impl std::fmt::Display for Action {
             Self::Delete => "Delete",
             Self::InsertBefore => "Insert blank before",
             Self::InsertAfter => "Insert blank after",
+            Self::MoveUp => "Move up",
+            Self::MoveDown => "Move down",
         })
     }
 }
@@ -41,6 +45,23 @@ pub fn can_duplicate(rows: usize, columns: usize) -> bool {
     (1..MAX_ROWS).contains(&rows)
         && (1..=MAX_COLUMNS).contains(&columns)
         && (rows + 1) * columns <= MAX_CELLS
+}
+
+/// Body index only; full snapshot/root/line authentication is still required.
+pub fn neighbor(target: &Target, action: Action) -> Option<usize> {
+    if !(2..=MAX_ROWS).contains(&target.rows)
+        || !(1..=MAX_COLUMNS).contains(&target.columns)
+        || target.rows * target.columns > MAX_CELLS
+        || target.row == 0
+        || target.row >= target.rows
+    {
+        return None;
+    }
+    match action {
+        Action::MoveUp if target.row > 1 => Some(target.row - 1),
+        Action::MoveDown if target.row + 1 < target.rows => Some(target.row + 1),
+        _ => None,
+    }
 }
 
 pub fn lines(source: &str, table: &Range<usize>, columns: usize) -> Option<Vec<Range<usize>>> {
@@ -107,6 +128,32 @@ pub fn plan(
                 replacement: format!("{}|{}\n", " ".repeat(indent), "  |".repeat(target.columns)),
                 // Inside the first blank cell, not the selected old row.
                 caret: indent + 2,
+            })
+        }
+        Action::MoveUp | Action::MoveDown => {
+            let adjacent = rows.get(neighbor(target, action)? - 1)?;
+            let selected = source.get(target.line.clone())?;
+            let other = source.get(adjacent.clone())?;
+            if selected == other {
+                return None; // Identical raw rows do not create a hidden edge.
+            }
+            let (range, replacement, caret) = if action == Action::MoveUp {
+                (
+                    adjacent.start..target.line.end,
+                    format!("{selected}{other}"),
+                    0,
+                )
+            } else {
+                (
+                    target.line.start..adjacent.end,
+                    format!("{other}{selected}"),
+                    other.len(),
+                )
+            };
+            Some(TextChange {
+                range,
+                replacement,
+                caret,
             })
         }
         Action::Delete => Some(TextChange {
@@ -346,5 +393,150 @@ mod tests {
             )
             .is_none());
         }
+    }
+    #[test]
+    fn moving_up_down_swaps_whole_raw_lines_without_touching_header_or_neighbors() {
+        let source = "|a|b|\n  | --- | --: |\n  | café🙂 **raw** | a\\|b &amp; |\n| short |\n";
+        let expected = "|a|b|\n  | --- | --: |\n| short |\n  | café🙂 **raw** | a\\|b &amp; |\n";
+        for (row, action) in [(1, Action::MoveDown), (2, Action::MoveUp)] {
+            let t = target(source, row);
+            let change = plan(source, Snapshot::default(), &t, action).unwrap();
+            assert_eq!(apply_move(source, &change), expected);
+            assert_eq!(change.range, 22..source.len());
+            assert_eq!(change.caret, if row == 1 { "| short |\n".len() } else { 0 });
+        }
+    }
+    fn apply_move(source: &str, change: &TextChange) -> String {
+        let mut result = source.to_owned();
+        result.replace_range(change.range.clone(), &change.replacement);
+        result
+    }
+    #[test]
+    fn move_neighbors_are_body_only_bounded_and_reject_invalid_shapes() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+        let mut t = target(source, 1);
+        assert_eq!(neighbor(&t, Action::MoveUp), None);
+        assert_eq!(neighbor(&t, Action::MoveDown), Some(2));
+        t.row = 2;
+        assert_eq!(neighbor(&t, Action::MoveUp), Some(1));
+        assert_eq!(neighbor(&t, Action::MoveDown), None);
+        for action in [
+            Action::Duplicate,
+            Action::Delete,
+            Action::InsertBefore,
+            Action::InsertAfter,
+        ] {
+            assert_eq!(neighbor(&t, action), None);
+        }
+        for (row, rows, columns) in [
+            (0, 3, 2),
+            (3, 3, 2),
+            (usize::MAX, 3, 2),
+            (1, 0, 2),
+            (1, 129, 2),
+            (1, 3, 0),
+            (1, 3, 13),
+            (1, 128, 5),
+            (1, usize::MAX, usize::MAX),
+        ] {
+            t.row = row;
+            t.rows = rows;
+            t.columns = columns;
+            for action in [Action::MoveUp, Action::MoveDown] {
+                assert!(neighbor(&t, action).is_none());
+            }
+        }
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        for action in [Action::MoveUp, Action::MoveDown] {
+            assert!(plan(source, Snapshot::default(), &target(source, 1), action).is_none());
+        }
+    }
+    #[test]
+    fn move_caret_follows_selected_line_after_variable_utf8_length_preserving_outside_bytes() {
+        let raw = "|a|b|\n|-|-|\n| first | x |\n   | é🙂 | z |\t\n";
+        let source = format!("before\n\n{raw}\nafter\n\t");
+        let mut t = target(raw, 1);
+        t.table = 8..8 + raw.len();
+        t.line = t.line.start + 8..t.line.end + 8;
+        let change = plan(&source, Snapshot::default(), &t, Action::MoveDown).unwrap();
+        assert_eq!(
+            change.range.start + change.caret,
+            8 + 12 + "   | é🙂 | z |\t\n".len()
+        );
+        assert_eq!(
+            apply_move(&source, &change),
+            "before\n\n|a|b|\n|-|-|\n   | é🙂 | z |\t\n| first | x |\n\nafter\n\t"
+        );
+    }
+    #[test]
+    fn moving_requires_exact_snapshot_count_index_line_and_table_range() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+        for action in [Action::MoveUp, Action::MoveDown] {
+            for case in 0..10 {
+                let mut t = target(source, if action == Action::MoveUp { 2 } else { 1 });
+                match case {
+                    0 => t.snapshot.document_id += 1,
+                    1 => t.snapshot.revision += 1,
+                    2 => t.snapshot.state_id += 1,
+                    3 => t.row = 0,
+                    4 => t.row = usize::MAX,
+                    5 => t.rows += 1,
+                    6 => t.columns = 1,
+                    7 => t.line.start += 1,
+                    8 => t.line.end -= 1,
+                    _ => t.table.end -= 1,
+                }
+                assert!(plan(source, Snapshot::default(), &t, action).is_none());
+            }
+        }
+    }
+    #[test]
+    fn identical_raw_rows_are_noops_but_render_equivalent_raw_rows_still_move() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n|x|y|\n";
+        for (row, action) in [(1, Action::MoveDown), (2, Action::MoveUp)] {
+            assert!(plan(source, Snapshot::default(), &target(source, row), action).is_none());
+        }
+        let source = "|a|b|\n|-|-|\n|x|y|\n |x|y|\n";
+        assert!(plan(
+            source,
+            Snapshot::default(),
+            &target(source, 1),
+            Action::MoveDown
+        )
+        .is_some());
+    }
+    #[test]
+    fn moves_do_not_need_growth_room_even_at_row_and_cell_caps() {
+        for (rows, columns) in [(128, 2), (128, 4)] {
+            let first = format!("|{}\n", "a|".repeat(columns));
+            let other = format!("|{}\n", "b|".repeat(columns));
+            let header = format!("|{}\n|{}\n", "h|".repeat(columns), "---|".repeat(columns));
+            let source = format!("{header}{first}{}", other.repeat(rows - 2));
+            let table = 0..source.len();
+            let line = lines(&source, &table, columns).unwrap()[0].clone();
+            let t = Target {
+                snapshot: Snapshot::default(),
+                table,
+                row: 1,
+                rows,
+                columns,
+                line,
+            };
+            assert!(!can_duplicate(rows, columns));
+            let change = plan(&source, Snapshot::default(), &t, Action::MoveDown).unwrap();
+            assert!(apply_move(&source, &change).starts_with(&format!("{header}{other}{first}")));
+        }
+    }
+    #[test]
+    fn move_rejects_noncanonical_eof_and_lexical_fenced_success_is_not_provenance() {
+        let raw = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+        let mut t = target(raw, 1);
+        t.table.end -= 1;
+        assert!(plan(raw, Snapshot::default(), &t, Action::MoveDown).is_none());
+        let source = format!("```\n{raw}```\n");
+        let mut t = target(raw, 1);
+        t.table = 4..4 + raw.len();
+        t.line = t.line.start + 4..t.line.end + 4;
+        assert!(plan(&source, Snapshot::default(), &t, Action::MoveDown).is_some());
     }
 }

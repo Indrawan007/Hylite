@@ -366,11 +366,31 @@ impl Document {
         {
             return false;
         }
-        let Some(change) =
-            crate::preview_table_row::plan(&self.buffer_text(), self.snapshot, target, action)
+        let source = self.buffer_text();
+        let Some(change) = crate::preview_table_row::plan(&source, self.snapshot, target, action)
         else {
             return false;
         };
+        if matches!(
+            action,
+            crate::preview_table_row::Action::MoveUp | crate::preview_table_row::Action::MoveDown
+        ) {
+            let mut candidate = source;
+            candidate.replace_range(change.range.clone(), &change.replacement);
+            // Reordering raw lines must keep a complete root table, not merely
+            // pass lexical pipe checks. No history/revision mutation before this.
+            if !preview_model::parse(&candidate).iter().any(|block| {
+                let preview_model::Kind::Table(table) = &block.kind else {
+                    return false;
+                };
+                block.source == target.table
+                    && table.rows.len() == target.rows
+                    && table.alignments.len() == target.columns
+                    && table.body_lines.is_some()
+            }) {
+                return false;
+            }
+        }
         self.break_undo_group();
         let before = self.record();
         self.commit_kind(before, change, EditKind::PreviewTable)

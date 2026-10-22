@@ -3517,3 +3517,213 @@ fn deletion_save_reply_and_last_column_refusal_keep_checkpoint_and_history() {
     let _ = app.update(Message::PreviewHistory(true));
     assert!(!app.document.is_dirty());
 }
+
+fn movable_row_target(app: &Hylite, row: usize) -> crate::preview_table_row::Target {
+    let source = app.document.buffer_text();
+    let block = &app.document.preview_blocks()[0];
+    let lines = crate::preview_table_row::lines(&source, &block.source, 2).unwrap();
+    crate::preview_table_row::Target {
+        snapshot: app.document.snapshot(),
+        table: block.source.clone(),
+        row,
+        rows: lines.len() + 1,
+        columns: 2,
+        line: lines[row - 1].clone(),
+    }
+}
+#[test]
+fn row_move_preview_split_preserve_raw_lines_and_single_step_caret_history() {
+    for mode in [EditMode::Preview, EditMode::Split] {
+        for (row, action, caret) in [
+            (1, crate::preview_table_row::Action::MoveDown, 22),
+            (2, crate::preview_table_row::Action::MoveUp, 12),
+        ] {
+            let mut app = app();
+            let source = "|a|b|\n|-|-|\n  |café🙂|a\\|b|\n| short |\n\nend\n\t";
+            let expected = "|a|b|\n|-|-|\n| short |\n  |café🙂|a\\|b|\n\nend\n\t";
+            app.document = Document::new(source);
+            app.mode = mode;
+            let t = movable_row_target(&app, row);
+            let _ = app.update(Message::EditPreviewTableRow(t, action));
+            assert_eq!(app.document.buffer_text(), expected);
+            assert_eq!(app.document.caret_offset(), caret);
+            assert_eq!(app.mode, mode);
+            let _ = app.update(if mode == EditMode::Preview {
+                Message::PreviewHistory(false)
+            } else {
+                Message::Undo
+            });
+            assert_eq!(app.document.buffer_text(), source);
+            assert!(!app.document.is_dirty() && !app.document.can_undo());
+            let _ = app.update(if mode == EditMode::Preview {
+                Message::PreviewHistory(true)
+            } else {
+                Message::Redo
+            });
+            assert_eq!(app.document.buffer_text(), expected);
+        }
+    }
+}
+#[test]
+fn row_move_respects_source_prompt_open_cell_draft_and_immutable_save_export_tokens() {
+    for (row, action) in [
+        (1, crate::preview_table_row::Action::MoveDown),
+        (2, crate::preview_table_row::Action::MoveUp),
+    ] {
+        for case in 0..6 {
+            let mut app = app();
+            let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+            app.document = Document::new(source);
+            app.mode = if case == 0 {
+                EditMode::Source
+            } else {
+                EditMode::Preview
+            };
+            let t = movable_row_target(&app, row);
+            if case == 1 {
+                app.pending_action = Some(PendingAction::New);
+            }
+            if (2..=4).contains(&case) {
+                let kind = match case {
+                    2 => OperationKind::Open,
+                    3 => OperationKind::Save,
+                    _ => OperationKind::Export,
+                };
+                assert!(app
+                    .operations
+                    .start(kind, app.document.snapshot())
+                    .is_some());
+            }
+            if case == 5 {
+                let block = &app.document.preview_blocks()[0];
+                let cell = crate::preview_cell::Target {
+                    snapshot: app.document.snapshot(),
+                    table: block.source.clone(),
+                    row: 1,
+                    column: 0,
+                    rows: 3,
+                    columns: 2,
+                    payload: crate::preview_cell::cells(source, &block.source, 2, 3).unwrap()[1][0]
+                        .clone(),
+                };
+                let _ = app.update(Message::OpenPreviewCell(cell));
+                let _ = app.update(Message::PreviewCellChanged("draft kept".into()));
+            }
+            let token = app.operations.active();
+            let snapshot = app.document.snapshot();
+            let _ = app.update(Message::EditPreviewTableRow(t, action));
+            assert_eq!(app.operations.active(), token);
+            if case == 3 || case == 4 {
+                assert_ne!(app.document.snapshot(), snapshot);
+                assert_eq!(token.unwrap().token.snapshot, snapshot);
+                assert!(app.document.is_dirty());
+            } else {
+                assert_eq!(app.document.snapshot(), snapshot);
+                assert_eq!(app.document.buffer_text(), source);
+                assert!(!app.document.can_undo());
+            }
+            if case == 5 {
+                assert_eq!(app.cell_draft.as_ref().unwrap().value, "draft kept");
+            }
+        }
+    }
+}
+#[test]
+fn row_move_refreshes_find_offsets_and_keeps_logical_query_go_to_context() {
+    for go_to in [false, true] {
+        let mut app = app();
+        app.document = Document::new("|a|b|\n|-|-|\n|needle|y|\n|z|w|\n");
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        let before = app.search.navigate(false).unwrap();
+        if go_to {
+            let _ = app.update(Message::OpenGoTo);
+            let _ = app.update(Message::GoToQueryChanged("2:3".into()));
+        }
+        let t = movable_row_target(&app, 1);
+        let _ = app.update(Message::EditPreviewTableRow(
+            t,
+            crate::preview_table_row::Action::MoveDown,
+        ));
+        assert_eq!(app.search.query, "needle");
+        assert_eq!(app.search.count(), 1);
+        assert!(app.search.current().is_none());
+        assert_eq!(app.search.navigate(false).unwrap().start, before.start + 6);
+        if go_to {
+            assert!(app.go_to.open && !app.search.open);
+            assert_eq!(app.go_to.query, "2:3");
+        } else {
+            assert!(app.search.open && !app.go_to.open);
+        }
+        let _ = app.update(Message::Undo);
+        assert_eq!(app.search.navigate(false).unwrap(), before);
+    }
+}
+#[test]
+fn stale_row_move_keeps_redo_and_native_typing_remains_preview_history_barrier() {
+    let mut app = app();
+    let source = "|a|b|\n|-|-|\n|x|y|\n|z|w|\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let old = movable_row_target(&app, 1);
+    let _ = app.update(Message::EditPreviewTableRow(
+        old.clone(),
+        crate::preview_table_row::Action::MoveDown,
+    ));
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.document.preview_blocks();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::EditPreviewTableRow(
+        old,
+        crate::preview_table_row::Action::MoveDown,
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.document.can_redo());
+    let _ = app.update(Message::PreviewHistory(true));
+    let moved = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    edit(&mut app);
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_ne!(app.document.buffer_text(), moved);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), moved);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), source);
+}
+#[test]
+fn row_move_save_ack_and_boundary_refusal_keep_checkpoint_identity() {
+    let mut app = app();
+    app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n|z|w|\n");
+    app.mode = EditMode::Preview;
+    let t = movable_row_target(&app, 1);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::MoveDown,
+    ));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("moved.md".into()))));
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+    let t = movable_row_target(&app, 1);
+    let before = app.document.snapshot();
+    let source = app.document.buffer_text();
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::MoveUp,
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), "|a|b|\n|-|-|\n|x|y|\n|z|w|\n");
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+}
