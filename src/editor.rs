@@ -161,11 +161,14 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
         if let Some(message) = custom {
             return Some(text_editor::Binding::Custom(message));
         }
-        // Global app commands are handled exactly once by the subscription, not
-        // also inserted as characters by the native editor's fallback binding.
-        if crate::commands::shortcut(press.key.clone(), press.modifiers).is_some() {
-            return None;
-        }
+    }
+    // Global app commands (including exact-Alt confirmation accelerators) are
+    // handled once by the subscription, never also inserted by native fallback.
+    // AltGr combinations are not app commands and still reach native text input.
+    if press.status == text_editor::Status::Focused
+        && crate::commands::shortcut(press.key.clone(), press.modifiers).is_some()
+    {
+        return None;
     }
     text_editor::Binding::from_key_press(press)
 }
@@ -173,6 +176,28 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confirmation_accelerators_cannot_insert_source_text_but_altgr_can() {
+        for key in ["d", "D", "s", "S"] {
+            assert!(key_binding(text_editor::KeyPress {
+                key: keyboard::Key::Character(key.into()),
+                modifiers: keyboard::Modifiers::ALT,
+                text: Some(key.into()),
+                status: text_editor::Status::Focused,
+            })
+            .is_none());
+        }
+        assert!(matches!(
+            key_binding(text_editor::KeyPress {
+                key: keyboard::Key::Character("d".into()),
+                modifiers: keyboard::Modifiers::CTRL | keyboard::Modifiers::ALT,
+                text: Some("đ".into()),
+                status: text_editor::Status::Focused,
+            }),
+            Some(text_editor::Binding::Insert('đ'))
+        ));
+    }
 
     #[test]
     fn tab_uses_the_next_stop_and_is_safe_with_zero() {
