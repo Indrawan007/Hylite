@@ -1,5 +1,9 @@
 # Stage 5b — tabel Markdown native read-only
 
+> Pembaruan [Stage 5e](testing-stage5e.md): klik kanan sel dengan rentang
+> non-empty dapat menuju awal provenance Source, selain tombol whole-block.
+> Catatan/count di bawah adalah hasil iterasi sebelumnya; bukan edit sel/glyph map.
+
 > Pembaruan [Stage 5d](testing-stage5d.md): tombol provenance leaf dapat
 > menavigasi ke awal rentang Source dalam Split. Ini bukan glyph/selection map;
 > hasil/count iterasi di bawah tetap catatan historis, bukan suite terbaru.

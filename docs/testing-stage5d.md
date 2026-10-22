@@ -1,5 +1,9 @@
 # Stage 5d — navigasi provenance blok preview ke Source
 
+> Pembaruan [Stage 5e](testing-stage5e.md): klik kanan sel dengan rentang
+> non-empty dapat menuju awal provenance Source, selain tombol whole-block.
+> Catatan/count di bawah adalah hasil iterasi sebelumnya; bukan edit sel/glyph map.
+
 Langkah pertama navigasi posisi dari preview native, **bukan WYSIWYG, glyph hit
 testing, source↔selection mapping atau synchronized scrolling**. Source tetap
 satu buffer otoritatif; tidak ada perubahan serializer/save/export/dependensi.

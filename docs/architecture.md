@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j dan preview read-only 5a–5d
+# Arsitektur: Source 4a–4j dan preview read-only 5a–5e
 
-Stage 5d: build debug, Clippy dan **396 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **18 helper Python dan 80 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [navigasi provenance](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 5e: build debug, Clippy dan **411 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **19 helper Python dan 84 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -10,7 +10,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
 - **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
-- **`preview_navigation.rs`**: target snapshot+range dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
+- **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
 - **`document/state.rs`**: memiliki satu buffer `text_editor::Content`, path aktif, ID dokumen, revisi operasi monotonik, checkpoint konten, checkpoint terakhir disimpan, dan bounded history. Edit efektif melalui `apply`/`change`; penggantian dokumen melalui `replace`; hasil save melalui `mark_saved`.
@@ -128,6 +128,29 @@ glyph hit testing, source↔selection mapping, reverse navigation atau scroll sy
 GUI membuktikan klik first-heading dan keyboard caret/fokus awal blok; viewport
 blok jauh dan layout glyph/nested controls masih checklist manual.
 Lihat [kontrak, tes dan batas Stage 5d](testing-stage5d.md).
+
+## Navigasi sel tabel (Stage 5e)
+
+`Target::origin` membedakan Block dari TableCell. Target sel membawa parent
+range tabel, row dan column zero-based (header = row 0); caption menjelaskan
+interaksi klik kanan. `mouse_area` membungkus box konten/padding sel yang punya
+rentang non-empty, tanpa baris tombol per sel. Padded/empty range tidak punya
+action, sementara whitespace source non-empty tetap bisa menjadi anchor.
+Grid/Stack/divider/alignment dan batas tabel tetap; lookup tidak mengedit model.
+
+Bounds core menuntut parent UTF-8 range valid yang mengandung range sel. Document
+memeriksa exact parent-table membership, indeks dan range sel di model warm;
+role Block tidak menerima range sel dan role Cell tidak menerima fallback
+literal. Stale snapshot ditolak sebelum raw snapshot dialokasikan. Jalur guard,
+caret/fokus/penutupan panel 5d dipakai ulang, dengan status asal table cell.
+Snapshot, dirty, history/redo dan cache tidak berubah karena navigasi.
+
+GUI menambahkan klik kiri + sentinel LEAK yang tidak boleh menavigasi, lalu klik
+kanan Count dan sentinel X sebelum marker raw **3** setelah prefix café🙂. Empat
+check clipboard membuktikan Source/fokus/dua Undo; bukan hit-testing glyph atau
+scroll/selection sync. Native Document menguji header/body/nested/forged/stale
+secara terpisah; GUI belum membuktikan klik nested/whitespace/scroll jauh atau
+layout desktop target. [Kontrak dan batas Stage 5e](testing-stage5e.md).
 
 ## Invariant dokumen
 

@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 396 pada Stage 5d). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 411 pada Stage 5e). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -261,3 +261,25 @@ Setelah kontrol provenance menambah tinggi layout, probe wheel tabel memakai
 position/pixel assertion. Snapshot tetap frame-local; tidak ada test hook app,
 relaksasi expected source, deadline, atau pengujian Wayland/Hyprland baru.
 Lihat [kontrak dan batas navigasi Stage 5d](testing-stage5d.md).
+
+
+## Tambahan runner Stage 5e: klik kanan sel tabel
+
+**Lulus** pada [CI run 39731339080](https://github.com/Indrawan007/Hylite/actions/runs/39731339080),
+commit `0a531da`: **84 GUI** (70 clipboard, 12 title, 2 native exit), **411 Cargo**,
+**162 core mandiri** (subset Cargo), dan **19 Python**. Empat clipboard check
+baru tidak menggantikan gate lama:
+
+1. Fixture header/body/padded row, café🙂, marker strong, code dan terminal tab.
+2. Preview: klik kiri Count + ketikan LEAK tetap read-only; klik kanan Count lalu
+   X harus mengubah `|café🙂|**3**|` menjadi `|café🙂|X**3**|` dalam Split.
+3. Undo mengembalikan source/whitespace byte-exact.
+4. Undo berikutnya kembali welcome clean, tanpa history tambahan dari navigasi.
+
+Semua Copy baru `refocus=False`. Dua klik pada preview memang aksi produk yang
+diuji, bukan workaround refocus Source. Expected bytes adalah literal, tidak
+menggunakan parser produksi. `cell-preview.png` dan `cell-split.png` merekam
+jendela, belum ditinjau visual dan bukan pixel oracle. Header/nested/padded/
+whitespace/stale/forged guards juga diuji di Cargo tetapi belum semua diklik di
+GUI. Tidak ada hook aplikasi, relaksasi timeout/expected bytes atau klaim
+Wayland/Hyprland. [Detail dan manual checklist Stage 5e](testing-stage5e.md).

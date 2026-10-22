@@ -6,9 +6,10 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 
 ## Fitur yang sudah diimplementasikan
 
-- Editor Source, preview read-only native terstruktur (Stage 5a–5d), dan Split view.
+- Editor Source, preview read-only native terstruktur (Stage 5a–5e), dan Split view.
 - Cache model preview lazy per revisi konten; renderer meminjam teks model, sementara edit/undo/redo membuang model lama. Ini belum incremental parsing atau benchmark speedup.
 - Tombol **Show block source** pada leaf preview membuka Split dan memfokuskan awal rentang provenance Source; target stale ditolak. Ini bukan glyph/selection mapping.
+- **Klik kanan sel tabel → Source**: target harus cocok dengan tabel/baris/kolom/revisi saat ini; sel padding tanpa rentang sumber tidak mempunyai action. Klik kiri tetap read-only.
 - Open, Save, Save As, dan ekspor HTML dengan CSS Catppuccin.
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
@@ -18,7 +19,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
 
-Preview memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, code block, rule, serta **tabel GFM native dengan header/alignment dan scroll horizontal**. Warna mengikuti tema. Tabel dibatasi 12 kolom, 128 row termasuk header dan 512 sel; jika melebihi salah satu batas, seluruh source tabel tampil sebagai fallback. HTML/footnote/math tetap source inert; gambar tidak dimuat dan tautan tidak dibuka. Ini **belum WYSIWYG** atau mapping glyph/selection dua arah. Tombol provenance hanya menuju awal rentang byte blok. [Fondasi renderer](docs/testing-stage5a.md), [tabel Stage 5b](docs/testing-stage5b.md), dan [cache Stage 5c](docs/testing-stage5c.md), dan [navigasi blok Stage 5d](docs/testing-stage5d.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
+Preview memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, code block, rule, serta **tabel GFM native dengan header/alignment dan scroll horizontal**. Warna mengikuti tema. Tabel dibatasi 12 kolom, 128 row termasuk header dan 512 sel; jika melebihi salah satu batas, seluruh source tabel tampil sebagai fallback. HTML/footnote/math tetap source inert; gambar tidak dimuat dan tautan tidak dibuka. Ini **belum WYSIWYG** atau mapping glyph/selection dua arah. Navigasi provenance hanya menuju awal rentang byte blok atau sel, bukan posisi glyph yang diklik. [Fondasi renderer](docs/testing-stage5a.md), [tabel Stage 5b](docs/testing-stage5b.md), [cache Stage 5c](docs/testing-stage5c.md), [navigasi blok Stage 5d](docs/testing-stage5d.md), dan [navigasi sel Stage 5e](docs/testing-stage5e.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
 
 ## Build di Arch Linux
 
@@ -69,12 +70,12 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 ### Status verifikasi — 22 Oktober 2026
 
-- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a–5d.
-- **Build native debug, Clippy `-D warnings`, dan 396 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39728608200](https://github.com/Indrawan007/Hylite/actions/runs/39728608200), commit `40771f1`.
-- **158 tes core** lulus mandiri melalui `./scripts/test-source-core.sh`: 150 baseline + 8 resolver navigasi preview. Semuanya **subset 396 tes Cargo**, bukan tambahan 158 tes unik. Stage 5d menambah total 22 tes Rust: 8 core, 7 Document, 6 controller dan 1 adapter.
-- **Smoke GUI X11/Xvfb + tiny-skia lulus: 80 pemeriksaan** (66 clipboard, 12 title konfirmasi, 2 exit native normal). Selain preview/tabel/warm cache/lifecycle, klik tombol provenance membuka Split dan ketikan sentinel membuktikan caret/fokus awal blok tanpa klik tambahan ke Source; Undo mengembalikan Unicode dan terminal tab byte-exact. Screenshot bukan pixel/glyph oracle. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [navigasi Stage 5d](docs/testing-stage5d.md).
-- **18 tes Python helper** (3 reporter + 15 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat dan batas bukti.
-- WYSIWYG, glyph/selection mapping dan synchronized scrolling belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
+- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a–5e.
+- **Build native debug, Clippy `-D warnings`, dan 411 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39731339080](https://github.com/Indrawan007/Hylite/actions/runs/39731339080), commit `0a531da`.
+- **162 tes core** lulus mandiri melalui `./scripts/test-source-core.sh`: 150 baseline + 8 resolver blok + 4 resolver sel. Semuanya **subset 411 tes Cargo**, bukan tambahan 162 tes unik. Stage 5e menambah 15 tes Rust: 4 core, 6 Document, 3 adapter dan 2 controller.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus: 84 pemeriksaan** (70 clipboard, 12 title konfirmasi, 2 exit native normal). Selain gate preview/tabel/cache/blok/lifecycle, klik kiri sel tetap read-only dan klik kanan Count memfokuskan caret sebelum marker `**3**`, bukan glyph `3`, tanpa klik Source. Dua Undo memulihkan fixture Unicode/terminal tab dan baseline clean byte-exact. Screenshot bukan pixel/glyph oracle. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [navigasi sel Stage 5e](docs/testing-stage5e.md).
+- **19 tes Python helper** (3 reporter + 16 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat dan batas bukti.
+- WYSIWYG, edit/selection sel, glyph/selection mapping dan synchronized scrolling belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
 
 ## Konfigurasi
 
@@ -345,7 +346,7 @@ Model dokumen masih memakai `text_editor::Content` milik Iced sebagai satu-satun
 2. Keamanan dokumen dan perbaikan save/export — tes model/filesystem lulus; portal dan failure runtime masih perlu diuji.
 3. Pemisahan model dokumen, operasi file, dan konfigurasi — teruji dalam suite Cargo; desktop target belum diverifikasi.
 4. Source editor untuk penggunaan harian — iterasi 4a–4j tersedia; integrasi desktop dan fitur Source lanjutan belum selesai.
-5. Renderer Markdown native — 5a read-only, 5b tabel, 5c cache dan 5d navigasi provenance blok tersedia; cakupan Markdown, mapping dan optimasi lanjutan belum lengkap.
+5. Renderer Markdown native — 5a read-only, 5b tabel, 5c cache, 5d navigasi blok dan 5e navigasi sel tersedia; cakupan Markdown, mapping dan optimasi lanjutan belum lengkap.
 6. Prototipe WYSIWYG dan pemetaan posisi sumber.
 7. Pengalaman editing ala MarkText.
 8. Workspace, recovery, dan integrasi Hyprland yang tangguh.

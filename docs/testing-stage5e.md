@@ -72,9 +72,22 @@ dan `cell-split.png` bukan pixel oracle.
 
 ## Status eksekusi
 
-Lokal: **162 core** strict mandiri dan **19 helper Python** lulus; format/diff
-juga diperiksa. Build/Clippy/Cargo/Iced/GUI native baru masih menunggu CI; hasil
-core tidak menggantikan verifikasi tersebut.
+[CI run 39731339080](https://github.com/Indrawan007/Hylite/actions/runs/39731339080)
+**success** pada commit `0a531da23dead43fbd2d55772f329004a403a986`, job
+`119666835703`, Ubuntu 24.04 / Rust stable, durasi 2m55s. Gate format,
+**162 core strict mandiri**, Clippy/build debug `--locked --all-targets
+--all-features`, **411 Cargo**, **19 Python** dan **84 GUI X11** semuanya lulus.
+162 core adalah subset 411 Cargo, bukan tambahan. Delta 15 Rust = 4 core +
+6 Document + 3 adapter + 2 controller. 84 GUI = 70 clipboard + 12 title + 2 exit
+native normal; empat clipboard check baru tidak menggantikan gate lama.
+Pemeriksaan lokal format/diff/162 core/19 Python juga lulus; full native tidak
+diasumsikan dari core saja.
+
+[Artifact gui-x11-smoke](https://github.com/Indrawan007/Hylite/actions/runs/39731339080/artifacts/12405199115)
+dikonfirmasi ada melalui API: 884433 bytes, belum expired saat diperiksa,
+retensi 7 hari. Screenshot belum ditinjau visual dan bukan pixel oracle.
+Caption akhir memperjelas istilah **padded cells**, bukan padding box interaktif
+sel; perubahan wording/dokumentasi tetap menjalani workflow penuh pada push.
 
 Percobaan [CI 39731115281](https://github.com/Indrawan007/Hylite/actions/runs/39731115281)
 lulus format/162 core/19 Python, tetapi kompilasi target tes saat lint menemukan

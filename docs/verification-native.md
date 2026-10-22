@@ -84,6 +84,18 @@ Unicode/terminal tab serta baseline clean. Tidak ada klik tambahan ke Source.
 Ini block-start anchor, bukan glyph/caret hit-testing, selection mapping atau
 scroll sync. Detail, artifact dan checklist manual: [Stage 5d](testing-stage5d.md).
 
+Update cell provenance Stage 5e: [CI run 39731339080](https://github.com/Indrawan007/Hylite/actions/runs/39731339080),
+commit `0a531da`, lulus **411 Cargo**, **162 core mandiri** (subset Cargo),
+**19 Python**, **84 GUI X11**, format/build debug/Clippy strict. Lima belas tes
+Rust baru menguji scope parent-table/row/column/range, UTF-8/stale/cold/padded,
+cache/metadata/redo, adapter dan guard controller. Empat clipboard check baru
+membuktikan klik kiri read-only serta klik kanan Count → raw cell start sebelum
+`**3**`, bukan glyph hasil styling, setelah prefix Unicode, tanpa klik Source.
+Dua Undo mengembalikan fixture dan welcome clean. CI awal `39731115281` berhenti
+saat lint: helper tes mengakses modul privat; helper sekarang menggunakan offset
+literal fixture tanpa memperluas visibility atau melemahkan gate. Detail dan
+batas bukti ada di [Stage 5e](testing-stage5e.md); belum edit/glyph/selection map.
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

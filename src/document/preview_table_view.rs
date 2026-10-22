@@ -115,7 +115,7 @@ pub(super) fn render<'a>(
             ..container::Style::default()
         });
     column![
-        text("Right-click cell → Source · padding has no target")
+        text("Right-click cell → Source · padded cells have no target")
             .size(11)
             .color(colors.text),
         scrollable(grid)
