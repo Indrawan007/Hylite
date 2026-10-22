@@ -219,13 +219,15 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                 );
             }
         }
-        let choices = table_alignment_choices(block, snapshot);
+        let choices = table_action_choices(block, snapshot);
         if !choices.is_empty() {
             actions = actions.push(
-                pick_list(choices, None::<TableAlignmentChoice>, |choice| {
-                    Message::AlignPreviewTable(choice.target, choice.desired)
-                })
-                .placeholder("Column alignment…")
+                pick_list(
+                    choices,
+                    None::<TableActionChoice>,
+                    TableActionChoice::message,
+                )
+                .placeholder("Table actions…")
                 .width(168)
                 .text_size(11)
                 .padding([2, 6]),
@@ -305,6 +307,69 @@ fn setext_action(
         },
         direction,
     ))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TableActionChoice {
+    Alignment(TableAlignmentChoice),
+    Row(
+        crate::preview_table_row::Target,
+        crate::preview_table_row::Action,
+    ),
+}
+impl TableActionChoice {
+    fn message(self) -> Message {
+        match self {
+            Self::Alignment(choice) => Message::AlignPreviewTable(choice.target, choice.desired),
+            Self::Row(target, action) => Message::EditPreviewTableRow(target, action),
+        }
+    }
+}
+impl std::fmt::Display for TableActionChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Alignment(choice) => choice.fmt(f),
+            Self::Row(target, action) => write!(f, "Row {}: {action}", target.row),
+        }
+    }
+}
+fn table_action_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionChoice> {
+    let mut choices: Vec<_> = table_alignment_choices(block, snapshot)
+        .into_iter()
+        .map(TableActionChoice::Alignment)
+        .collect();
+    let Kind::Table(table) = &block.kind else {
+        return choices;
+    };
+    if let Some(lines) = &table.body_lines {
+        for (index, line) in lines.iter().enumerate() {
+            for action in [
+                crate::preview_table_row::Action::Duplicate,
+                crate::preview_table_row::Action::Delete,
+            ] {
+                if action == crate::preview_table_row::Action::Duplicate
+                    && !crate::preview_table_row::can_duplicate(
+                        table.rows.len(),
+                        table.alignments.len(),
+                    )
+                {
+                    continue;
+                }
+                choices.push(TableActionChoice::Row(
+                    crate::preview_table_row::Target {
+                        snapshot,
+                        table: block.source.clone(),
+                        row: index + 1,
+                        rows: table.rows.len(),
+                        columns: table.alignments.len(),
+                        line: line.clone(),
+                    },
+                    action,
+                ));
+            }
+        }
+    }
+    choices
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -633,5 +698,44 @@ mod tests {
         ] {
             check(&super::super::preview_model::parse(source));
         }
+    }
+    #[test]
+    fn row_choices_follow_alignment_options_and_protect_header_and_caps() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let choices = table_action_choices(&blocks[0], Snapshot::default());
+        assert_eq!(choices.len(), 8);
+        assert_eq!(choices[6].to_string(), "Row 1: Duplicate");
+        assert_eq!(choices[7].to_string(), "Row 1: Delete");
+        let TableActionChoice::Row(target, _) = &choices[6] else {
+            panic!("row")
+        };
+        assert_eq!(target.snapshot, Snapshot::default());
+        assert_eq!(target.row, 1);
+        assert_eq!(target.rows, 2);
+        let source = format!("|a|b|\n|-|-|\n{}", "|x|y|\n".repeat(127));
+        let blocks = super::super::preview_model::parse(&source);
+        let choices = table_action_choices(&blocks[0], Snapshot::default());
+        assert_eq!(choices.len(), 6 + 127);
+        assert!(choices.iter().skip(6).all(|choice| matches!(
+            choice,
+            TableActionChoice::Row(_, crate::preview_table_row::Action::Delete)
+        )));
+    }
+    #[test]
+    fn unsupported_rows_keep_alignment_only_and_nested_tables_have_no_actions() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|");
+        assert_eq!(
+            table_action_choices(&blocks[0], Snapshot::default()).len(),
+            6
+        );
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(table_action_choices(block, Snapshot::default()).is_empty());
+                check(&block.children);
+            }
+        }
+        check(&super::super::preview_model::parse(
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+        ));
     }
 }

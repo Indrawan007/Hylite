@@ -2386,3 +2386,144 @@ fn save_ack_for_table_alignment_marks_only_the_checkpoint_written_during_preview
     assert!(!app.document.is_dirty());
     assert_eq!(app.document.buffer_text(), "a|b\n:---:|---:\n1|2\n");
 }
+
+fn table_row_target(app: &Hylite) -> crate::preview_table_row::Target {
+    let block = &app.document.preview_blocks()[0];
+    let source = app.document.buffer_text();
+    let lines = crate::preview_table_row::lines(&source, &block.source, 2).unwrap();
+    crate::preview_table_row::Target {
+        snapshot: app.document.snapshot(),
+        table: block.source.clone(),
+        row: 1,
+        rows: lines.len() + 1,
+        columns: 2,
+        line: lines[0].clone(),
+    }
+}
+#[test]
+fn preview_table_row_duplicate_delete_undo_redo_keep_mode_and_raw_bytes() {
+    use crate::preview_table_row::Action;
+    let mut app = app();
+    let source = "|a|b|\n|-|-|\n|café🙂|a\\|b|\n\nend\n\t";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(t, Action::Duplicate));
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("|café🙂|a\\|b|\n", "|café🙂|a\\|b|\n|café🙂|a\\|b|\n", 1)
+    );
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(t, Action::Delete));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.mode, EditMode::Preview);
+}
+#[test]
+fn table_row_controller_guards_source_prompt_open_but_allows_save_export() {
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let t = table_row_target(&app);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case >= 2 {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let token = app.operations.active();
+        let before = app.document.snapshot();
+        let _ = app.update(Message::EditPreviewTableRow(
+            t,
+            crate::preview_table_row::Action::Delete,
+        ));
+        assert_eq!(app.operations.active(), token);
+        assert_eq!(app.document.is_dirty(), case >= 3);
+        if case < 3 {
+            assert_eq!(app.document.snapshot(), before);
+        } else {
+            assert_eq!(app.document.buffer_text(), "|a|b|\n|-|-|\n");
+        }
+    }
+}
+#[test]
+fn split_row_duplicate_refreshes_find_and_keeps_logical_query_context() {
+    let mut app = app();
+    app.document = Document::new("|a|b|\n|-|-|\n|needle|y|\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("needle".into()));
+    assert_eq!(app.search.count(), 1);
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::Duplicate,
+    ));
+    assert!(app.search.open);
+    assert_eq!(app.search.query, "needle");
+    assert_eq!(app.search.count(), 2);
+    assert_eq!(app.mode, EditMode::Split);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.search.count(), 1);
+}
+#[test]
+fn stale_row_commands_and_native_preview_typing_do_not_create_extra_history() {
+    let mut app = app();
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t.clone(),
+        crate::preview_table_row::Action::Duplicate,
+    ));
+    let before = app.document.snapshot();
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::Delete,
+    ));
+    edit(&mut app);
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn row_save_ack_marks_only_the_checkpoint_written_during_preview_undo() {
+    let mut app = app();
+    app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n");
+    app.mode = EditMode::Preview;
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::Duplicate,
+    ));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("rows.md".into()))));
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+}

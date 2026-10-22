@@ -824,6 +824,57 @@ def exercise_table_alignment(desktop, artifacts):
     desktop.expect_native_exit("Alignment suite clean client Close exits naturally")
 
 
+def exercise_table_rows(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    row = "  | café🙂 **raw** | a\\|b &amp; |\n".encode("utf-8")
+    source = b"| Name | Count |\n  | ---  | --: |\n" + row + b"| short |\n\nafter\n\t"
+    duplicated = source.replace(row, row + row, 1)
+    sentinel = source.replace(b"| short |\n", b"X| short |\n", 1)
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Table row suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Row fixture preserves UTF-8, escaped pipes, ragged rows and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "281", "click", "1")
+    time.sleep(0.25)  # Six alignment options, then Row 1: Duplicate.
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    inspect("Preview Duplicate copies exactly one raw body line without normalizing cells", duplicated)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo restores the original complete table source", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    desktop.screenshot(artifacts / "rows-preview.png")
+    inspect("Preview row Redo restores raw duplicate and untouched suffix", duplicated)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "336", "click", "1")
+    time.sleep(0.25)  # Row 2: Delete, tenth option.
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split Delete restores Source focus at the following physical line start", sentinel, refocus=False)
+    desktop.screenshot(artifacts / "rows-split.png")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Row Delete and native Source typing are separate Undo transactions", duplicated, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Row history returns exact clean welcome without extra steps", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Row suite clean client Close exits naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -842,13 +893,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_task_batch(desktop, artifacts)
     elif suite == "table-alignment":
         exercise_table_alignment(desktop, artifacts)
+    elif suite == "table-rows":
+        exercise_table_rows(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -896,7 +949,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else "Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof"),
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else "Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof")),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

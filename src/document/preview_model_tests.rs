@@ -760,3 +760,41 @@ fn nested_and_limit_fallback_tables_never_gain_alignment_delimiter_targets() {
     let wide = format!("|{}\n|{}\n", "a|".repeat(13), "---|".repeat(13));
     assert!(matches!(parse(&wide)[0].kind, Kind::Literal { .. }));
 }
+
+#[test]
+fn root_body_line_metadata_uses_whole_physical_raw_lines_not_normalized_cells() {
+    let source = "|a|b|\n  | --- | --: |\n  | café🙂 | a\\|b |\n|short|\n\nend\n\t";
+    let blocks = parse(source);
+    let Kind::Table(table) = &blocks[0].kind else {
+        panic!("table")
+    };
+    assert_eq!(
+        table
+            .body_lines
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|line| source.get(line.clone()).unwrap())
+            .collect::<Vec<_>>(),
+        ["  | café🙂 | a\\|b |\n", "|short|\n"]
+    );
+}
+#[test]
+fn nested_eof_and_non_pipe_body_lines_do_not_gain_row_edit_metadata() {
+    fn check(blocks: &[Block]) {
+        for block in blocks {
+            if let Kind::Table(table) = &block.kind {
+                assert!(table.body_lines.is_none());
+            }
+            check(&block.children);
+        }
+    }
+    for source in [
+        "> |a|b|\n> |-|-|\n> |x|y|\n",
+        "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        "|a|b|\n|-|-|\n|x|y|",
+        "a|b\n-|-\nx|y\n",
+    ] {
+        check(&parse(source));
+    }
+}

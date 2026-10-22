@@ -37,6 +37,10 @@ pub enum Message {
     SubmitGoTo,
     RevealPreview(crate::preview_navigation::Target),
     TogglePreviewTask(crate::preview_task::Target),
+    EditPreviewTableRow(
+        crate::preview_table_row::Target,
+        crate::preview_table_row::Action,
+    ),
     AlignPreviewTable(
         crate::preview_table_edit::Target,
         crate::preview_table_edit::Alignment,

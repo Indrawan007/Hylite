@@ -162,6 +162,25 @@ impl Hylite {
         }
     }
 
+    pub(super) fn edit_preview_table_row(
+        &mut self,
+        target: crate::preview_table_row::Target,
+        action: crate::preview_table_row::Action,
+    ) -> Task<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.edit_preview_table_row(&target, action) {
+            self.status_message = format!("{action} Source table body row {}", target.row);
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message =
+                "Table row target is stale, unsupported or exceeds limits; document kept".into();
+            Task::none()
+        }
+    }
+
     pub(super) fn align_preview_table(
         &mut self,
         target: crate::preview_table_edit::Target,

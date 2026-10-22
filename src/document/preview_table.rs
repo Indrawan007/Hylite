@@ -5,8 +5,8 @@ use pulldown_cmark::{Event, Tag, TagEnd};
 use std::ops::Range;
 
 pub const MAX_COLUMNS: usize = crate::preview_table_edit::MAX_COLUMNS;
-pub const MAX_ROWS: usize = 128; // Includes the header.
-pub const MAX_CELLS: usize = 512; // Includes empty/padded cells and header.
+pub const MAX_ROWS: usize = crate::preview_table_row::MAX_ROWS; // Includes the header.
+pub const MAX_CELLS: usize = crate::preview_table_row::MAX_CELLS; // Includes empty/padded cells and header.
 
 pub use crate::preview_table_edit::Alignment;
 
@@ -29,6 +29,7 @@ pub struct Table {
     pub rows: Vec<TableRow>,
     /// Canonical root delimiter tokens only; nested/fallback tables stay inert.
     pub delimiters: Option<Vec<Range<usize>>>,
+    pub body_lines: Option<Vec<Range<usize>>>,
 }
 
 fn fallback(source: &str, range: Range<usize>) -> Block {
@@ -104,7 +105,7 @@ pub(super) fn parse(
             pulldown_cmark::Alignment::Right => Alignment::Right,
         })
         .collect();
-    let delimiters = root
+    let delimiters: Option<Vec<Range<usize>>> = root
         .then(|| crate::preview_table_edit::delimiters(source, &range, columns))
         .flatten()
         .filter(|tokens| {
@@ -114,11 +115,21 @@ pub(super) fn parse(
                 .eq(alignments.iter().copied())
         })
         .map(|tokens| tokens.into_iter().map(|token| token.source).collect());
+    let body_lines = delimiters.as_ref().and_then(|_| {
+        crate::preview_table_row::lines(source, &range, columns).filter(|lines| {
+            lines.len() + 1 == rows.len()
+                && lines
+                    .iter()
+                    .zip(rows.iter().skip(1))
+                    .all(|(line, row)| line.start <= row.source.start && row.source.end <= line.end)
+        })
+    });
     super::node(
         Kind::Table(Table {
             alignments,
             rows,
             delimiters,
+            body_lines,
         }),
         range,
         vec![],
