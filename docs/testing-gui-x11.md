@@ -632,3 +632,33 @@ Last-column protection diuji model/Document/controller, bukan menu absence pixel
 assertion. Middle/header-only/empty/12kolom UI, large menu scroll/keyboard,
 Find/Go-to physical focus dan Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap
 manual. Bukan whole-table delete/inline WYSIWYG. [Kontrak dan batas Stage6l](testing-stage6l.md).
+
+## Stage 6m: bounded body-row movement, suite privat kesepuluh
+
+`--suite table-row-move` memakai private Xvfb/app/XDG/env/clipboard sendiri,
+alarm180s/step5min, job45min tetap. Semua20 old exercise bodies AST-identical
+terhadap69d0ede; sembilan gate lama utuh tanpa perubahan bytes/koordinat/refocus/
+deadline/retry/runtime hooks. Dua helper baru mengunci independent full raw lines/
+selected-row caret/four-click/Undo/no-refocus/exit serta exclusive dispatch;
+private DISPLAY guard mencakup sepuluh suite sebelum subprocess.
+
+[CI 39872957659](https://github.com/Indrawan007/Hylite/actions/runs/39872957659),
+`27da9ae`, **success**, **716 Cargo /257 strict core (subset) /43 Python**,
+22 Oktober23:43:37 UTC /23 Oktober2026 Makassar. New suite **11 checks** =10
+exact Source Copy +natural clean Close0. Preview Row1 Move down menukar whole
+raw Unicode/markup/escaped pipe/entity/indent line dengan ragged body neighbor,
+header/alignment/other bytes utuh. Satu Undo/Redo memulihkan original/moved order.
+Split Row2 Move up lalu native X masuk ke moved row physical start tanpa Source
+refocus. Undo typing/move/paste terpisah sampai welcome clean. Move choices
+appended setelah seluruh old prefix; boundary actions tidak ditawarkan, tanpa
+width/font/action-bar geometry change. Header/bounds/identical no-op protection
+diuji unit, bukan menu absence pixel/runtime assertion.
+
+Total **217 GUI =116+9+9+9+14+16+11+11+11+11** =194 clipboard (185 Source
++9 draft),12 title,11 natural exits. Artifact `12467486534`,2.335.915 bytes, belum
+expired saat diperiksa; screenshot belum direview visual. Evidence
+`table-row-move/row-move-preview.png` / `row-move-split.png` bukan pixel/glyph
+oracle. Middle/3+body/1kolom/12kolom/3spasi/trailing-tab UI, no-op/query/Go-to
+physical focus, large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/
+RTL/HiDPI/GPU tetap manual. Bukan header/column move/drag atau inline WYSIWYG.
+[Kontrak dan batas Stage6m](testing-stage6m.md).

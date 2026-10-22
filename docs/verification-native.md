@@ -1,6 +1,33 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6l terbaru — explicit atomic column deletion
+## Stage 6m terbaru — bounded raw body-row moves
+
+[CI 39872957659](https://github.com/Indrawan007/Hylite/actions/runs/39872957659),
+`27da9ae2fa9238324a65abae930bed1fd819b759`, **success**, watch exit0,
+job `120151569350`,22 Oktober2026 23:37:02–23:43:37 UTC /23 Oktober Makassar.
+Format/strict Clippy/native debug build, **716 Cargo**, **257 strict core**
+(subset), **43 Python**, sepuluh suite Xvfb **116+9+9+9+14+16+11+11+11+11 GUI**
+lulus. Total **217 GUI** =194 clipboard (185 Source +9 draft),12 title,11 natural
+exits. Artifact `12467486534`,2.335.915 bytes, belum expired saat diperiksa;
+screenshot belum direview visual.
+
+Move suite membuktikan Preview Move down dan Split Move up menukar whole raw
+body lines, UTF-8/markup/escaped pipe/entity/indent/ragged/header/suffix/tab utuh,
+one-step Preview Undo/Redo, Source focus/caret di moved physical row start lewat
+native X tanpa refocus, separate typing/move/paste history dan natural Close0.
+22 Rust baru mencakup no-wrap/header bounds, identical raw no-op/redo preservation,
+cold/stale/forged/nested/literal/EOF/fallback/growth caps, parser preflight, fresh
+moved-cell edit, save/checkpoint/modal/file/search/logical Go-to context.
+
+Semua20 old exercise bodies AST-identical; tidak melonggarkan oracle/koordinat/
+deadline/refocus. Runner kesepuluh tetap alarm180s/step5min dan job45min. CI docs6l
+39872209785 juga success. Full parse/reconstruction/history O(n), bukan speedup.
+Tidak ada header/column movement, drag/bulk/multi-row selection atau inline
+WYSIWYG. Middle/3+body/1kolom/12kolom/3spasi UI, physical no-op/query/Go-to focus,
+large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap
+manual. [Kontrak dan batas Stage6m](testing-stage6m.md).
+
+## Stage 6l — explicit atomic column deletion
 
 [CI 39871210748](https://github.com/Indrawan007/Hylite/actions/runs/39871210748),
 `492669883a071d59258c94e8f329c3f273148eea`, **success**, watch exit0,
@@ -398,6 +425,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6l](testing-stage6l.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6m](testing-stage6m.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
