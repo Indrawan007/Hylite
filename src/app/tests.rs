@@ -2106,3 +2106,133 @@ fn setext_save_ack_during_preview_history_marks_only_the_snapshot_written() {
     assert!(!app.document.is_dirty());
     assert_eq!(app.document.buffer_text(), "title\n---\n");
 }
+
+fn app_batch_target(app: &Hylite, checked: bool) -> crate::preview_task::BatchTarget {
+    let _ = app.document.preview_blocks();
+    app.document.preview_task_batch_target(checked).unwrap()
+}
+
+#[test]
+fn batch_actions_are_disabled_without_eligible_model_tasks_in_source_or_at_the_cap() {
+    let mut app = app();
+    app.document = Document::new("- [ ] task\n");
+    assert!(app.preview_task_batch_action(true).is_none()); // Source must not warm a model.
+    assert!(app.document.preview_task_batch_target(true).is_none());
+    app.mode = EditMode::Preview;
+    assert!(matches!(
+        app.preview_task_batch_action(true),
+        Some(Message::BatchPreviewTasks(_))
+    ));
+    assert!(app.preview_task_batch_action(false).is_none());
+    app.document = Document::new("- [X] task\n");
+    assert!(app.preview_task_batch_action(true).is_none()); // Capital X isn't normalized.
+    assert!(app.preview_task_batch_action(false).is_some());
+    app.document = Document::new(&"- [ ] task\n".repeat(crate::preview_task::MAX_BATCH_TASKS + 1));
+    assert!(app.preview_task_batch_action(true).is_none());
+    assert!(app.preview_task_batch_action(false).is_none());
+}
+
+#[test]
+fn batch_guards_reject_source_prompt_open_but_allow_save_export_without_consuming_tokens() {
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("- [ ] a\n- [X] b\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let target = app_batch_target(&app, true);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case >= 2 {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let operation = app.operations.active();
+        let before = app.document.snapshot();
+        assert_eq!(app.preview_task_batch_action(true).is_some(), case >= 3);
+        let _ = app.update(Message::BatchPreviewTasks(target));
+        assert_eq!(app.operations.active(), operation);
+        assert_eq!(
+            app.document.buffer_text(),
+            if case < 3 {
+                "- [ ] a\n- [X] b\n"
+            } else {
+                "- [x] a\n- [X] b\n"
+            }
+        );
+        assert_eq!(app.document.is_dirty(), case >= 3);
+        if case < 3 {
+            assert_eq!(app.document.snapshot(), before);
+        }
+    }
+}
+
+#[test]
+fn batch_preview_history_is_one_step_and_does_not_enable_general_preview_typing() {
+    let mut app = app();
+    app.document = Document::new("- [ ] a\n- [X] b\n");
+    app.mode = EditMode::Preview;
+    let target = app_batch_target(&app, true);
+    let _ = app.update(Message::BatchPreviewTasks(target.clone()));
+    assert_eq!(app.mode, EditMode::Preview);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::BatchPreviewTasks(target)); // Stale, cannot add another step.
+    edit(&mut app);
+    let _ = app.update(Message::FormatBlock(
+        crate::block_edit::BlockStyle::TaskList,
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), "- [ ] a\n- [X] b\n");
+    assert!(!app.document.can_undo() && !app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(app.document.buffer_text(), "- [x] a\n- [X] b\n");
+}
+
+#[test]
+fn split_batch_refreshes_find_without_closing_or_replacing_the_query() {
+    let mut app = app();
+    app.document = Document::new("- [ ] a\n- [ ] b\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("[ ]".into()));
+    assert_eq!(app.search.count(), 2);
+    let target = app_batch_target(&app, true);
+    let _ = app.update(Message::BatchPreviewTasks(target));
+    assert!(app.search.open);
+    assert_eq!(app.search.query, "[ ]");
+    assert_eq!(app.search.count(), 0);
+    assert_eq!(app.mode, EditMode::Split);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "- [ ] a\n- [ ] b\n");
+}
+
+#[test]
+fn batch_save_ack_during_preview_undo_keeps_current_state_dirty_until_redo() {
+    let mut app = app();
+    app.document = Document::new("- [ ] a\n- [X] b\n");
+    app.mode = EditMode::Preview;
+    let target = app_batch_target(&app, true);
+    let _ = app.update(Message::BatchPreviewTasks(target));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("tasks.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "- [ ] a\n- [X] b\n");
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "- [x] a\n- [X] b\n");
+}

@@ -721,8 +721,79 @@ def exercise_lifecycle(desktop, artifacts, binary):
     desktop.expect_native_exit("Native clean Close exits normally without force-kill")
 
 
+def exercise_task_batch(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("- [ ] café🙂 **raw**  \n- [X] keep\n> - [ ] quoted\n"
+              "- [\t] unsupported\n\n```md\n- [ ] literal\n```\n\t").encode("utf-8")
+    checked = source.replace(b"- [ ]", b"- [x]", 1).replace(b"> - [ ]", b"> - [x]", 1)
+    cleared = checked.replace(b"- [x]", b"- [ ]", 1).replace(b"[X]", b"[ ]", 1).replace(b"> - [x]", b"> - [ ]", 1)
+    sentinel = cleared.replace(b"> - [ ]", b"> - [ X]", 1)
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Batch suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Batch fixture: mixed case, Unicode, unsupported tab and fenced literal", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")  # Preview -> Split; logical Source focus.
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")  # Split -> Source.
+        desktop.key("ctrl+shift+m")  # Source -> Preview.
+
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "185", "62", "click", "1")
+    time.sleep(0.25)
+    inspect("Check tasks changes only supported unchecked markers and preserves uppercase X", checked)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo restores the complete batch fixture byte-exact", source)
+    back_to_preview()
+    desktop.key("ctrl+shift+z")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "185", "62", "click", "1")
+    time.sleep(0.25)  # Already checked: disabled/no-op must add no history.
+    desktop.screenshot(artifacts / "batch-preview.png")
+    inspect("Preview batch Redo and already-checked no-op preserve exact bytes", checked)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "305", "62", "click", "1")
+    time.sleep(0.25)
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split Clear tasks restores Source keyboard focus after last changed marker byte", sentinel, refocus=False)
+    desktop.screenshot(artifacts / "batch-split.png")
+    desktop.key("ctrl+z")  # Native sentinel only.
+    desktop.key("ctrl+z")  # Clear batch only, including capital X restoration.
+    desktop.expect_copy("Clear batch and native typing are separate Undo transactions", checked, refocus=False)
+    desktop.key("ctrl+z")  # Check batch only.
+    desktop.key("ctrl+z")  # Source paste, no extra no-op/render history.
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Batch Undo returns exact clean welcome with no extra steps", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Batch suite clean client Close exits naturally")
+
+
+def exercise_suite(desktop, artifacts, binary, suite="regression"):
+    if suite == "regression":
+        exercise(desktop, artifacts)
+        exercise_navigation(desktop, artifacts)
+        exercise_preview(desktop, artifacts)
+        exercise_tables(desktop, artifacts)
+        exercise_preview_cache(desktop, artifacts)
+        exercise_preview_reveal(desktop, artifacts)
+        exercise_cell_reveal(desktop, artifacts)
+        exercise_task_toggle(desktop, artifacts)
+        exercise_preview_task_history(desktop, artifacts)
+        exercise_preview_heading(desktop, artifacts)
+        exercise_preview_setext(desktop, artifacts)
+        exercise_lifecycle(desktop, artifacts, binary)
+    elif suite == "task-batch":
+        exercise_task_batch(desktop, artifacts)
+    else:
+        raise ValueError(f"Unknown GUI suite: {suite}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--suite", choices=("regression", "task-batch"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -750,20 +821,10 @@ def main():
             try:
                 app = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
                 desktop = Desktop(app, env, log)
-                exercise(desktop, artifacts)
-                exercise_navigation(desktop, artifacts)
-                exercise_preview(desktop, artifacts)
-                exercise_tables(desktop, artifacts)
-                exercise_preview_cache(desktop, artifacts)
-                exercise_preview_reveal(desktop, artifacts)
-                exercise_cell_reveal(desktop, artifacts)
-                exercise_task_toggle(desktop, artifacts)
-                exercise_preview_task_history(desktop, artifacts)
-                exercise_preview_heading(desktop, artifacts)
-                exercise_preview_setext(desktop, artifacts)
-                exercise_lifecycle(desktop, artifacts, binary)
+                exercise_suite(desktop, artifacts, binary, args.suite)
                 status = "passed"
-                print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
+                label = "smoke" if args.suite == "regression" else "task-batch"
+                print(f"GUI X11/tiny-skia {label} passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
             except Exception as error:
                 error_message = str(error)
                 if desktop:
@@ -777,10 +838,10 @@ def main():
                 if desktop:
                     desktop.cleanup()
                 (artifacts / "summary.json").write_text(json.dumps({
-                    "status": status, "backend": "X11 / Xvfb / tiny-skia",
+                    "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else "Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

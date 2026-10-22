@@ -76,8 +76,8 @@ impl Hylite {
         &mut self,
         target: crate::preview_task::Target,
     ) -> Task<Message> {
-        // Only this explicit, provenance-validated preview command may mutate
-        // Source from Preview. Normal native/formatting guards stay unchanged.
+        // Explicit provenance-validated commands can mutate Source from Preview.
+        // Normal native/formatting guards stay unchanged.
         if self.mode == EditMode::Source || !self.navigation_allowed() {
             return Task::none();
         }
@@ -87,6 +87,39 @@ impl Hylite {
             self.restore_input_focus()
         } else {
             self.status_message = "Task target is stale or unsupported; document kept".into();
+            Task::none()
+        }
+    }
+
+    pub(crate) fn preview_task_batch_action(&self, checked: bool) -> Option<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return None;
+        }
+        let _ = self.document.preview_blocks();
+        self.document
+            .preview_task_batch_target(checked)
+            .map(Message::BatchPreviewTasks)
+    }
+
+    pub(super) fn batch_preview_tasks(
+        &mut self,
+        target: crate::preview_task::BatchTarget,
+    ) -> Task<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.apply_preview_task_batch(&target) {
+            self.status_message = if target.checked {
+                "Canonical tasks checked in one Source transaction"
+            } else {
+                "Canonical tasks cleared in one Source transaction"
+            }
+            .into();
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message =
+                "Task batch is stale, incomplete, unsupported or a no-op; document kept".into();
             Task::none()
         }
     }

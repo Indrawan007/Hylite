@@ -123,6 +123,68 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewTask)
     }
 
+    fn canonical_preview_tasks(&self) -> Option<Vec<crate::preview_task::Target>> {
+        fn visit(
+            blocks: &[Block],
+            snapshot: Snapshot,
+            out: &mut Vec<crate::preview_task::Target>,
+        ) -> Option<()> {
+            for block in blocks {
+                if let preview_model::Kind::Item(Some(task)) = &block.kind {
+                    if let Some(marker) = &task.source {
+                        if out.len() == crate::preview_task::MAX_BATCH_TASKS {
+                            return None;
+                        }
+                        out.push(crate::preview_task::Target {
+                            snapshot,
+                            item: block.source.clone(),
+                            marker: marker.clone(),
+                            checked: task.checked,
+                        });
+                    }
+                }
+                visit(&block.children, snapshot, out)?;
+            }
+            Some(())
+        }
+        let mut tasks = Vec::new();
+        visit(self.preview.get()?, self.snapshot, &mut tasks)?;
+        Some(tasks)
+    }
+
+    pub(crate) fn preview_task_batch_target(
+        &self,
+        checked: bool,
+    ) -> Option<crate::preview_task::BatchTarget> {
+        let tasks = self.canonical_preview_tasks()?;
+        tasks.iter().any(|task| task.checked != checked).then_some(
+            crate::preview_task::BatchTarget {
+                snapshot: self.snapshot,
+                tasks,
+                checked,
+            },
+        )
+    }
+
+    pub(crate) fn apply_preview_task_batch(
+        &mut self,
+        target: &crate::preview_task::BatchTarget,
+    ) -> bool {
+        if target.snapshot != self.snapshot
+            || self.canonical_preview_tasks().as_ref() != Some(&target.tasks)
+        {
+            return false;
+        }
+        let Some(change) =
+            crate::preview_task::plan_batch(&self.buffer_text(), self.snapshot, target)
+        else {
+            return false;
+        };
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewTask)
+    }
+
     pub(crate) fn adjust_preview_heading(
         &mut self,
         target: &crate::preview_heading::Target,
@@ -562,3 +624,7 @@ mod preview_heading_tests;
 #[cfg(test)]
 #[path = "preview_setext_tests.rs"]
 mod preview_setext_tests;
+
+#[cfg(test)]
+#[path = "preview_task_batch_tests.rs"]
+mod preview_task_batch_tests;

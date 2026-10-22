@@ -5,7 +5,7 @@ use crate::block_edit::BlockStyle;
 use crate::commands::Message;
 use crate::editor::EditMode;
 use crate::text_edit::InlineStyle;
-use iced::widget::{button, container, row, scrollable, text};
+use iced::widget::{button, container, row, scrollable, text, tooltip};
 use iced::{Element, Length};
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
@@ -33,6 +33,20 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let actions = row![
         button("Undo").on_press_maybe(history_action(false)),
         button("Redo").on_press_maybe(history_action(true)),
+        tooltip(
+            button("Check tasks")
+                .width(112)
+                .on_press_maybe(app.preview_task_batch_action(true)),
+            "Canonical tasks only · max 1024 · no-op disabled",
+            tooltip::Position::Bottom
+        ),
+        tooltip(
+            button("Clear tasks")
+                .width(112)
+                .on_press_maybe(app.preview_task_batch_action(false)),
+            "Canonical tasks only · max 1024 · no-op disabled",
+            tooltip::Position::Bottom
+        ),
         button("Find").on_press(Message::OpenFind(false)),
         button("Go to Line").on_press_maybe(app.navigation_allowed().then_some(Message::OpenGoTo)),
         button("Replace").on_press(Message::OpenFind(true)),

@@ -16,7 +16,7 @@ pub struct Record {
 #[derive(Debug, Clone, Copy)]
 pub enum EditKind {
     Atomic,
-    /// Only the validated preview-task transaction path assigns this kind.
+    /// Only validated single/batch preview-task transaction paths assign this kind.
     PreviewTask,
     /// Only the authenticated root ATX heading transaction path assigns this.
     PreviewHeading,

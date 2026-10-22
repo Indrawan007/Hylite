@@ -1,4 +1,5 @@
 """Unit tests for smoke-test safety/assertions; these do NOT exercise a GUI."""
+import contextlib
 import importlib.util
 import io
 import os
@@ -263,6 +264,64 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(keys.count("ctrl+shift+z"), 1)
         desktop.type_ascii.assert_called_once_with("X")
         self.assertEqual(desktop.screenshot.call_count, 2)
+
+    def test_task_batch_probe_checks_exact_bytes_history_noop_and_focus_without_refocus(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_task_batch(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        checked = source.replace(b"- [ ]", b"- [x]", 1).replace(b"> - [ ]", b"> - [x]", 1)
+        cleared = checked.replace(b"- [x]", b"- [ ]", 1).replace(b"[X]", b"[ ]", 1).replace(b"> - [x]", b"> - [ ]", 1)
+        sentinel = cleared.replace(b"> - [ ]", b"> - [ X]", 1)
+        self.assertTrue(source.endswith(b"\n\t"))
+        self.assertIn(b"[\t] unsupported", source)
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies), 8)
+        self.assertEqual([call.args[1] for call in copies[1:7]], [source, checked, source, checked, sentinel, checked])
+        self.assertEqual(copies[0].args[1], copies[-1].args[1])
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "185", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "185", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "305", "62", "click", "1"),
+        ])
+        self.assertEqual([call.args[0] for call in desktop.key.call_args_list].count("ctrl+z"), 5)
+        desktop.type_ascii.assert_called_once_with("X")
+        desktop.find_window.assert_called_once_with()
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
+    def test_default_regression_dispatch_preserves_every_old_scenario_and_batch_is_separate(self):
+        names = ["exercise", "exercise_navigation", "exercise_preview", "exercise_tables",
+                 "exercise_preview_cache", "exercise_preview_reveal", "exercise_cell_reveal",
+                 "exercise_task_toggle", "exercise_preview_task_history", "exercise_preview_heading",
+                 "exercise_preview_setext", "exercise_lifecycle"]
+        seen = []
+        with contextlib.ExitStack() as stack:
+            mocks = {name: stack.enter_context(patch.object(gui, name, side_effect=lambda *args, n=name: seen.append(n)))
+                     for name in names + ["exercise_task_batch"]}
+            desktop, artifacts, binary = Mock(), Path("/unused"), Path("/unused/binary")
+            gui.exercise_suite(desktop, artifacts, binary)
+            self.assertEqual(seen, names)
+            mocks["exercise_lifecycle"].assert_called_once_with(desktop, artifacts, binary)
+            mocks["exercise_task_batch"].assert_not_called()
+            seen.clear()
+            gui.exercise_suite(desktop, artifacts, binary, "task-batch")
+            self.assertEqual(seen, ["exercise_task_batch"])
+            with self.assertRaises(ValueError):
+                gui.exercise_suite(desktop, artifacts, binary, "unknown")
+
+    def test_both_suites_refuse_nonprivate_displays_before_starting_a_process(self):
+        for suite in ["regression", "task-batch"]:
+            with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
+                 patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
+                 patch("sys.stderr", new_callable=io.StringIO), \
+                 patch.object(gui.subprocess, "Popen") as start:
+                with self.assertRaises(SystemExit) as error:
+                    gui.main()
+                self.assertEqual(error.exception.code, 2)
+                start.assert_not_called()
 
     def xlib_probe(self, protocols):
         connection = Mock()

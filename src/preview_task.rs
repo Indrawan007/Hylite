@@ -45,6 +45,50 @@ pub fn plan(source: &str, current: Snapshot, target: &Target) -> Option<TextChan
     })
 }
 
+/// Hard cap: reject the whole batch, never silently apply only a prefix.
+pub const MAX_BATCH_TASKS: usize = 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BatchTarget {
+    pub snapshot: Snapshot,
+    /// Complete canonical task list in model/source order, including no-ops.
+    pub tasks: Vec<Target>,
+    pub checked: bool,
+}
+
+/// Document must authenticate the COMPLETE list against its warm cached model.
+/// Only marker bytes change, even though one replacement may span many blocks.
+pub fn plan_batch(source: &str, current: Snapshot, target: &BatchTarget) -> Option<TextChange> {
+    if target.snapshot != current || target.tasks.is_empty() || target.tasks.len() > MAX_BATCH_TASKS
+    {
+        return None;
+    }
+    let mut previous_end = 0;
+    let mut changes = Vec::new();
+    for task in &target.tasks {
+        let change = plan(source, current, task)?;
+        if task.marker.start < previous_end {
+            return None;
+        }
+        previous_end = task.marker.end;
+        if task.checked != target.checked {
+            changes.push(change.range.start);
+        }
+    }
+    let start = *changes.first()?;
+    let end = changes.last()?.checked_add(1)?;
+    let mut replacement = source.get(start..end)?.as_bytes().to_vec();
+    for at in changes {
+        replacement[at - start] = if target.checked { b'x' } else { b' ' };
+    }
+    let replacement = String::from_utf8(replacement).ok()?;
+    Some(TextChange {
+        range: start..end,
+        caret: replacement.len(),
+        replacement,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,3 +207,7 @@ mod tests {
         assert!(plan(source, Snapshot::default(), &target(source, false)).is_some());
     }
 }
+
+#[cfg(test)]
+#[path = "preview_task_batch_tests.rs"]
+mod batch_tests;
