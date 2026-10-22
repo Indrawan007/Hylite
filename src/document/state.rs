@@ -273,6 +273,65 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewTable)
     }
 
+    pub(crate) fn edit_preview_table_column(
+        &mut self,
+        target: &crate::preview_table_column::Target,
+        action: crate::preview_table_column::Action,
+    ) -> bool {
+        if target.snapshot != self.snapshot
+            || !self.preview.get().is_some_and(|blocks| {
+                blocks.iter().any(|block| {
+                    let preview_model::Kind::Table(table) = &block.kind else {
+                        return false;
+                    };
+                    table.insertable_columns
+                        && block.source == target.table
+                        && table.rows.len() == target.rows
+                        && table.alignments.len() == target.columns
+                        && table
+                            .delimiters
+                            .as_ref()
+                            .and_then(|markers| markers.get(target.column))
+                            == Some(&target.marker)
+                        && table
+                            .editable_cells
+                            .as_ref()
+                            .and_then(|rows| rows.first())
+                            .and_then(|row| row.get(target.column))
+                            == Some(&target.header)
+                })
+            })
+        {
+            return false;
+        }
+        let source = self.buffer_text();
+        let Some(change) =
+            crate::preview_table_column::plan(&source, self.snapshot, target, action)
+        else {
+            return false;
+        };
+        let mut candidate = source;
+        candidate.replace_range(change.range.clone(), &change.replacement);
+        // Preflight before any history/revision mutation. A multi-line insertion
+        // must still be one complete canonical root with the expected dimensions.
+        let expected = target.table.start..target.table.start + change.replacement.len();
+        if !preview_model::parse(&candidate).iter().any(|block| {
+            let preview_model::Kind::Table(table) = &block.kind else {
+                return false;
+            };
+            block.source == expected
+                && table.rows.len() == target.rows
+                && table.alignments.len() == target.columns + 1
+                && table.editable_cells.is_some()
+                && table.delimiters.is_some()
+        }) {
+            return false;
+        }
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewTable)
+    }
+
     pub(crate) fn edit_preview_table_row(
         &mut self,
         target: &crate::preview_table_row::Target,
@@ -841,6 +900,10 @@ mod preview_task_batch_tests;
 #[cfg(test)]
 #[path = "preview_table_edit_tests.rs"]
 mod preview_table_edit_tests;
+
+#[cfg(test)]
+#[path = "preview_table_column_tests.rs"]
+mod preview_table_column_tests;
 
 #[cfg(test)]
 #[path = "preview_table_row_tests.rs"]

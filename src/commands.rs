@@ -47,6 +47,10 @@ pub enum Message {
         crate::preview_table_row::Target,
         crate::preview_table_row::Action,
     ),
+    EditPreviewTableColumn(
+        crate::preview_table_column::Target,
+        crate::preview_table_column::Action,
+    ),
     AlignPreviewTable(
         crate::preview_table_edit::Target,
         crate::preview_table_edit::Alignment,

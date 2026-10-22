@@ -156,6 +156,9 @@ impl Hylite {
             Message::EditPreviewTableRow(target, action) => {
                 self.edit_preview_table_row(target, action)
             }
+            Message::EditPreviewTableColumn(target, action) => {
+                self.edit_preview_table_column(target, action)
+            }
             Message::AlignPreviewTable(target, desired) => {
                 self.align_preview_table(target, desired)
             }

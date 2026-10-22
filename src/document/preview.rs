@@ -313,6 +313,10 @@ fn setext_action(
 enum TableActionChoice {
     Alignment(TableAlignmentChoice),
     Cell(crate::preview_cell::Target),
+    Column(
+        crate::preview_table_column::Target,
+        crate::preview_table_column::Action,
+    ),
     Row(
         crate::preview_table_row::Target,
         crate::preview_table_row::Action,
@@ -323,6 +327,7 @@ impl TableActionChoice {
         match self {
             Self::Alignment(choice) => Message::AlignPreviewTable(choice.target, choice.desired),
             Self::Cell(target) => Message::OpenPreviewCell(target),
+            Self::Column(target, action) => Message::EditPreviewTableColumn(target, action),
             Self::Row(target, action) => Message::EditPreviewTableRow(target, action),
         }
     }
@@ -332,6 +337,7 @@ impl std::fmt::Display for TableActionChoice {
         match self {
             Self::Alignment(choice) => choice.fmt(f),
             Self::Cell(target) => write!(f, "Cell {}:{}: Edit", target.row, target.column + 1),
+            Self::Column(target, action) => write!(f, "Column {}: {action}", target.column + 1),
             Self::Row(target, action) => write!(f, "Row {}: {action}", target.row),
         }
     }
@@ -415,6 +421,32 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
                         },
                         action,
                     ));
+                }
+            }
+        }
+    }
+    // Column insertion is a tail after the entire Stage 6j menu prefix.
+    if table.insertable_columns {
+        if let (Some(rows), Some(markers)) = (&table.editable_cells, &table.delimiters) {
+            if let Some(header) = rows.first() {
+                for (column, payload) in header.iter().enumerate() {
+                    for action in [
+                        crate::preview_table_column::Action::InsertBefore,
+                        crate::preview_table_column::Action::InsertAfter,
+                    ] {
+                        choices.push(TableActionChoice::Column(
+                            crate::preview_table_column::Target {
+                                snapshot,
+                                table: block.source.clone(),
+                                column,
+                                columns: table.alignments.len(),
+                                rows: table.rows.len(),
+                                header: payload.clone(),
+                                marker: markers[column].clone(),
+                            },
+                            action,
+                        ));
+                    }
                 }
             }
         }
@@ -797,7 +829,7 @@ mod tests {
             state_id: 3,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 14);
+        assert_eq!(choices.len(), 18);
         assert_eq!(
             &choices[..8],
             table_action_choices(&blocks[0], snapshot).as_slice()
@@ -846,7 +878,7 @@ mod tests {
             state_id: 7,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 14);
+        assert_eq!(choices.len(), 18);
         assert_eq!(
             choices[..12]
                 .iter()
@@ -925,6 +957,117 @@ mod tests {
                 format!("|{}\n", "x|".repeat(columns)).repeat(body)
             );
             check(&super::super::preview_model::parse(&source));
+        }
+    }
+    #[test]
+    fn column_insert_choices_append_after_entire_6j_prefix_with_authenticated_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 11,
+            state_id: 5,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 18);
+        assert_eq!(
+            choices[..14]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Cell 0:1: Edit",
+                "Cell 0:2: Edit",
+                "Cell 1:1: Edit",
+                "Cell 1:2: Edit",
+                "Row 1: Insert blank before",
+                "Row 1: Insert blank after",
+            ]
+        );
+        for column in 0..2 {
+            for (offset, action) in [
+                crate::preview_table_column::Action::InsertBefore,
+                crate::preview_table_column::Action::InsertAfter,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let choice = &choices[14 + column * 2 + offset];
+                let TableActionChoice::Column(target, a) = choice else {
+                    panic!("column")
+                };
+                assert_eq!(*a, action);
+                assert_eq!(target.snapshot, snapshot);
+                assert_eq!(target.table, 0..18);
+                assert_eq!(target.column, column);
+                assert_eq!((target.rows, target.columns), (2, 2));
+                assert_eq!(target.header, 1 + column * 2..2 + column * 2);
+                assert_eq!(target.marker, 7 + column * 2..8 + column * 2);
+                assert_eq!(
+                    choice.to_string(),
+                    format!("Column {}: {action}", column + 1)
+                );
+                assert!(
+                    matches!(choice.clone().message(), Message::EditPreviewTableColumn(_, a) if a == action)
+                );
+            }
+        }
+    }
+    #[test]
+    fn column_insert_metadata_excludes_ragged_eof_nonpipe_delimiter_nested_and_limits() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                if let Kind::Table(table) = &block.kind {
+                    assert!(!table.insertable_columns);
+                }
+                assert!(!table_picker_choices(block, Snapshot::default())
+                    .iter()
+                    .any(|c| matches!(c, TableActionChoice::Column(..))));
+                check(&block.children);
+            }
+        }
+        for source in [
+            "|a|b|\n|-|-|\n|x|\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+        for (columns, body) in [(12, 1), (4, 127), (13, 1)] {
+            let source = format!(
+                "|{}\n|{}\n{}",
+                "a|".repeat(columns),
+                "---|".repeat(columns),
+                format!("|{}\n", "x|".repeat(columns)).repeat(body)
+            );
+            check(&super::super::preview_model::parse(&source));
+        }
+    }
+    #[test]
+    fn header_only_and_indented_canonical_tables_offer_column_insertion_without_body_anchor() {
+        for source in ["|a|\n|-|\n", "   |a|b|\n  |---|--:|\n |é|🙂|\n"] {
+            let blocks = super::super::preview_model::parse(source);
+            let Kind::Table(table) = &blocks[0].kind else {
+                panic!("table")
+            };
+            assert!(table.insertable_columns);
+            let choices = table_picker_choices(&blocks[0], Snapshot::default());
+            assert_eq!(
+                choices
+                    .iter()
+                    .filter(|c| matches!(c, TableActionChoice::Column(..)))
+                    .count(),
+                table.alignments.len() * 2
+            );
         }
     }
 }

@@ -43,3 +43,6 @@ mod preview_cell;
 mod preview_table_edit;
 #[path = "../src/preview_table_row.rs"]
 mod preview_table_row;
+
+#[path = "../src/preview_table_column.rs"]
+mod preview_table_column;

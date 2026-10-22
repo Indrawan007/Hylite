@@ -31,6 +31,8 @@ pub struct Table {
     pub delimiters: Option<Vec<Range<usize>>>,
     pub body_lines: Option<Vec<Range<usize>>>,
     pub editable_cells: Option<Vec<Vec<Range<usize>>>>,
+    /// Complete canonical LF lines and growth room for a blank column.
+    pub insertable_columns: bool,
 }
 
 fn fallback(source: &str, range: Range<usize>) -> Block {
@@ -135,6 +137,9 @@ pub(super) fn parse(
             })
         })
     });
+    let insertable_columns = editable_cells.is_some()
+        && crate::preview_table_column::can_insert(rows.len(), columns)
+        && crate::preview_table_column::full_lines(source, &range, columns, rows.len());
     super::node(
         Kind::Table(Table {
             alignments,
@@ -142,6 +147,7 @@ pub(super) fn parse(
             delimiters,
             body_lines,
             editable_cells,
+            insertable_columns,
         }),
         range,
         vec![],

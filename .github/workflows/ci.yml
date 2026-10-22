@@ -73,6 +73,9 @@ jobs:
       - name: Smoke test explicit blank table rows on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-insert --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-insert"
+      - name: Smoke test blank table columns on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-columns --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-columns"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

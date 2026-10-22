@@ -17,6 +17,7 @@ mod preview_cell;
 mod preview_heading;
 mod preview_navigation;
 mod preview_setext;
+mod preview_table_column;
 mod preview_table_edit;
 mod preview_table_row;
 mod preview_task;
