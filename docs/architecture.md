@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6i
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6j
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6i mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6j mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -499,3 +499,23 @@ Apply terdahulu. Enter/Apply-close dan Escape-Cancel lama tidak berubah. Title
 memperlihatkan row/column saat ini. Panel top-aligned/fixed control rows mencegah
 footer/error menggeser input/navigation, tanpa menyentuh main Preview bar. Suite
 GUI keenam privat mempertahankan lima gate lama utuh. [Kontrak dan bukti 6i](testing-stage6i.md).
+
+## Explicit blank body-row insertion (Stage 6j)
+
+`preview_table_row::Action::{InsertBefore,InsertAfter}` reuse exact current
+snapshot/root table/body-line authentication dari6g, kemudian insertion-only
+planner pada line.start/line.end. Anchor wajib real LF-terminated pipe-leading
+body row; header-only/noncanonical/nested/fallback/cold/stale ditolak. Growth cap
+sama dengan Duplicate diperiksa sebelum allocation:128 row termasuk header,
+12kolom,512sel. Row baru hanya indent0–3spasi anchor + pipe + `  |` per header
+column + LF. Tidak menyalin content ragged row, tidak serialize existing cells.
+
+Satu Atomic PreviewTable edge menginvalidasi cache lama; fresh parser metadata
+baru diperlukan untuk cell edit/navigasi berikutnya. Source caret di first blank
+cell (`insertion.start + indent + 2`), search refresh/logical focus dan pending
+Open/prompt/modal guards lama tetap. Save/Export token snapshot tidak berubah;
+Source typing sesudah insert tetap history barrier sendiri. Tidak ada auto-row
+creation pada Next atau sesi draft. Table picker menambahkan kedua action per
+body row **setelah semua opsi lama**, mempertahankan labels/index/menu bar height
+lama. Native suite ketujuh privat tidak mengganti enam gate terdahulu. [Kontrak,
+tes dan batas6j](testing-stage6j.md). Reconstruction/history O(n), bukan speedup.

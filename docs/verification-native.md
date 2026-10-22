@@ -1,6 +1,29 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6i terbaru — navigasi draft / explicit Apply & Next
+## Stage 6j terbaru — explicit blank body row before / after
+
+[CI 39865519334](https://github.com/Indrawan007/Hylite/actions/runs/39865519334),
+`d5e009b99bff9ee72e1317bd66c2809a033894e3`, **success**, job `120126611644`,
+22 Oktober2026 22:30:58–22:38:34 UTC /23 Oktober Makassar. Format, strict Clippy,
+native debug build, **649 Cargo**, **235 strict core** (subset), **37 Python**
+dan tujuh suite private Xvfb **116+9+9+9+14+16+11 GUI** lulus. Total **184 GUI**
+=164 clipboard (155 Source +9 draft),12 title,8 natural exits.
+
+Insert suite membuktikan canonical blank row before/after dengan indent anchor,
+exact old bytes, one-step Preview Undo/Redo, Split caret/focus di first blank
+cell lewat native X tanpa refocus, distinct typing/insert history, welcome clean
+dan natural close0.17 tes Rust baru mencakup forged/cold/stale/nested/caps,
+fresh parsed cells/edit sesudah insert, save/branch/modal/file/search semantics.
+Semua17 body exercise lama AST-identical; oracle/deadline/refocus utuh. Runner
+ketujuh tetap alarm180s/step5min, job45min. Artifact `12463529269`,2.049.263 bytes,
+belum expired saat diperiksa; screenshot belum direview visual.
+
+Tidak ada header-only insertion, auto-row/column operations, multi-cell selection,
+free Preview typing atau speedup. Large menu/keyboard, active query/Go-to focus,
+ragged/1kolom/12kolom/3spasi UI dan Arch/Hyprland/Wayland/IME/RTL/HiDPI/GPU belum
+diverifikasi desktop. [Kontrak dan batas Stage6j](testing-stage6j.md).
+
+## Stage 6i — navigasi draft / explicit Apply & Next
 
 [CI 39863457232](https://github.com/Indrawan007/Hylite/actions/runs/39863457232),
 `983b517e41407fda69432d54851d127e648e867c`, **success**, watch exit0.
@@ -320,6 +343,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6i](testing-stage6i.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris kosong root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6j](testing-stage6j.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

@@ -550,3 +550,29 @@ Run22 Oktober UTC /23 Oktober2026 Makassar. Header Apply & Next/EOF UI, query/
 Go-to focus runtime, menu keyboard, glyph/HiDPI/accessibility dan desktop Arch/
 Hyprland/Wayland/portal/GPU/IME/RTL tetap belum terverifikasi. Tidak ada shortcut
 baru atau inline WYSIWYG. [Kontrak dan batas Stage6i](testing-stage6i.md).
+
+## Stage 6j: explicit blank body-row insert, suite privat ketujuh
+
+`--suite table-insert` memakai private Xvfb/app/XDG/env/clipboard sendiri dengan
+alarm180s/step5min, job45min tetap. Semua17 exercise bodies lama AST-identical
+terhadap8440147; enam gate lama utuh, tidak mengubah bytes/koordinat/refocus dan
+tidak ada retry/runtime hook. Dua helper baru mengunci literal row oracle,
+four-click/undo sequence, no-refocus/natural exit dan exclusive dispatch. Private
+DISPLAY guard mencakup tujuh suite sebelum subprocess.
+
+[CI 39865519334](https://github.com/Indrawan007/Hylite/actions/runs/39865519334),
+`d5e009b`, **success**, **649 Cargo /235 strict core (subset) /37 Python**,
+22 Oktober22:38:34 UTC /23 Oktober2026 Makassar. New suite **11 checks** =10
+exact Source Copy +natural exit0. Preview Insert before/Undo/Redo menjaga raw
+UTF-8/markup/escaped pipe/entity/terminal tab; Split Insert after dan native X
+membuktikan Source caret/focus di first blank cell. Undo typing/insert/paste
+terpisah sampai welcome clean. Opsi baru appended setelah seluruh alignment/
+row/cell actions lama; ukurannya tidak mengubah bar height atau prefix index.
+
+Total **184 GUI =116+9+9+9+14+16+11** =164 clipboard (155 Source +9 draft),
+12 title,8 natural exits. Artifact `12463529269`,2.049.263 bytes, belum expired
+saat diperiksa; screenshot belum direview visual. Evidence `table-insert/`
+`insert-preview.png` / `insert-split.png` bukan pixel/glyph oracle. Large menu
+scroll/keyboard, ragged/1kolom/12kolom/3spasi UI, Find/Go-to physical focus dan
+Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU belum diverifikasi. Header-only
+insertion/auto-add row tidak tersedia. [Kontrak dan batas Stage6j](testing-stage6j.md).
