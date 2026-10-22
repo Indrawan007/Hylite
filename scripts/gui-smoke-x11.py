@@ -328,7 +328,7 @@ def exercise_preview(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Source -> Preview; no editable text widget.
     desktop.screenshot(artifacts / "preview-native.png")
     desktop.type_ascii("LEAK")
-    for key in ["Return", "ctrl+b", "ctrl+z"]:
+    for key in ["Return", "ctrl+shift+b", "ctrl+z"]:
         desktop.key(key)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "950", "650",
                     "click", "--repeat", "8", "--delay", "70", "5")

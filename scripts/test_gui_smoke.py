@@ -100,6 +100,17 @@ class SmokeHelperTests(unittest.TestCase):
             desktop.type_ascii("café")
         self.assertEqual(len(commands), 1)
 
+    def test_preview_probe_uses_editor_bold_not_global_sidebar_shortcut(self):
+        desktop = Mock(window="42")
+        gui.exercise_preview(desktop, Path("/unused-evidence"))
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertIn("ctrl+shift+b", keys)
+        self.assertNotIn("ctrl+b", keys)  # Ctrl+B hides Sidebar, changing Split geometry.
+        self.assertEqual(keys.count("ctrl+shift+m"), 3)
+        self.assertEqual(desktop.expect_copy.call_count, 4)
+        self.assertEqual(desktop.screenshot.call_count, 3)
+        self.assertEqual(desktop.expect_copy.call_args.args[1], (gui.ROOT / "src/welcome.md").read_bytes())
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]
