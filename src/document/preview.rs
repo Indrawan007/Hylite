@@ -451,6 +451,27 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
             }
         }
     }
+    // Destructive column actions are explicit and appended after all 6k choices.
+    if table.deletable_columns {
+        if let (Some(rows), Some(markers)) = (&table.editable_cells, &table.delimiters) {
+            if let Some(header) = rows.first() {
+                for (column, payload) in header.iter().enumerate() {
+                    choices.push(TableActionChoice::Column(
+                        crate::preview_table_column::Target {
+                            snapshot,
+                            table: block.source.clone(),
+                            column,
+                            columns: table.alignments.len(),
+                            rows: table.rows.len(),
+                            header: payload.clone(),
+                            marker: markers[column].clone(),
+                        },
+                        crate::preview_table_column::Action::Delete,
+                    ));
+                }
+            }
+        }
+    }
     choices
 }
 
@@ -829,7 +850,7 @@ mod tests {
             state_id: 3,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 18);
+        assert_eq!(choices.len(), 20);
         assert_eq!(
             &choices[..8],
             table_action_choices(&blocks[0], snapshot).as_slice()
@@ -878,7 +899,7 @@ mod tests {
             state_id: 7,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 18);
+        assert_eq!(choices.len(), 20);
         assert_eq!(
             choices[..12]
                 .iter()
@@ -968,7 +989,7 @@ mod tests {
             state_id: 5,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 18);
+        assert_eq!(choices.len(), 20);
         assert_eq!(
             choices[..14]
                 .iter()
@@ -1027,9 +1048,18 @@ mod tests {
                 if let Kind::Table(table) = &block.kind {
                     assert!(!table.insertable_columns);
                 }
-                assert!(!table_picker_choices(block, Snapshot::default())
-                    .iter()
-                    .any(|c| matches!(c, TableActionChoice::Column(..))));
+                assert!(
+                    !table_picker_choices(block, Snapshot::default())
+                        .iter()
+                        .any(|c| matches!(
+                            c,
+                            TableActionChoice::Column(
+                                _,
+                                crate::preview_table_column::Action::InsertBefore
+                                    | crate::preview_table_column::Action::InsertAfter
+                            )
+                        ))
+                );
                 check(&block.children);
             }
         }
@@ -1064,10 +1094,137 @@ mod tests {
             assert_eq!(
                 choices
                     .iter()
-                    .filter(|c| matches!(c, TableActionChoice::Column(..)))
+                    .filter(|c| matches!(
+                        c,
+                        TableActionChoice::Column(
+                            _,
+                            crate::preview_table_column::Action::InsertBefore
+                                | crate::preview_table_column::Action::InsertAfter
+                        )
+                    ))
                     .count(),
                 table.alignments.len() * 2
             );
+        }
+    }
+    #[test]
+    fn delete_column_choices_follow_all_18_old_choices_and_stamp_exact_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 20);
+        assert_eq!(
+            choices[..18]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Cell 0:1: Edit",
+                "Cell 0:2: Edit",
+                "Cell 1:1: Edit",
+                "Cell 1:2: Edit",
+                "Row 1: Insert blank before",
+                "Row 1: Insert blank after",
+                "Column 1: Insert before",
+                "Column 1: Insert after",
+                "Column 2: Insert before",
+                "Column 2: Insert after",
+            ]
+        );
+        for column in 0..2 {
+            let choice = &choices[18 + column];
+            let TableActionChoice::Column(target, action) = choice else {
+                panic!("delete")
+            };
+            assert_eq!(*action, crate::preview_table_column::Action::Delete);
+            assert_eq!(target.snapshot, snapshot);
+            assert_eq!(target.table, 0..18);
+            assert_eq!((target.rows, target.columns, target.column), (2, 2, column));
+            assert_eq!(target.header, 1 + column * 2..2 + column * 2);
+            assert_eq!(target.marker, 7 + column * 2..8 + column * 2);
+            assert_eq!(choice.to_string(), format!("Column {}: Delete", column + 1));
+            assert!(matches!(
+                choice.clone().message(),
+                Message::EditPreviewTableColumn(_, crate::preview_table_column::Action::Delete)
+            ));
+        }
+    }
+    #[test]
+    fn delete_column_choices_protect_last_column_and_unsupported_root_shapes() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                if let Kind::Table(table) = &block.kind {
+                    assert!(!table.deletable_columns);
+                }
+                assert!(
+                    !table_picker_choices(block, Snapshot::default())
+                        .iter()
+                        .any(|c| matches!(
+                            c,
+                            TableActionChoice::Column(
+                                _,
+                                crate::preview_table_column::Action::Delete
+                            )
+                        ))
+                );
+                check(&block.children);
+            }
+        }
+        for source in [
+            "|a|\n|-|\n",
+            "|  |\n|---|\n|  |\n",
+            "|a|b|\n|-|-|\n|x|\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn canonical_header_only_and_growth_caps_offer_delete_independently_of_insert() {
+        for source in [
+            "|a|b|\n|-|-|\n".to_owned(),
+            format!(
+                "|{}\n|{}\n|{}\n",
+                "h|".repeat(12),
+                "---|".repeat(12),
+                "x|".repeat(12)
+            ),
+            format!("|a|b|c|d|\n|-|-|-|-|\n{}", "|x|y|z|w|\n".repeat(127)),
+        ] {
+            let blocks = super::super::preview_model::parse(&source);
+            let Kind::Table(table) = &blocks[0].kind else {
+                panic!("table")
+            };
+            assert!(table.deletable_columns);
+            let choices = table_picker_choices(&blocks[0], Snapshot::default());
+            assert_eq!(
+                choices
+                    .iter()
+                    .filter(|c| matches!(
+                        c,
+                        TableActionChoice::Column(_, crate::preview_table_column::Action::Delete)
+                    ))
+                    .count(),
+                table.alignments.len()
+            );
+            if table.alignments.len() == 12 || table.rows.len() == 128 {
+                assert!(!table.insertable_columns);
+            }
         }
     }
 }

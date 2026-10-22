@@ -76,6 +76,9 @@ jobs:
       - name: Smoke test blank table columns on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-columns --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-columns"
+      - name: Smoke test table column deletion on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-column-delete --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-column-delete"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

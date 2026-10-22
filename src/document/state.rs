@@ -284,8 +284,10 @@ impl Document {
                     let preview_model::Kind::Table(table) = &block.kind else {
                         return false;
                     };
-                    table.insertable_columns
-                        && block.source == target.table
+                    (match action {
+                        crate::preview_table_column::Action::Delete => table.deletable_columns,
+                        _ => table.insertable_columns,
+                    }) && block.source == target.table
                         && table.rows.len() == target.rows
                         && table.alignments.len() == target.columns
                         && table
@@ -312,16 +314,21 @@ impl Document {
         };
         let mut candidate = source;
         candidate.replace_range(change.range.clone(), &change.replacement);
-        // Preflight before any history/revision mutation. A multi-line insertion
+        // Preflight before any history/revision mutation. A multi-line column edit
         // must still be one complete canonical root with the expected dimensions.
         let expected = target.table.start..target.table.start + change.replacement.len();
+        let columns = if action == crate::preview_table_column::Action::Delete {
+            target.columns - 1
+        } else {
+            target.columns + 1
+        };
         if !preview_model::parse(&candidate).iter().any(|block| {
             let preview_model::Kind::Table(table) = &block.kind else {
                 return false;
             };
             block.source == expected
                 && table.rows.len() == target.rows
-                && table.alignments.len() == target.columns + 1
+                && table.alignments.len() == columns
                 && table.editable_cells.is_some()
                 && table.delimiters.is_some()
         }) {
