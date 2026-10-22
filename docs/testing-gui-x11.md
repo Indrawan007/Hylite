@@ -495,3 +495,32 @@ lebih besar. Artifact `12431131246` berukuran 1.742.544 bytes, belum expired saa
 diperiksa; screenshot belum direview visual. Query-focus runtime, menu scroll/
 keyboard, glyph/HiDPI/accessibility dan Arch/Hyprland/Wayland/portal/GPU belum
 diverifikasi. EOF tanpa LF/non-pipe body row tetap tidak editable lewat row menu.
+
+## Stage 6h: raw cell draft pada suite privat kelima
+
+`--suite table-cells` menambah private Xvfb/app/XDG/env/clipboard baru dan workflow
+step5min. Semua 116 regresi + 9 batch + 9 alignment + 9 row lama tetap persis;
+15 body exercise functions diperiksa sama secara AST. Picker lama tetap prefix
+alignment/row, cell choices ditambahkan di akhir; ukuran/bar height tidak berubah.
+Lima runner alarm180s masing-masing dan job45min tetap, tanpa runtime hook/retry/
+Source click/refocus workaround atau perubahan oracle gate lama.
+
+Cell suite **14 checks** = 13 exact Copy + 1 natural clean exit. Dua Copy dari
+native draft input membuktikan focus/raw initial payload/Unicode clipboard paste;
+11 Copy Source membuktikan Cancel/Escape, explicit Apply, Preview Undo/Redo,
+unchanged Apply/no extra step, invalid unescaped pipe rejection, Split Apply + X
+pada caret payload end, distinct Source Undo transactions dan welcome clean.
+Sepuluh klik hanya picker/opsi produk; semua Copy `refocus=False`. Title
+`[cell draft]` mengakui panel lifecycle, bukan aplikasi test hook. Dua helper baru
+mengunci literal expected line independen/dispatch, private DISPLAY guard kelima
+suite berjalan sebelum subprocess. [Kontrak dan batas Stage 6h](testing-stage6h.md).
+
+[CI 39792827763](https://github.com/Indrawan007/Hylite/actions/runs/39792827763),
+`3859530`, **success**; 611 Cargo / 226 core (subset) / 33 Python /
+**116+9+9+9+14 GUI**. Cells step 14:14:40–14:15:03 UTC, 22 Oktober 2026.
+157 checks di lima suite = 139 clipboard (137 Source + 2 draft input) + 12 title +
+6 exit alami. Artifact `12432681330` berukuran1.866.592 bytes, belum expired saat
+diperiksa, screenshot belum direview visual. `table-cells/cells-preview.png`,
+`cells-invalid.png`, `cells-split.png` bukan pixel/glyph oracle. Query/Go-to modal
+focus runtime, header/empty/EOF UI, input16KiB/Tab/IME/RTL/accessibility/HiDPI dan
+Arch/Hyprland/Wayland/portal/GPU belum diverifikasi. Ini bukan inline WYSIWYG.

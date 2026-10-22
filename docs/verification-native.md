@@ -1,6 +1,32 @@
 # Verifikasi build dan tes native — 22 Oktober 2026
 
-## Stage 6g terbaru — whole raw body row tabel root
+## Stage 6h terbaru — explicit raw cell draft Apply/Cancel
+
+[CI 39792827763](https://github.com/Indrawan007/Hylite/actions/runs/39792827763),
+`38595306de76410432bf7b24e5b788282658bf19`, **success**, `gh run watch --exit-status`
+keluar0. Job `119873032327`: native debug build, format, strict Clippy,
+**611 Cargo**, **226 strict core** (subset Cargo), **33 Python** dan
+**116 regression + 9 task-batch + 9 table-alignment + 9 table-rows + 14 table-cells
+GUI** lulus. Kelima suite private Xvfb terpisah, alarm180s/step5min masing-masing,
+job45min tetap. Total157 checks = 139 clipboard (137 Source + 2 draft input),
+12 title, 6 exit alami.
+
+Cells step 22 Oktober2026 14:14:40–14:15:03 UTC membuktikan raw draft input focus,
+Unicode paste, Cancel, Apply byte-exact, no-op/invalid refusal, Preview Undo/Redo,
+Split Source focus/caret dan natural Close. Semua step termasuk Complete job
+success14:15:06, run final success updated14:22:22. Beberapa endpoint job/check-run
+sempat tertinggal publikasi status/annotation; tidak dianggap diagnosis startup.
+Artifact `12432681330`, 1.866.592 bytes belum expired saat diperiksa; screenshot
+belum direview visual. Semua 15 body exercise functions lama tetap sama secara
+AST dengan Stage6g; tidak melonggarkan gate/koordinat/refocus/deadline lama.
+[Kontrak dan batas Stage6h](testing-stage6h.md).
+
+Ini panel raw Markdown single-line16KiB, root canonical rectangular cells saja,
+bukan inline/free text Preview WYSIWYG, pixel/glyph proof atau verifikasi
+Arch/Hyprland/Wayland/portal/GPU/IME/RTL. Source tetap satu-satunya dokumen;
+unapplied draft tidak pernah ikut Save.
+
+## Stage 6g — whole raw body row tabel root
 
 [CI 39787971305](https://github.com/Indrawan007/Hylite/actions/runs/39787971305),
 `3590d56d6e5933d85b7ad74e868b5fc562a97ee0`, job `119856055204` **success** pada
@@ -272,6 +298,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom dan 6g duplikasi/hapus raw body row root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6g](testing-stage6g.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6h](testing-stage6h.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
