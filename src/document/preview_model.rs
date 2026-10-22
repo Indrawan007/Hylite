@@ -295,7 +295,9 @@ fn blocks(
                         };
                         node(kind, range, vec![], children)
                     }
-                    Tag::Table(alignments) => table::parse(events, source, range, alignments),
+                    Tag::Table(alignments) => {
+                        table::parse(events, source, range, alignments, depth == 0)
+                    }
                     Tag::CodeBlock(kind) => {
                         let info = match kind {
                             CodeBlockKind::Fenced(info) => info.into_string(),

@@ -771,6 +771,59 @@ def exercise_task_batch(desktop, artifacts):
     desktop.expect_native_exit("Batch suite clean client Close exits naturally")
 
 
+def exercise_table_alignment(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("| Name | Count |\n  | ---  | --: |\n"
+              "| café🙂 **raw** | a\\|b &amp; |\n| short |\n\nterminal\n\t").encode("utf-8")
+    centered = source.replace(b"---", b":---:", 1)
+    sentinel = centered.replace(b"--:", b":--X", 1)
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Table alignment suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Alignment fixture: raw UTF-8, escaped pipe, ragged row and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    # Table action-bar height stays 24 px. Pick-list rows are 11 px text +
+    # 2 px vertical padding (18.3 px line boxes); current alignments omitted.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "189", "click", "1")
+    time.sleep(0.25)  # Column 1: Center, second menu row.
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    inspect("Preview alignment changes only the selected delimiter token", centered)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Preview alignment Undo restores raw delimiter whitespace and dash counts", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    desktop.screenshot(artifacts / "alignment-preview.png")
+    inspect("Preview alignment Redo preserves all raw cell source", centered)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "244", "click", "1")
+    time.sleep(0.25)  # Column 2: Left, fifth row after Column 1 became Center.
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split column alignment restores Source focus at delimiter token end", sentinel, refocus=False)
+    desktop.screenshot(artifacts / "alignment-split.png")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Alignment and native Source typing are separate Undo transactions", centered, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Alignment history returns exact clean welcome without extra steps", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Alignment suite clean client Close exits naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -787,13 +840,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_lifecycle(desktop, artifacts, binary)
     elif suite == "task-batch":
         exercise_task_batch(desktop, artifacts)
+    elif suite == "table-alignment":
+        exercise_table_alignment(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -823,7 +878,7 @@ def main():
                 desktop = Desktop(app, env, log)
                 exercise_suite(desktop, artifacts, binary, args.suite)
                 status = "passed"
-                label = "smoke" if args.suite == "regression" else "task-batch"
+                label = "smoke" if args.suite == "regression" else args.suite
                 print(f"GUI X11/tiny-skia {label} passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
             except Exception as error:
                 error_message = str(error)
@@ -841,7 +896,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else "Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else "Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof"),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

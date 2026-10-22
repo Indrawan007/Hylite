@@ -139,3 +139,33 @@ fn heading_and_task_edges_share_preview_history_but_never_skip_source() {
     assert!(!history.preview_edit_available(true));
     assert!(history.preview_edit_available(false));
 }
+
+#[test]
+fn table_edges_are_atomic_and_tagged_but_source_colon_edits_remain_barriers() {
+    let mut history = History::default();
+    history.record_edit(
+        record("---", 0),
+        ":---",
+        4,
+        1,
+        EditKind::PreviewTable,
+        Instant::now(),
+    );
+    history.record_edit(
+        record(":---", 1),
+        ":---:",
+        5,
+        2,
+        EditKind::PreviewTable,
+        Instant::now(),
+    );
+    assert_eq!(history.undo.len(), 2);
+    assert!(history.preview_edit_available(false));
+    assert_eq!(history.undo(record(":---:", 2)), Some(record(":---", 1)));
+    assert!(history.preview_edit_available(false) && history.preview_edit_available(true));
+    assert_eq!(history.redo(record(":---", 1)), Some(record(":---:", 2)));
+    history.record(record(":---:", 2));
+    assert!(!history.preview_edit_available(false));
+    assert_eq!(history.undo(record("---:", 3)), Some(record(":---:", 2)));
+    assert!(!history.preview_edit_available(true));
+}

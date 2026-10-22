@@ -4,17 +4,11 @@ use super::{inline, raw, skip, Block, Events, Kind};
 use pulldown_cmark::{Event, Tag, TagEnd};
 use std::ops::Range;
 
-pub const MAX_COLUMNS: usize = 12;
+pub const MAX_COLUMNS: usize = crate::preview_table_edit::MAX_COLUMNS;
 pub const MAX_ROWS: usize = 128; // Includes the header.
 pub const MAX_CELLS: usize = 512; // Includes empty/padded cells and header.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Alignment {
-    Default,
-    Left,
-    Center,
-    Right,
-}
+pub use crate::preview_table_edit::Alignment;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
@@ -33,6 +27,8 @@ pub struct TableRow {
 pub struct Table {
     pub alignments: Vec<Alignment>,
     pub rows: Vec<TableRow>,
+    /// Canonical root delimiter tokens only; nested/fallback tables stay inert.
+    pub delimiters: Option<Vec<Range<usize>>>,
 }
 
 fn fallback(source: &str, range: Range<usize>) -> Block {
@@ -52,6 +48,7 @@ pub(super) fn parse(
     source: &str,
     range: Range<usize>,
     alignments: Vec<pulldown_cmark::Alignment>,
+    root: bool,
 ) -> Block {
     let columns = alignments.len();
     if columns == 0 || columns > MAX_COLUMNS {
@@ -98,7 +95,7 @@ pub(super) fn parse(
             _ => {}
         }
     }
-    let alignments = alignments
+    let alignments: Vec<Alignment> = alignments
         .into_iter()
         .map(|alignment| match alignment {
             pulldown_cmark::Alignment::None => Alignment::Default,
@@ -107,8 +104,22 @@ pub(super) fn parse(
             pulldown_cmark::Alignment::Right => Alignment::Right,
         })
         .collect();
+    let delimiters = root
+        .then(|| crate::preview_table_edit::delimiters(source, &range, columns))
+        .flatten()
+        .filter(|tokens| {
+            tokens
+                .iter()
+                .map(|token| token.alignment)
+                .eq(alignments.iter().copied())
+        })
+        .map(|tokens| tokens.into_iter().map(|token| token.source).collect());
     super::node(
-        Kind::Table(Table { alignments, rows }),
+        Kind::Table(Table {
+            alignments,
+            rows,
+            delimiters,
+        }),
         range,
         vec![],
         vec![],

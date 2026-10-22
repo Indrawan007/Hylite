@@ -162,6 +162,28 @@ impl Hylite {
         }
     }
 
+    pub(super) fn align_preview_table(
+        &mut self,
+        target: crate::preview_table_edit::Target,
+        desired: crate::preview_table_edit::Alignment,
+    ) -> Task<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.align_preview_table(&target, desired) {
+            self.status_message = format!(
+                "Source table column {} alignment: {desired}",
+                target.column + 1
+            );
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message =
+                "Table delimiter target is stale, unsupported or a no-op; document kept".into();
+            Task::none()
+        }
+    }
+
     pub(super) fn insert_newline(&mut self) -> Task<Message> {
         if !self.source_edit_allowed() {
             return Task::none();

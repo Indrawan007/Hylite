@@ -715,3 +715,47 @@ fn atx_nested_code_html_rules_and_malformed_setext_do_not_gain_underline_targets
         check(&parse(source));
     }
 }
+
+#[test]
+fn root_table_alignment_metadata_authenticates_delimiter_tokens_not_display_cells() {
+    let source = "| café🙂 | same | same |\n  | --- | :--: | ----: |\n| a\\|b | c | d |\n";
+    let blocks = parse(source);
+    let Kind::Table(table) = &blocks[0].kind else {
+        panic!("table")
+    };
+    let tokens = table.delimiters.as_ref().unwrap();
+    assert_eq!(tokens.len(), 3);
+    assert_eq!(
+        tokens
+            .iter()
+            .map(|token| source.get(token.clone()).unwrap())
+            .collect::<Vec<_>>(),
+        ["---", ":--:", "----:"]
+    );
+    assert_eq!(
+        table.alignments,
+        [Alignment::Default, Alignment::Center, Alignment::Right]
+    );
+    validate(&blocks, source, 0..source.len());
+}
+
+#[test]
+fn nested_and_limit_fallback_tables_never_gain_alignment_delimiter_targets() {
+    fn check(blocks: &[Block]) {
+        for block in blocks {
+            if let Kind::Table(table) = &block.kind {
+                assert!(table.delimiters.is_none());
+            }
+            check(&block.children);
+        }
+    }
+    for source in [
+        "> |a|b|\n> |---|---|\n> |1|2|\n",
+        "- parent\n\n  |a|b|\n  |---|---|\n  |1|2|\n",
+        "```md\n|a|b|\n|---|---|\n```\n",
+    ] {
+        check(&parse(source));
+    }
+    let wide = format!("|{}\n|{}\n", "a|".repeat(13), "---|".repeat(13));
+    assert!(matches!(parse(&wide)[0].kind, Kind::Literal { .. }));
+}

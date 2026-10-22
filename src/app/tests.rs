@@ -2236,3 +2236,153 @@ fn batch_save_ack_during_preview_undo_keeps_current_state_dirty_until_redo() {
     assert!(!app.document.is_dirty());
     assert_eq!(app.document.buffer_text(), "- [x] a\n- [X] b\n");
 }
+
+fn preview_table_alignment_target(
+    app: &Hylite,
+    column: usize,
+) -> crate::preview_table_edit::Target {
+    let block = &app.document.preview_blocks()[0];
+    let source = app.document.buffer_text();
+    let tokens = crate::preview_table_edit::delimiters(&source, &block.source, 2).unwrap();
+    crate::preview_table_edit::Target {
+        snapshot: app.document.snapshot(),
+        table: block.source.clone(),
+        column,
+        columns: 2,
+        marker: tokens[column].source.clone(),
+        alignment: tokens[column].alignment,
+    }
+}
+
+#[test]
+fn preview_table_alignment_undo_redo_preserves_mode_raw_source_and_checkpoint() {
+    use crate::preview_table_edit::Alignment;
+    let mut app = app();
+    let source = "a|b\n  | --- | ---: |\n|café🙂|**raw**|\n\t";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let target = preview_table_alignment_target(&app, 0);
+    let _ = app.update(Message::AlignPreviewTable(target, Alignment::Center));
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("---", ":---:", 1)
+    );
+    assert_eq!(app.mode, EditMode::Preview);
+    assert!(app.preview_history_allowed(false) && app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("---", ":---:", 1)
+    );
+    assert_eq!(app.mode, EditMode::Preview);
+}
+
+#[test]
+fn table_alignment_guard_rejects_source_prompt_open_allows_save_export_and_keeps_tokens() {
+    use crate::preview_table_edit::Alignment;
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("a|b\n---|---:\n1|2\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let target = preview_table_alignment_target(&app, 0);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case >= 2 {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let operation = app.operations.active();
+        let before = app.document.snapshot();
+        let _ = app.update(Message::AlignPreviewTable(target, Alignment::Left));
+        assert_eq!(app.operations.active(), operation);
+        assert_eq!(
+            app.document.buffer_text(),
+            if case < 3 {
+                "a|b\n---|---:\n1|2\n"
+            } else {
+                "a|b\n:---|---:\n1|2\n"
+            }
+        );
+        assert_eq!(app.document.is_dirty(), case >= 3);
+        if case < 3 {
+            assert_eq!(app.document.snapshot(), before);
+        }
+    }
+}
+
+#[test]
+fn split_alignment_refreshes_find_and_preserves_logical_query_context() {
+    let mut app = app();
+    app.document = Document::new("a|b\n---|---:\n1|2\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged(":---:".into()));
+    assert_eq!(app.search.count(), 0);
+    let target = preview_table_alignment_target(&app, 0);
+    let _ = app.update(Message::AlignPreviewTable(
+        target,
+        crate::preview_table_edit::Alignment::Center,
+    ));
+    assert!(app.search.open);
+    assert_eq!(app.search.query, ":---:");
+    assert_eq!(app.search.count(), 1);
+    assert_eq!(app.mode, EditMode::Split);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "a|b\n---|---:\n1|2\n");
+}
+
+#[test]
+fn stale_table_alignment_and_general_preview_typing_do_not_create_extra_history() {
+    use crate::preview_table_edit::Alignment;
+    let mut app = app();
+    app.document = Document::new("a|b\n---|---:\n1|2\n");
+    app.mode = EditMode::Preview;
+    let target = preview_table_alignment_target(&app, 0);
+    let _ = app.update(Message::AlignPreviewTable(target.clone(), Alignment::Left));
+    let before = app.document.snapshot();
+    let _ = app.update(Message::AlignPreviewTable(target, Alignment::Right));
+    edit(&mut app);
+    let _ = app.update(Message::FormatInline(crate::text_edit::InlineStyle::Bold));
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(!app.document.can_undo());
+    assert_eq!(app.document.buffer_text(), "a|b\n---|---:\n1|2\n");
+}
+
+#[test]
+fn save_ack_for_table_alignment_marks_only_the_checkpoint_written_during_preview_history() {
+    let mut app = app();
+    app.document = Document::new("a|b\n---|---:\n1|2\n");
+    app.mode = EditMode::Preview;
+    let target = preview_table_alignment_target(&app, 0);
+    let _ = app.update(Message::AlignPreviewTable(
+        target,
+        crate::preview_table_edit::Alignment::Center,
+    ));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("table.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "a|b\n---|---:\n1|2\n");
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "a|b\n:---:|---:\n1|2\n");
+}

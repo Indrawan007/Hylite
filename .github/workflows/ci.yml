@@ -58,6 +58,9 @@ jobs:
       - name: Smoke test task batches on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite task-batch --artifacts "$RUNNER_TEMP/hylite-gui-smoke/task-batch"
+      - name: Smoke test table alignment on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-alignment --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-alignment"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

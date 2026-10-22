@@ -237,6 +237,42 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewHeading)
     }
 
+    pub(crate) fn align_preview_table(
+        &mut self,
+        target: &crate::preview_table_edit::Target,
+        desired: crate::preview_table_edit::Alignment,
+    ) -> bool {
+        if target.snapshot != self.snapshot
+            || !self.preview.get().is_some_and(|blocks| {
+                blocks.iter().any(|block| {
+                    if block.source != target.table {
+                        return false;
+                    }
+                    let preview_model::Kind::Table(table) = &block.kind else {
+                        return false;
+                    };
+                    table.alignments.len() == target.columns
+                        && table.alignments.get(target.column) == Some(&target.alignment)
+                        && table
+                            .delimiters
+                            .as_ref()
+                            .and_then(|tokens| tokens.get(target.column))
+                            == Some(&target.marker)
+                })
+            })
+        {
+            return false;
+        }
+        let Some(change) =
+            crate::preview_table_edit::plan(&self.buffer_text(), self.snapshot, target, desired)
+        else {
+            return false;
+        };
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewTable)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -628,3 +664,7 @@ mod preview_setext_tests;
 #[cfg(test)]
 #[path = "preview_task_batch_tests.rs"]
 mod preview_task_batch_tests;
+
+#[cfg(test)]
+#[path = "preview_table_edit_tests.rs"]
+mod preview_table_edit_tests;

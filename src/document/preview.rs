@@ -5,7 +5,7 @@ use super::Snapshot;
 use crate::commands::Message;
 use crate::preview_navigation::Target;
 use iced::widget::{
-    button, checkbox, column, container, horizontal_rule, rich_text, row, text, tooltip,
+    button, checkbox, column, container, horizontal_rule, pick_list, rich_text, row, text, tooltip,
 };
 use iced::{font, Border, Color, Element, Font, Length, Theme};
 
@@ -47,7 +47,7 @@ pub fn render_preview<'a>(
         render_blocks(blocks, colors, snapshot)
     };
     column![
-        text("Tasks / root headings edit Source · links inert · other blocks read-only")
+        text("Task / heading / table controls edit Source · links and other text inert")
             .size(11)
             .color(colors.text),
         content,
@@ -219,6 +219,18 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                 );
             }
         }
+        let choices = table_alignment_choices(block, snapshot);
+        if !choices.is_empty() {
+            actions = actions.push(
+                pick_list(choices, None::<TableAlignmentChoice>, |choice| {
+                    Message::AlignPreviewTable(choice.target, choice.desired)
+                })
+                .placeholder("Column alignment…")
+                .width(168)
+                .text_size(11)
+                .padding([2, 6]),
+            );
+        }
         column![actions, element]
             .spacing(4)
             .width(Length::Fill)
@@ -293,6 +305,46 @@ fn setext_action(
         },
         direction,
     ))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TableAlignmentChoice {
+    target: crate::preview_table_edit::Target,
+    desired: crate::preview_table_edit::Alignment,
+}
+impl std::fmt::Display for TableAlignmentChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Column {}: {}", self.target.column + 1, self.desired)
+    }
+}
+fn table_alignment_choices(block: &Block, snapshot: Snapshot) -> Vec<TableAlignmentChoice> {
+    let Kind::Table(table) = &block.kind else {
+        return Vec::new();
+    };
+    let Some(tokens) = &table.delimiters else {
+        return Vec::new();
+    };
+    table
+        .alignments
+        .iter()
+        .enumerate()
+        .flat_map(|(column, alignment)| {
+            crate::preview_table_edit::Alignment::ALL
+                .into_iter()
+                .filter(move |desired| *desired != *alignment)
+                .map(move |desired| TableAlignmentChoice {
+                    target: crate::preview_table_edit::Target {
+                        snapshot,
+                        table: block.source.clone(),
+                        marker: tokens[column].clone(),
+                        column,
+                        columns: table.alignments.len(),
+                        alignment: *alignment,
+                    },
+                    desired,
+                })
+        })
+        .collect()
 }
 
 fn task_action(item: &Block, snapshot: Snapshot) -> Option<Message> {
@@ -534,6 +586,47 @@ mod tests {
             "- parent\n  title\n  ===\n",
             "plain\n",
             "---\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn alignment_choices_stamp_exact_columns_and_omit_noops() {
+        use crate::preview_table_edit::Alignment;
+        let source = "a|b\n---|---:\n1|2\n";
+        let blocks = super::super::preview_model::parse(source);
+        let snapshot = Snapshot {
+            document_id: 8,
+            revision: 4,
+            state_id: 2,
+        };
+        let choices = table_alignment_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 6);
+        for (index, choice) in choices.iter().enumerate() {
+            assert_eq!(choice.target.snapshot, snapshot);
+            assert_eq!(choice.target.table, blocks[0].source);
+            assert_eq!(choice.target.column, index / 3);
+            assert_eq!(choice.target.columns, 2);
+            assert_ne!(choice.desired, choice.target.alignment);
+        }
+        assert_eq!(choices[0].desired, Alignment::Left);
+        assert_eq!(choices[1].desired, Alignment::Center);
+        assert_eq!(choices[0].to_string(), "Column 1: Left");
+        assert_eq!(choices[4].desired, Alignment::Left);
+    }
+    #[test]
+    fn alignment_choices_are_empty_for_nested_fallback_and_non_table_nodes() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(table_alignment_choices(block, Snapshot::default()).is_empty());
+                check(&block.children);
+            }
+        }
+        for source in [
+            "> |a|b|\n> |---|---|\n> |1|2|\n",
+            "- parent\n\n  |a|b|\n  |---|---|\n  |1|2|\n",
+            "title\n---\n",
+            "plain\n",
         ] {
             check(&super::super::preview_model::parse(source));
         }

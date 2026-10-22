@@ -18,8 +18,10 @@ pub enum EditKind {
     Atomic,
     /// Only validated single/batch preview-task transaction paths assign this kind.
     PreviewTask,
-    /// Only the authenticated root ATX heading transaction path assigns this.
+    /// Only authenticated root ATX/Setext heading transaction paths assign this.
     PreviewHeading,
+    /// Only the authenticated root table delimiter transaction path assigns this.
+    PreviewTable,
     Insert(char),
     Backspace,
     Delete,
@@ -180,7 +182,10 @@ impl History {
                     deletion(&before, after, caret, true).map(GroupKind::Backspace)
                 }
                 EditKind::Delete => deletion(&before, after, caret, false).map(GroupKind::Delete),
-                EditKind::Atomic | EditKind::PreviewTask | EditKind::PreviewHeading => None,
+                EditKind::Atomic
+                | EditKind::PreviewTask
+                | EditKind::PreviewHeading
+                | EditKind::PreviewTable => None,
             }
         } else {
             None
@@ -203,7 +208,10 @@ impl History {
         });
         let base_state = before.state_id;
         if merge.is_none() {
-            if matches!(kind, EditKind::PreviewTask | EditKind::PreviewHeading) {
+            if matches!(
+                kind,
+                EditKind::PreviewTask | EditKind::PreviewHeading | EditKind::PreviewTable
+            ) {
                 self.record_entry(before, true);
             } else {
                 self.record(before);

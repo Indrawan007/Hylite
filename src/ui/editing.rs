@@ -72,7 +72,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown))
         ),
         text(if app.mode == EditMode::Preview {
-            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: task/heading history only"
+            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: validated Preview edits only"
         } else {
             "Bold: Ctrl+Shift+B · Ctrl+B: sidebar"
         })
