@@ -153,6 +153,15 @@ fn eof_without_lf_and_escaped_pipe_replacements_keep_table_shape() {
     };
     assert_eq!(table.rows.len(), 2);
     assert_eq!(table.alignments.len(), 2);
+    for value in ["", " padded ", "even\\\\ \t", "`a\\|b`"] {
+        let t = target(&doc, 1, 0);
+        assert!(doc.edit_preview_cell(&t, value));
+        let t = target(&doc, 1, 0);
+        assert_eq!(
+            doc.preview_cell_payload(&t).as_deref(),
+            Some(value.trim_matches([' ', '\t']))
+        );
+    }
 }
 #[test]
 fn stale_payload_targets_after_undo_and_replace_are_not_rebased() {

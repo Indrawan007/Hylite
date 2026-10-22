@@ -24,7 +24,7 @@ pub fn valid_value(value: &str) -> bool {
         return false;
     }
     let mut escaped = false;
-    for byte in value.bytes() {
+    for byte in value.trim_end_matches([' ', '\t']).bytes() {
         if byte == b'|' && !escaped {
             return false;
         }
@@ -168,7 +168,16 @@ mod tests {
         ] {
             assert!(valid_value(good), "{good:?}");
         }
-        for bad in ["a|b", "a\\\\|b", "trailing\\", "\n", "\r", "\0", "\u{7f}"] {
+        for bad in [
+            "a|b",
+            "a\\\\|b",
+            "trailing\\",
+            "odd\\ \t",
+            "\n",
+            "\r",
+            "\0",
+            "\u{7f}",
+        ] {
             assert!(!valid_value(bad), "{bad:?}");
         }
     }

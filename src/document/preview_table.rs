@@ -128,9 +128,10 @@ pub(super) fn parse(
     let editable_cells = delimiters.as_ref().and_then(|_| {
         crate::preview_cell::cells(source, &range, columns, rows.len()).filter(|cells| {
             cells.iter().zip(&rows).all(|(payloads, row)| {
-                payloads.iter().zip(&row.cells).all(|(payload, cell)| {
-                    cell.source.start <= payload.start && payload.end <= cell.source.end
-                })
+                payloads.len() == row.cells.len()
+                    && payloads.iter().zip(&row.cells).all(|(payload, cell)| {
+                        cell.source.start <= payload.start && payload.end <= cell.source.end
+                    })
             })
         })
     });
