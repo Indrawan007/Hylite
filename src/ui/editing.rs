@@ -34,14 +34,14 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         button("Undo").on_press_maybe(history_action(false)),
         button("Redo").on_press_maybe(history_action(true)),
         tooltip(
-            button("Check tasks")
+            button(text("Check tasks").size(14))
                 .width(112)
                 .on_press_maybe(app.preview_task_batch_action(true)),
             "Canonical tasks only · max 1024 · no-op disabled",
             tooltip::Position::Bottom
         ),
         tooltip(
-            button("Clear tasks")
+            button(text("Clear tasks").size(14))
                 .width(112)
                 .on_press_maybe(app.preview_task_batch_action(false)),
             "Canonical tasks only · max 1024 · no-op disabled",

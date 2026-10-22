@@ -86,7 +86,14 @@ kedua suite sebelum subprocess dimulai.
 ## Status eksekusi
 
 Lokal **201 strict core** dan **27 Python** lulus; format/diff diperiksa.
-Native Cargo/Clippy/build dan kedua suite GUI masih menunggu CI. Expected total
+Percobaan [CI 39770915857](https://github.com/Indrawan007/Hylite/actions/runs/39770915857)
+lulus 530 Cargo/build/Clippy, tetapi regresi GUI gagal pada probe block-source:
+click y=151 tidak menghasilkan Source Copy. Tombol baru fixed 112 px memakai
+font default 16 dan padding horizontal bawaan 20 px; label Check tasks dapat
+wrap, menambah tinggi editing bar. Font label baru sekarang explicit 14 agar
+muat dan tidak menambah tinggi bar lama. Koordinat/copy/refocus/timeout dan
+expected bytes probe lama tidak diubah. Ini perbaikan layout produk; hasil
+kedua suite berikutnya masih harus diamati. Expected total
 125 checks di dua suite (110 clipboard, 12 title, 3 exit alami), bukan satu
 suite tunggal yang telah diasumsikan lulus.
 
