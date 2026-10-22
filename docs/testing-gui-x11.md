@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 439 pada Stage 6a). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 461 pada Stage 6b). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -306,3 +306,36 @@ ditinjau visual. Tidak ada assertion pixel atau gate klik checkbox nested/
 disabled/query-focus runtime; itu masih checklist manual. Undo tetap Source/
 Split, native typing Preview tetap diblokir. Tidak ada hook/timeout/expected
 byte yang dilonggarkan. [Kontrak dan batas prototipe Stage 6a](testing-stage6a.md).
+
+## Tambahan runner Stage 6b: history task terbatas di Preview
+
+[CI 39737235985](https://github.com/Indrawan007/Hylite/actions/runs/39737235985),
+commit `0df3788`: **101 GUI** (87 clipboard, 12 title, 2 exit normal), **461 Cargo**,
+**179 core mandiri** (subset Cargo), **22 Python**. Tambahan 9 clipboard checks:
+
+1. Paste fixture UTF-8/task/kapital X/fenced literal/terminal tab; Copy Source exact.
+2. Preview klik checkbox, Ctrl+Z: Split Copy harus fixture semula.
+3. Preview Ctrl+Shift+Z: Split Copy harus marker pertama `[x]` saja.
+4. Preview Undo lagi: Split Copy harus fixture semula.
+5. Preview Ctrl+Y: Split Copy harus marker pertama `[x]` lagi.
+6. Preview toolbar Undo: Split Copy harus fixture semula.
+7. Preview toolbar Redo: Split Copy harus marker pertama `[x]` lagi.
+8. Preview Undo dua kali, ketik LEAK/bold: berhenti sebelum Source paste,
+   Split Copy harus fixture semula, tanpa formatting/native typing bocor.
+9. Source Undo sekali: welcome exact dan title clean; bukan double dispatch.
+
+Semua Copy baru `refocus=False`, setiap transisi diperiksa lalu mode cycle
+kembali Preview. Tiga klik hanya checkbox/Undo/Redo produk, tidak ada klik Source
+atau refocus workaround. `task-history-preview.png` dan `task-history-source.png`
+merekam runtime tanpa pixel assertion dan belum direview visual. Helper mock
+mengunci expected bytes/urutan/jumlah klik/shortcut. GUI budget tetap 180 detik,
+exit harus alami 0; tidak ada runtime hook atau gate lama yang diperlonggar.
+
+Percobaan awal `39736591093` gagal startup proses kedua exit 101; reporter lama
+memotong diagnostik di Checks API. Chunk error kini 3000 karakter (total tail
+maksimal 24.000 karakter, maksimal 8 annotation), dengan satu tes Python baru.
+Run `39737235985` lulus seluruh suite, tetapi akar failure startup pertama belum
+diketahui dan tidak diklaim diperbaiki oleh reporter. Rincian di
+[verifikasi native](verification-native.md) dan [Stage 6b](testing-stage6b.md).
+Keyboard compositor, query-task focus runtime, aksesibilitas dan
+Wayland/Hyprland tetap perlu desktop target.

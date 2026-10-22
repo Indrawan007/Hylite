@@ -29,7 +29,7 @@ def report(log, status):
         if len(tail) > 24000:
             tail = tail[:11950] + "\n... middle of diagnostics omitted; see full job log ...\n" + tail[-11950:]
         # Checks API truncates annotation messages at 4096 characters. Keep each
-        # decoded chunk below that bound; total diagnostic tail remains 24 KiB.
+        # decoded chunk below that bound; total diagnostic tail remains below 24,000 characters.
         chunks = [tail[i : i + 3000] for i in range(0, len(tail), 3000)] or ["No command output"]
         for index, chunk in enumerate(chunks, 1):
             print(f"::error title=Command failed - tail {index} of {len(chunks)}::{escape(chunk)}")

@@ -84,9 +84,13 @@ pixel oracle. Helper Python mengunci expected bytes/urutan/shortcut/tanpa refocu
 
 ## Status eksekusi
 
-Lokal **179 core strict** dan **21 Python** lulus; format/diff diperiksa. Full
-Cargo/Clippy/build/keyboard/toolbar GUI native masih menunggu CI, bukan diasumsikan
-lulus dari harness mandiri.
+[CI 39737235985](https://github.com/Indrawan007/Hylite/actions/runs/39737235985)
+**success** pada `0df378803bbe19672abb9391ae868306a82a4053`: **461 Cargo**,
+**179 core strict** (subset Cargo), **22 Python**, **101 GUI X11** (87 clipboard,
+12 title, 2 exit native normal), format/build debug/Clippy `-D warnings` lulus.
+Job `119685695986` berjalan 2026-10-22 06:57:38–07:01:20 UTC. Artifact
+`gui-x11-smoke` ID `12407691827`, 1.188.202 bytes, belum expired saat API diperiksa;
+screenshot belum direview visual. [Bukti GUI terperinci](testing-gui-x11.md).
 
 Percobaan [CI 39736591093](https://github.com/Indrawan007/Hylite/actions/runs/39736591093)
 lulus format/Clippy/build, 179 core dan 461 Cargo. Probe history keyboard/toolbar
@@ -94,10 +98,11 @@ baru dan boundary Source sudah lewat, tetapi gate lifecycle gagal saat proses
 kedua startup (exit 101). Root diagnostic berada di bagian annotation yang
 terpotong: pelapor lama membuat chunk 6000 karakter sedangkan Checks API
 menyimpan hanya 4096. Reporter sekarang membuat chunk 3000 (total tail tetap
-24 KiB, maksimum 8 annotation), dengan regression test menjaga panic pada offset
+24.000 karakter, maksimum 8 annotation), dengan regression test menjaga panic pada offset
 4500 tidak hilang. Ini perbaikan diagnostik, bukan retry aplikasi, relaksasi
-timeout atau pelonggaran pemeriksaan lifecycle. Hasil native lengkap berikutnya
-tetap harus diamati; exit 101 belum diasumsikan sebagai masalah fitur/infra tertentu.
+timeout atau pelonggaran pemeriksaan lifecycle. Run berikutnya di atas lulus semua gate, tetapi akar exit 101 pertama **belum
+diketahui**, tidak diklaim diperbaiki oleh reporter atau diasumsikan sebagai
+masalah fitur/infra tertentu. Tidak ada retry startup otomatis yang ditambahkan.
 
 ## Batas/manual — belum dinyatakan lulus
 

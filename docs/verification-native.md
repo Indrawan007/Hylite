@@ -109,6 +109,29 @@ baris task penginterupsi tabel sebagai sel; fixture diperbaiki dengan leading
 pipe, assert node Table, dan assert kasus interupsi sebagai task nyata. Tidak
 mengubah parser atau melemahkan gate. [Kontrak dan batas Stage 6a](testing-stage6a.md).
 
+Update history task Stage 6b: [CI run 39737235985](https://github.com/Indrawan007/Hylite/actions/runs/39737235985),
+commit `0df378803bbe19672abb9391ae868306a82a4053`, **success**. Job
+`119685695986`, 2026-10-22 06:57:38–07:01:20 UTC: **461 Cargo**, **179 core
+mandiri** (subset Cargo), **22 Python**, **101 GUI X11** (87 clipboard, 12 title,
+2 exit alami 0), format/build debug/Clippy strict. Stage 6b menambah 22 Rust dan
+9 clipboard checks dengan Copy tanpa refocus. Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
+serta toolbar kini boleh mengembalikan task edge teratas di Preview, tetapi
+berhenti sebelum transaksi Source; Source/Split tetap history umum. Status
+artifact API: `12407691827`, `gui-x11-smoke`, 1.188.202 bytes, belum expired saat
+diperiksa. Screenshot belum direview visual; bukan pixel oracle.
+
+Percobaan awal `39736591093` pada `4fed30f` lulus 461 Cargo dan probe history baru,
+namun proses kedua lifecycle startup exit 101. **Akar exit 101 belum diketahui.**
+Tidak dianggap selesai diperbaiki hanya karena run berikutnya hijau. Annotation
+lama 6000 karakter terpotong menjadi 4096 pada Checks API, menyembunyikan bagian
+log startup. Reporter sekarang membagi error menjadi 3000 karakter per annotation
+(maksimal 8, total tail tetap di bawah 24.000 karakter); regresi mengunci panic
+di offset 4500 tetap utuh. Ini perbaikan observabilitas, bukan retry aplikasi,
+kenaikan timeout, refocus workaround, atau perubahan expected source. Run baru
+di atas lulus semua lifecycle termasuk startup kedua. Pantau jika failure yang
+sama berulang; belum ada diagnosis Winit/X11/resource yang diklaim.
+[Kontrak dan batas Stage 6b](testing-stage6b.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -147,6 +170,7 @@ mengubah parser atau melemahkan gate. [Kontrak dan batas Stage 6a](testing-stage
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
-Stage 5a renderer read-only, 5b tabel dan 5c cache tersedia; hasil dan batas terbaru
-ada di [catatan Stage 5c](testing-stage5c.md). WYSIWYG tetap belum ada.
+Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history task terbatas tersedia;
+hasil dan batas terbaru ada di [catatan Stage 6b](testing-stage6b.md).
+WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
