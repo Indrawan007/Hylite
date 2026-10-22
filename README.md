@@ -24,7 +24,7 @@ Pasang toolchain Rust stable melalui `rustup`, atau gunakan paket `rust` Arch ya
 
 ```sh
 sudo pacman -S --needed base-devel rustup pkgconf fontconfig \
-  libxkbcommon wayland libglvnd libx11 libxcursor libxi libxrandr libxinerama
+  libxkbcommon libxkbcommon-x11 wayland libglvnd libx11 libxcursor libxi libxrandr libxinerama
 rustup default stable
 rustup component add rustfmt clippy
 
