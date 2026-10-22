@@ -15,6 +15,15 @@ fn validate(blocks: &[Block], source: &str, parent: Range<usize>) {
             assert!(block.source.start <= run.source.start && run.source.end <= block.source.end);
             assert!(source.get(run.source.clone()).is_some());
         }
+        if let Kind::Item(Some(task)) = &block.kind {
+            if let Some(marker) = &task.source {
+                assert!(block.source.start <= marker.start && marker.end <= block.source.end);
+                assert!(matches!(
+                    (source.get(marker.clone()).unwrap(), task.checked),
+                    ("[ ]", false) | ("[x]" | "[X]", true)
+                ));
+            }
+        }
         if let Kind::Table(table) = &block.kind {
             for row in &table.rows {
                 assert!(
@@ -172,8 +181,12 @@ fn loose_lists_keep_separate_paragraphs_in_the_same_item() {
 fn task_markers_belong_to_the_correct_item_in_tight_and_loose_lists() {
     for source in ["- [x] done\n- [ ] todo\n", "- [x] done\n\n- [ ] todo\n"] {
         let blocks = parse(source);
-        assert_eq!(blocks[0].children[0].kind, Kind::Item(Some(true)));
-        assert_eq!(blocks[0].children[1].kind, Kind::Item(Some(false)));
+        assert!(
+            matches!(&blocks[0].children[0].kind, Kind::Item(Some(task)) if task.checked && task.source.is_some())
+        );
+        assert!(
+            matches!(&blocks[0].children[1].kind, Kind::Item(Some(task)) if !task.checked && task.source.is_some())
+        );
         assert_eq!(text(&blocks[0].children[0].children[0]), "done");
     }
 }
@@ -183,7 +196,9 @@ fn nested_task_markers_do_not_leak_to_the_parent_item() {
     let blocks = parse("- parent\n  - [x] child\n");
     let parent = &blocks[0].children[0];
     assert_eq!(parent.kind, Kind::Item(None));
-    assert_eq!(parent.children[1].children[0].kind, Kind::Item(Some(true)));
+    assert!(
+        matches!(&parent.children[1].children[0].kind, Kind::Item(Some(task)) if task.checked && task.source.is_some())
+    );
 }
 
 #[test]
@@ -557,4 +572,54 @@ fn oversized_table_in_a_quote_does_not_consume_the_quote_end_or_following_blocks
     );
     assert_eq!(text(&blocks[1]), "after");
     validate(&blocks, &source, 0..source.len());
+}
+
+fn tasks<'a>(blocks: &'a [Block], out: &mut Vec<(&'a Block, &'a TaskMarker)>) {
+    for block in blocks {
+        if let Kind::Item(Some(task)) = &block.kind {
+            out.push((block, task));
+        }
+        tasks(&block.children, out);
+    }
+}
+
+#[test]
+fn editable_task_ranges_keep_exact_marker_provenance_in_nested_loose_and_ordered_lists() {
+    for source in [
+        "- [ ] café🙂\n- [X] done\n",
+        "- [x] one\n\n- [ ] two\n",
+        "> 1. [X] café🙂\n> 2. [ ] todo\n",
+        "- parent\n  - [x] child\n",
+    ] {
+        let blocks = parse(source);
+        let mut found = Vec::new();
+        tasks(&blocks, &mut found);
+        assert!(!found.is_empty());
+        for (_, task) in found {
+            assert!(task.source.is_some());
+        }
+        validate(&blocks, source, 0..source.len());
+    }
+}
+
+#[test]
+fn parser_tab_task_stays_visible_but_has_no_editable_canonical_token() {
+    let source = "- [\t] todo\n";
+    let blocks = parse(source);
+    let mut found = Vec::new();
+    tasks(&blocks, &mut found);
+    assert_eq!(found.len(), 1);
+    assert!(!found[0].1.checked);
+    assert!(found[0].1.source.is_none());
+    assert_eq!(text(&found[0].0.children[0]), "todo");
+}
+
+#[test]
+fn task_like_source_in_code_html_and_table_cells_has_no_task_item_action() {
+    let source = "```md\n- [ ] code\n```\n\n<script> - [ ] raw </script>\n\na|b\n-|-\n- [ ] literal|text\n\n- \\[ ] escaped\n";
+    let blocks = parse(source);
+    let mut found = Vec::new();
+    tasks(&blocks, &mut found);
+    assert!(found.is_empty());
+    validate(&blocks, source, 0..source.len());
 }

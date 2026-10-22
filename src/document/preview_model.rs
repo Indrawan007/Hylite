@@ -27,12 +27,19 @@ pub struct Run {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskMarker {
+    pub checked: bool,
+    /// Canonical editable token only; unsupported parser markers stay disabled.
+    pub source: Option<Range<usize>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Kind {
     Paragraph,
     Heading(u8),
     Quote,
     List(Option<u64>),
-    Item(Option<bool>),
+    Item(Option<TaskMarker>),
     Code { info: String, text: String },
     Rule,
     Table(Table),
@@ -109,7 +116,7 @@ struct Inline {
     runs: Vec<Run>,
     style: Style,
     stack: Vec<Style>,
-    task: Option<bool>,
+    task: Option<TaskMarker>,
 }
 
 impl Inline {
@@ -167,7 +174,12 @@ impl Inline {
             Event::Code(text) => self.push(text.into_string(), range, true),
             Event::SoftBreak => self.push(" ".into(), range, false),
             Event::HardBreak => self.push("\n".into(), range, false),
-            Event::TaskListMarker(checked) => self.task = Some(checked),
+            Event::TaskListMarker(checked) => {
+                self.task = Some(TaskMarker {
+                    checked,
+                    source: crate::preview_task::marker_range(source, range, checked),
+                })
+            }
             Event::Html(_)
             | Event::InlineHtml(_)
             | Event::InlineMath(_)
@@ -207,7 +219,7 @@ fn blocks(
     source: &str,
     end: Option<TagEnd>,
     depth: usize,
-) -> (Vec<Block>, Option<bool>) {
+) -> (Vec<Block>, Option<TaskMarker>) {
     let mut out = Vec::new();
     let mut pending = Inline::default();
     let mut task = None;
@@ -303,7 +315,7 @@ fn blocks(
             event => pending.event(event, range, events, source),
         }
     }
-    task = task.or(pending.task);
+    task = task.or(pending.task.take());
     pending.flush(&mut out);
     (out, task)
 }

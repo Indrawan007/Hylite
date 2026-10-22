@@ -116,6 +116,7 @@ impl Hylite {
             Message::InsertCodeBlock => self.insert_code_block(),
             Message::Indent(remove) => self.indent(remove),
             Message::EditLines(action) => self.edit_lines(action),
+            Message::TogglePreviewTask(target) => self.toggle_preview_task(target),
             Message::RevealPreview(target) => self.reveal_preview(target),
             Message::OpenGoTo => self.open_go_to(),
             Message::CloseGoTo => self.close_go_to(),

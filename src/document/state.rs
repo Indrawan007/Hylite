@@ -89,6 +89,38 @@ impl Document {
         contains(blocks, target).then_some(offset)
     }
 
+    /// Explicit preview task edits share the atomic Source transaction path.
+    pub(crate) fn toggle_preview_task(&mut self, target: &crate::preview_task::Target) -> bool {
+        if target.snapshot != self.snapshot {
+            return false;
+        }
+        fn contains(blocks: &[Block], target: &crate::preview_task::Target) -> bool {
+            blocks.iter().any(|block| {
+                let matches = match &block.kind {
+                    preview_model::Kind::Item(Some(task)) => {
+                        block.source == target.item
+                            && task.checked == target.checked
+                            && task.source.as_ref() == Some(&target.marker)
+                    }
+                    _ => false,
+                };
+                matches || contains(&block.children, target)
+            })
+        }
+        if !self
+            .preview
+            .get()
+            .is_some_and(|blocks| contains(blocks, target))
+        {
+            return false;
+        }
+        let Some(change) = crate::preview_task::plan(&self.buffer_text(), self.snapshot, target)
+        else {
+            return false;
+        };
+        self.change(change)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -452,3 +484,7 @@ mod preview_cache_tests;
 #[cfg(test)]
 #[path = "preview_reveal_tests.rs"]
 mod preview_reveal_tests;
+
+#[cfg(test)]
+#[path = "preview_task_tests.rs"]
+mod preview_task_tests;

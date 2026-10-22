@@ -464,6 +464,39 @@ def exercise_cell_reveal(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source.
 
 
+
+def exercise_task_toggle(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("- [ ] café🙂 task\n- [X] keep case\n\n"
+              "```md\n- [ ] literal code\n```\n\nterminal\n\t").encode("utf-8")
+    checked = source.replace(b"- [ ]", b"- [x]", 1)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Task fixture: UTF-8, uppercase X, fenced literal and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")  # Source -> Preview.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "153", "click", "1")
+    time.sleep(0.25)
+    desktop.screenshot(artifacts / "task-preview.png")
+    desktop.key("ctrl+shift+m")  # Preview -> Split; Source must receive focus.
+    desktop.expect_copy("Preview checkbox changes only its canonical Source marker", checked, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("One Undo restores unchecked task byte-exact", source, refocus=False)
+    desktop.key("ctrl+shift+z")
+    desktop.expect_copy("Redo restores checked task and preserves other raw markers", checked, refocus=False)
+    # Click the same actual checkbox in the right-hand Split preview, not Source.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "762", "153", "click", "1")
+    time.sleep(0.25)
+    desktop.expect_copy("Split checkbox unchecks and restores Source keyboard focus", source, refocus=False)
+    desktop.screenshot(artifacts / "task-split.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Split task edit is exactly one Undo transaction", checked, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Undo first task edit restores exact original fixture", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Undo fixture returns clean welcome without extra checkbox history", welcome, refocus=False)
+    desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -581,6 +614,7 @@ def main():
                 exercise_preview_cache(desktop, artifacts)
                 exercise_preview_reveal(desktop, artifacts)
                 exercise_cell_reveal(desktop, artifacts)
+                exercise_task_toggle(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -600,7 +634,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

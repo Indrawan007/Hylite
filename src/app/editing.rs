@@ -72,6 +72,25 @@ impl Hylite {
         Task::none()
     }
 
+    pub(super) fn toggle_preview_task(
+        &mut self,
+        target: crate::preview_task::Target,
+    ) -> Task<Message> {
+        // Only this explicit, provenance-validated preview command may mutate
+        // Source from Preview. Normal native/formatting guards stay unchanged.
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.toggle_preview_task(&target) {
+            self.status_message = "Task marker toggled in Source".into();
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message = "Task target is stale or unsupported; document kept".into();
+            Task::none()
+        }
+    }
+
     pub(super) fn insert_newline(&mut self) -> Task<Message> {
         if !self.source_edit_allowed() {
             return Task::none();

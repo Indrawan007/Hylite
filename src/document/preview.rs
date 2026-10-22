@@ -1,10 +1,12 @@
-//! Native read-only renderer for the preview projection; no browser, network,
-//! filesystem reads, link launching or document mutation.
+//! Native preview: task checkboxes emit validated Source-edit requests.
+//! Other content is not editable; no browser, file reads or URL launching.
 use super::preview_model::{Block, Kind, Run, Style};
 use super::Snapshot;
 use crate::commands::Message;
 use crate::preview_navigation::Target;
-use iced::widget::{button, column, container, horizontal_rule, rich_text, row, text, tooltip};
+use iced::widget::{
+    button, checkbox, column, container, horizontal_rule, rich_text, row, text, tooltip,
+};
 use iced::{font, Border, Color, Element, Font, Length, Theme};
 
 #[path = "preview_table_view.rs"]
@@ -45,7 +47,7 @@ pub fn render_preview<'a>(
         render_blocks(blocks, colors, snapshot)
     };
     column![
-        text("Read-only preview · links are not opened · unsupported blocks show source")
+        text("Task checkboxes edit Source · links stay inert · other blocks read-only")
             .size(11)
             .color(colors.text),
         content,
@@ -148,18 +150,19 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                             |start| format!("{}.", start.saturating_add(index as u64)),
                         );
                         match &item.kind {
-                            Kind::Item(checked) => {
-                                let checkbox = match checked {
-                                    Some(true) => "[x] ",
-                                    Some(false) => "[ ] ",
-                                    None => "",
-                                };
-                                row![
-                                    text(format!("{marker} {checkbox}")).color(colors.text),
-                                    render_blocks(&item.children, colors, snapshot)
-                                ]
-                                .spacing(8)
-                                .into()
+                            Kind::Item(task) => {
+                                let mut prefix = row![text(marker).color(colors.text)].spacing(6);
+                                if let Some(task) = task {
+                                    let mut control =
+                                        checkbox("", task.checked).size(16).spacing(0);
+                                    if let Some(action) = task_action(item, snapshot) {
+                                        control = control.on_toggle(move |_| action.clone());
+                                    }
+                                    prefix = prefix.push(control);
+                                }
+                                row![prefix, render_blocks(&item.children, colors, snapshot)]
+                                    .spacing(8)
+                                    .into()
                             }
                             _ => row![
                                 text(marker).color(colors.text),
@@ -220,6 +223,18 @@ fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
     block
         .source_navigable()
         .then(|| Message::RevealPreview(Target::block(snapshot, block.source.clone())))
+}
+
+fn task_action(item: &Block, snapshot: Snapshot) -> Option<Message> {
+    let Kind::Item(Some(task)) = &item.kind else {
+        return None;
+    };
+    Some(Message::TogglePreviewTask(crate::preview_task::Target {
+        snapshot,
+        item: item.source.clone(),
+        marker: task.source.clone()?,
+        checked: task.checked,
+    }))
 }
 
 fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {
@@ -326,6 +341,32 @@ mod tests {
             };
             assert_eq!(target.snapshot, snapshot);
             assert_eq!(target.range, block.source);
+        }
+    }
+    #[test]
+    fn task_action_is_stamped_with_exact_item_marker_and_expected_state() {
+        let blocks = super::super::preview_model::parse("- [X] café🙂\n");
+        let item = &blocks[0].children[0];
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 4,
+            state_id: 3,
+        };
+        let Some(Message::TogglePreviewTask(target)) = task_action(item, snapshot) else {
+            panic!("task")
+        };
+        assert_eq!(target.snapshot, snapshot);
+        assert_eq!(target.item, item.source);
+        assert_eq!(target.marker, 2..5);
+        assert!(target.checked);
+        assert!(task_action(&blocks[0], snapshot).is_none());
+    }
+
+    #[test]
+    fn unsupported_and_non_task_items_do_not_emit_mutating_actions() {
+        let blocks = super::super::preview_model::parse("- [\t] disabled\n- plain\n");
+        for item in &blocks[0].children {
+            assert!(task_action(item, Snapshot::default()).is_none());
         }
     }
 }

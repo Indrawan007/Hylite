@@ -1536,3 +1536,144 @@ fn cell_reveal_uses_existing_prompt_open_mode_and_save_export_guards() {
         assert!(!app.document.is_dirty() && !app.document.can_undo());
     }
 }
+
+fn preview_task_target(app: &Hylite, checked: bool) -> crate::preview_task::Target {
+    let source = app.document.buffer_text();
+    let start = if checked {
+        source.find("[X]").or_else(|| source.find("[x]"))
+    } else {
+        source.find("[ ]")
+    }
+    .unwrap();
+    crate::preview_task::Target {
+        snapshot: app.document.snapshot(),
+        item: app.document.preview_blocks()[0].children[0].source.clone(),
+        marker: start..start + 3,
+        checked,
+    }
+}
+
+#[test]
+fn explicit_task_toggle_can_edit_from_preview_without_enabling_other_source_commands() {
+    let mut app = app();
+    app.document = Document::new("- [ ] café🙂\n\t");
+    app.mode = EditMode::Preview;
+    let target = preview_task_target(&app, false);
+    let _ = app.update(Message::TogglePreviewTask(target));
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+    assert_eq!(app.document.snapshot().revision, 1);
+    assert_eq!(app.mode, EditMode::Preview);
+    assert!(app.document.is_dirty());
+    edit(&mut app); // Native editing remains blocked in Preview.
+    let _ = app.update(Message::Undo); // Existing Source-only undo policy stays.
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "- [ ] café🙂\n\t");
+    assert!(!app.document.is_dirty() && !app.document.can_undo());
+    let _ = app.update(Message::Redo);
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+}
+
+#[test]
+fn queued_duplicate_task_toggle_is_stale_and_does_not_create_a_second_history_entry() {
+    let mut app = app();
+    app.document = Document::new("- [ ] todo\n");
+    app.mode = EditMode::Preview;
+    let target = preview_task_target(&app, false);
+    let _ = app.update(Message::TogglePreviewTask(target.clone()));
+    app.document.preview_blocks();
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::TogglePreviewTask(target));
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        )
+    );
+    assert!(app.status_message.contains("stale or unsupported"));
+    let _ = app.update(Message::SwitchMode(EditMode::Source));
+    let _ = app.update(Message::Undo);
+    assert!(!app.document.can_undo() && !app.document.is_dirty());
+}
+
+#[test]
+fn task_toggle_shares_confirmation_open_and_file_operation_guards_but_not_source_mode() {
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("- [ ] todo\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let target = preview_task_target(&app, false);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        let kind = match case {
+            2 => Some(OperationKind::Open),
+            3 => Some(OperationKind::Save),
+            4 => Some(OperationKind::Export),
+            _ => None,
+        };
+        if let Some(kind) = kind {
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let operation = app.operations.active();
+        let _ = app.update(Message::TogglePreviewTask(target));
+        assert_eq!(app.operations.active(), operation);
+        assert_eq!(
+            app.document.buffer_text(),
+            if case < 3 {
+                "- [ ] todo\n"
+            } else {
+                "- [x] todo\n"
+            }
+        );
+        assert_eq!(app.document.is_dirty(), case >= 3);
+        assert_ne!(app.mode, EditMode::Split); // No implicit mode switch.
+    }
+}
+
+#[test]
+fn split_task_toggle_refreshes_find_and_preserves_logical_query_focus_context() {
+    let mut app = app();
+    app.document = Document::new("- [ ] first\n- [ ] second\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("[ ]".into()));
+    assert_eq!(app.search.count(), 2);
+    let target = preview_task_target(&app, false);
+    let _ = app.update(Message::TogglePreviewTask(target));
+    assert_eq!(app.mode, EditMode::Split);
+    assert!(app.search.open);
+    assert_eq!(app.search.query, "[ ]");
+    assert_eq!(app.search.count(), 1);
+}
+
+#[test]
+fn save_reply_for_a_pre_toggle_snapshot_keeps_the_new_task_state_dirty() {
+    let mut app = app();
+    app.document = Document::new("- [ ] todo\n");
+    app.mode = EditMode::Preview;
+    let target = preview_task_target(&app, false);
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::TogglePreviewTask(target));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("tasks.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "- [x] todo\n");
+    assert_eq!(app.document.path(), Some(Path::new("tasks.md")));
+}

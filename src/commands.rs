@@ -35,6 +35,7 @@ pub enum Message {
     GoToQueryChanged(String),
     SubmitGoTo,
     RevealPreview(crate::preview_navigation::Target),
+    TogglePreviewTask(crate::preview_task::Target),
     OpenFind(bool),
     CloseFind,
     FindQueryChanged(String),

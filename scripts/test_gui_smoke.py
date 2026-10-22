@@ -173,6 +173,26 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["LEAK", "X"])
         self.assertEqual(desktop.screenshot.call_count, 2)
 
+    def test_task_probe_uses_real_preview_checkboxes_and_atomic_undo_without_source_click(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_task_toggle(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        checked = source.replace(b"- [ ]", b"- [x]", 1)
+        self.assertIn("café🙂".encode("utf-8"), source)
+        self.assertIn(b"- [X] keep case", source)
+        self.assertIn(b"```md\n- [ ] literal code", source)
+        self.assertTrue(source.endswith(b"\n\t"))
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:7]], [source, checked, source, checked, source, checked, source])
+        self.assertEqual(len(copies), 8)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "762", "153", "click", "1"),
+        ])
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]
