@@ -14,6 +14,7 @@ mod line_edit;
 mod navigation;
 mod operations;
 mod search;
+mod source_focus;
 mod syntax;
 mod text_edit;
 mod ui;

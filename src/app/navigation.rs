@@ -34,7 +34,7 @@ impl Hylite {
             return Task::none();
         }
         self.go_to.close();
-        iced::widget::focus_next()
+        crate::source_focus::task()
     }
 
     pub(super) fn submit_go_to(&mut self) -> Task<Message> {

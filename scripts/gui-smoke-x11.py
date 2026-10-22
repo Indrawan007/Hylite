@@ -101,7 +101,7 @@ class Desktop:
         # -quiet keeps xclip in the foreground so every owner can be reaped.
         owner = subprocess.Popen(["xclip", "-selection", "clipboard", "-in", "-quiet"],
                                  env=self.env, stdin=subprocess.PIPE,
-                                 stdout=subprocess.DEVNULL, stderr=self.log)
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.owners.append(owner)
         owner.stdin.write(data)
         owner.stdin.close()

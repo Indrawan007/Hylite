@@ -122,7 +122,7 @@ impl Hylite {
             Message::OpenFind(replace) => self.open_find(replace),
             Message::CloseFind => {
                 self.search.open = false;
-                iced::widget::focus_next()
+                crate::source_focus::task()
             }
             Message::FindQueryChanged(query) => {
                 if self.pending_action.is_none() {
@@ -353,7 +353,7 @@ impl Hylite {
     }
 
     fn view_source(&self) -> Element<'_, Message> {
-        text_editor(self.document.content())
+        let source = text_editor(self.document.content())
             .on_action(Message::Edit)
             .key_binding(editor::key_binding)
             .font(self.editor_font)
@@ -372,7 +372,11 @@ impl Hylite {
             })
             .size(self.config.editor.font_size)
             .height(Length::Fill)
-            .padding(16)
+            .padding(16);
+        container(source)
+            .id(crate::source_focus::id())
+            .width(Length::Fill)
+            .height(Length::Fill)
             .into()
     }
 

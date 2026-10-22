@@ -41,7 +41,7 @@ impl Hylite {
         if self.search.open || self.go_to.open {
             Task::none()
         } else {
-            iced::widget::focus_next()
+            crate::source_focus::task()
         }
     }
 
