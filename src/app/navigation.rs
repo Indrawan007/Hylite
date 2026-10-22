@@ -15,6 +15,30 @@ impl Hylite {
                 .is_some_and(|operation| operation.kind == OperationKind::Open)
     }
 
+    pub(super) fn reveal_preview(
+        &mut self,
+        target: crate::preview_navigation::Target,
+    ) -> Task<Message> {
+        if !self.navigation_allowed() || self.mode == EditMode::Source {
+            return Task::none();
+        }
+        let Some(offset) = self.document.preview_source_offset(&target) else {
+            self.status_message = "Preview target is stale or unavailable; document kept".into();
+            return Task::none();
+        };
+        if !self.document.set_caret(offset) {
+            self.status_message = "Native cursor positioning failed; document kept".into();
+            return Task::none();
+        }
+        self.search.open = false;
+        self.search.clear_current();
+        self.go_to.close();
+        self.mode = EditMode::Split;
+        self.status_message =
+            format!("Source block at byte {offset} (provenance start, not glyph mapping)");
+        self.restore_input_focus()
+    }
+
     pub(super) fn open_go_to(&mut self) -> Task<Message> {
         if !self.navigation_allowed() {
             return Task::none();

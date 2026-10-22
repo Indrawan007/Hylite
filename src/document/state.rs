@@ -54,6 +54,23 @@ impl Document {
             .get_or_init(|| preview_model::parse(&self.buffer_text()))
     }
 
+    /// A queued UI action is accepted only for a current, actually rendered
+    /// leaf block. Never parse a cold model just to honor an arbitrary range.
+    pub(crate) fn preview_source_offset(
+        &self,
+        target: &crate::preview_navigation::Target,
+    ) -> Option<usize> {
+        let blocks = self.preview.get()?;
+        let offset = target.offset(self.snapshot, &self.buffer_text())?;
+        fn contains(blocks: &[Block], range: &Range<usize>) -> bool {
+            blocks.iter().any(|block| {
+                (block.source_navigable() && &block.source == range)
+                    || contains(&block.children, range)
+            })
+        }
+        contains(blocks, &target.range).then_some(offset)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -413,3 +430,7 @@ mod tests;
 #[cfg(test)]
 #[path = "preview_cache_tests.rs"]
 mod preview_cache_tests;
+
+#[cfg(test)]
+#[path = "preview_reveal_tests.rs"]
+mod preview_reveal_tests;

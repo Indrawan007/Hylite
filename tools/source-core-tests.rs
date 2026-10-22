@@ -24,3 +24,6 @@ mod navigation;
 
 #[path = "../src/line_edit.rs"]
 mod line_edit;
+
+#[path = "../src/preview_navigation.rs"]
+mod preview_navigation;

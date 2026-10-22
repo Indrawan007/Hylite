@@ -1,8 +1,10 @@
 //! Native read-only renderer for the preview projection; no browser, network,
 //! filesystem reads, link launching or document mutation.
 use super::preview_model::{Block, Kind, Run, Style};
+use super::Snapshot;
 use crate::commands::Message;
-use iced::widget::{column, container, horizontal_rule, rich_text, row, text, tooltip};
+use crate::preview_navigation::Target;
+use iced::widget::{button, column, container, horizontal_rule, rich_text, row, text, tooltip};
 use iced::{font, Border, Color, Element, Font, Length, Theme};
 
 #[path = "preview_table_view.rs"]
@@ -31,12 +33,16 @@ impl Colors {
     }
 }
 
-pub fn render_preview<'a>(blocks: &'a [Block], theme: &Theme) -> Element<'a, Message> {
+pub fn render_preview<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors)
+        render_blocks(blocks, colors, snapshot)
     };
     column![
         text("Read-only preview · links are not opened · unsupported blocks show source")
@@ -86,14 +92,18 @@ fn styled_span(run: &Run, heading: bool, colors: Colors) -> text::Span<'_, Messa
     span
 }
 
-fn render_blocks(blocks: &[Block], colors: Colors) -> Element<'_, Message> {
-    column(blocks.iter().map(|block| render_block(block, colors)))
-        .spacing(10)
-        .width(Length::Fill)
-        .into()
+fn render_blocks(blocks: &[Block], colors: Colors, snapshot: Snapshot) -> Element<'_, Message> {
+    column(
+        blocks
+            .iter()
+            .map(|block| render_block(block, colors, snapshot)),
+    )
+    .spacing(10)
+    .width(Length::Fill)
+    .into()
 }
 
-fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
+fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
@@ -117,7 +127,7 @@ fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
                     .collect();
                 rich_text(spans).size(size).width(Length::Fill).into()
             }
-            Kind::Quote => container(render_blocks(&block.children, colors))
+            Kind::Quote => container(render_blocks(&block.children, colors, snapshot))
                 .padding([8, 16])
                 .width(Length::Fill)
                 .style(move |_| container::Style {
@@ -146,20 +156,23 @@ fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
                                 };
                                 row![
                                     text(format!("{marker} {checkbox}")).color(colors.text),
-                                    render_blocks(&item.children, colors)
+                                    render_blocks(&item.children, colors, snapshot)
                                 ]
                                 .spacing(8)
                                 .into()
                             }
-                            _ => row![text(marker).color(colors.text), render_block(item, colors)]
-                                .spacing(8)
-                                .into(),
+                            _ => row![
+                                text(marker).color(colors.text),
+                                render_block(item, colors, snapshot)
+                            ]
+                            .spacing(8)
+                            .into(),
                         }
                     },
                 );
                 column(items).spacing(6).width(Length::Fill).into()
             }
-            Kind::Item(_) => render_blocks(&block.children, colors),
+            Kind::Item(_) => render_blocks(&block.children, colors, snapshot),
             Kind::Code {
                 info,
                 text: payload,
@@ -178,6 +191,21 @@ fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
             Kind::Table(table) => table::render(table, colors),
             Kind::Rule => horizontal_rule(1).into(),
         };
+    let element = if let Some(action) = source_action(block, snapshot) {
+        column![
+            button(text("Show block source").size(11))
+                .padding([2, 6])
+                .height(24)
+                .width(Length::Fill)
+                .on_press(action),
+            element
+        ]
+        .spacing(4)
+        .width(Length::Fill)
+        .into()
+    } else {
+        element
+    };
     // Provenance is inspectable without pretending source byte ranges already
     // support WYSIWYG hit testing or a reverse mapping from shaped text.
     tooltip(
@@ -186,6 +214,15 @@ fn render_block(block: &Block, colors: Colors) -> Element<'_, Message> {
         tooltip::Position::FollowCursor,
     )
     .into()
+}
+
+fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
+    block.source_navigable().then(|| {
+        Message::RevealPreview(Target {
+            snapshot,
+            range: block.source.clone(),
+        })
+    })
 }
 
 fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {
@@ -261,7 +298,7 @@ mod tests {
         for theme in [Theme::Dark, Theme::Light] {
             let source = "# **Title**\n\n> - [x] item\n>   - child\n\n```rs\na\n\n```\n\n|a|b|\n|-|-|\n|c|d|\n\n<script>inert</script>\n";
             let blocks = super::super::preview_model::parse(source);
-            let _view = render_preview(&blocks, &theme);
+            let _view = render_preview(&blocks, &theme, Snapshot::default());
         }
     }
     #[test]
@@ -275,5 +312,23 @@ mod tests {
         assert!(matches!(span.text, std::borrow::Cow::Borrowed(_)));
         assert_eq!(span.text.as_ptr(), run.text.as_ptr());
         assert_eq!(span.text.as_ref(), run.text);
+    }
+    #[test]
+    fn only_leaf_blocks_emit_revision_stamped_source_actions() {
+        let blocks =
+            super::super::preview_model::parse("> child\n\n# **title**\n\n|a|b|\n|-|-|\n|c|d|\n");
+        let snapshot = Snapshot {
+            document_id: 4,
+            revision: 9,
+            state_id: 3,
+        };
+        assert!(source_action(&blocks[0], snapshot).is_none());
+        for block in [&blocks[0].children[0], &blocks[1], &blocks[2]] {
+            let Some(Message::RevealPreview(target)) = source_action(block, snapshot) else {
+                panic!("missing source action")
+            };
+            assert_eq!(target.snapshot, snapshot);
+            assert_eq!(target.range, block.source);
+        }
     }
 }

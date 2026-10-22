@@ -409,6 +409,31 @@ def exercise_preview_cache(desktop, artifacts):
     desktop.expect_copy("Cached preview and navigation add no undo entries", welcome, refocus=False)
 
 
+
+def exercise_preview_reveal(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("# café🙂\n\nbody **bold**\n\n"
+              "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
+              "```rs\n\tcode  \n```\n\t").encode("utf-8")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
+    desktop.key("ctrl+shift+m")  # Source -> Preview.
+    desktop.screenshot(artifacts / "reveal-preview.png")
+    # Intentional click on the first block's explicit Show block source bar,
+    # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "600", "151", "click", "1")
+    time.sleep(0.25)  # Let the navigation message and scoped focus task run.
+    desktop.type_ascii("X")
+    desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
+    desktop.screenshot(artifacts / "reveal-split.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Reveal: sentinel undo restores exact source and terminal whitespace", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Reveal navigation adds no document undo entry", welcome, refocus=False)
+    desktop.key("ctrl+shift+m")  # Split -> Source for the lifecycle probe.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -524,6 +549,7 @@ def main():
                 exercise_preview(desktop, artifacts)
                 exercise_tables(desktop, artifacts)
                 exercise_preview_cache(desktop, artifacts)
+                exercise_preview_reveal(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -543,7 +569,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block-source reveal, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

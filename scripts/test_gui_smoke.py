@@ -140,6 +140,20 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertIn("5:11", [c.args[0] for c in desktop.type_ascii.call_args_list])
         self.assertEqual(desktop.screenshot.call_count, 2)
 
+    def test_reveal_probe_clicks_only_preview_action_and_never_refocuses_source(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_preview_reveal(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        self.assertTrue(source.startswith("# café🙂".encode("utf-8")))
+        self.assertTrue(source.endswith(b"\n\t"))
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:3]], [source, b"X" + source, source])
+        self.assertEqual(len(copies), 4)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        desktop.command.assert_called_once_with("xdotool", "mousemove", "--window", "42", "600", "151", "click", "1")
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]

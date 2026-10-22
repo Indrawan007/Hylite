@@ -13,6 +13,7 @@ mod hyprland;
 mod line_edit;
 mod navigation;
 mod operations;
+mod preview_navigation;
 mod search;
 mod source_focus;
 mod syntax;

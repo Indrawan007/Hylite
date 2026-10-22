@@ -47,6 +47,14 @@ pub struct Block {
     pub children: Vec<Block>,
 }
 
+impl Block {
+    /// Containers have child targets; tables navigate as one block, not cells.
+    pub fn source_navigable(&self) -> bool {
+        !matches!(self.kind, Kind::Quote | Kind::List(_) | Kind::Item(_))
+            && self.source.start < self.source.end
+    }
+}
+
 pub fn parse(source: &str) -> Vec<Block> {
     // Explicit extensions: do not silently enable new syntax when the parser's
     // Options::all grows. Export remains independent and is not changed here.

@@ -1279,3 +1279,172 @@ fn mode_focus_restoration_keeps_queries_until_preview_and_never_changes_content(
         assert_eq!(app.document.buffer_text(), "Original\n");
     }
 }
+
+fn preview_target(app: &Hylite, index: usize) -> crate::preview_navigation::Target {
+    crate::preview_navigation::Target {
+        snapshot: app.document.snapshot(),
+        range: app.document.preview_blocks()[index].source.clone(),
+    }
+}
+
+#[test]
+fn revealing_preview_opens_split_at_utf8_provenance_without_editing() {
+    let mut app = app();
+    let source = "é🙂\n\n# **title**\n\n```\n\tcode  \n```\n\t";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let target = preview_target(&app, 1);
+    let before = app.document.snapshot();
+    let cached = app.document.preview_blocks().as_ptr();
+    let _ = app.update(Message::RevealPreview(target));
+    assert_eq!(app.mode, EditMode::Split);
+    assert_eq!(app.document.caret_offset(), "é🙂\n\n".len());
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.preview_blocks().as_ptr(), cached);
+    assert!(!app.document.is_dirty() && !app.document.can_undo() && !app.document.can_redo());
+    assert!(app.status_message.contains("not glyph mapping"));
+}
+
+#[test]
+fn revealing_in_split_closes_queries_but_preserves_redo_and_dirty_checkpoint() {
+    let mut app = app();
+    edit(&mut app);
+    assert!(app.document.undo());
+    app.mode = EditMode::Split;
+    let target = preview_target(&app, 0);
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("Original".into()));
+    let _ = app.update(Message::FindNext(false));
+    assert!(app.search.current().is_some());
+    let before = app.document.snapshot();
+    let _ = app.update(Message::RevealPreview(target.clone()));
+    assert_eq!(app.mode, EditMode::Split);
+    assert!(!app.search.open && app.search.current().is_none());
+    assert_eq!(app.search.query, "Original");
+    assert!(app.document.can_redo() && !app.document.is_dirty());
+    let _ = app.update(Message::OpenGoTo);
+    let _ = app.update(Message::RevealPreview(target));
+    assert!(!app.go_to.open);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.caret_offset(), 0);
+}
+
+#[test]
+fn reveal_is_ignored_in_source_during_confirmation_or_in_flight_open() {
+    for guard in 0..3 {
+        let mut app = app();
+        let target = preview_target(&app, 0);
+        assert!(app.document.set_caret(3));
+        app.mode = if guard == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        if guard == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if guard == 2 {
+            assert!(app
+                .operations
+                .start(OperationKind::Open, app.document.snapshot())
+                .is_some());
+        }
+        let before = (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.render_key(),
+            app.mode,
+        );
+        let _ = app.update(Message::RevealPreview(target));
+        assert_eq!(
+            before,
+            (
+                app.document.snapshot(),
+                app.document.buffer_text(),
+                app.document.render_key(),
+                app.mode
+            )
+        );
+        assert_eq!(app.document.caret_offset(), 3);
+    }
+}
+
+#[test]
+fn invalid_preview_targets_keep_mode_caret_selection_and_queries() {
+    let mut app = app();
+    app.mode = EditMode::Split;
+    let mut target = preview_target(&app, 0);
+    target.range = 1..2; // In bounds, but not a rendered block.
+    let _ = app.update(Message::OpenFind(false));
+    app.document.apply(text_editor::Action::SelectAll);
+    let before = (
+        app.document.snapshot(),
+        app.document.content().cursor_position(),
+        app.document.content().selection(),
+        app.document.render_key(),
+    );
+    let _ = app.update(Message::RevealPreview(target));
+    assert_eq!(app.mode, EditMode::Split);
+    assert!(app.search.open);
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.content().cursor_position(),
+            app.document.content().selection(),
+            app.document.render_key()
+        )
+    );
+    assert!(app.status_message.contains("stale or unavailable"));
+}
+
+#[test]
+fn reveal_remains_allowed_during_save_or_export_without_consuming_the_operation() {
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = app();
+        app.mode = EditMode::Preview;
+        let target = preview_target(&app, 0);
+        assert!(app
+            .operations
+            .start(kind, app.document.snapshot())
+            .is_some());
+        let operation = app.operations.active();
+        let _ = app.update(Message::RevealPreview(target));
+        assert_eq!(app.mode, EditMode::Split);
+        assert_eq!(app.operations.active(), operation);
+        assert_eq!(app.document.caret_offset(), 0);
+        assert!(!app.document.is_dirty());
+    }
+}
+
+#[test]
+fn queued_preview_targets_cannot_navigate_after_edits_or_document_replacement() {
+    for replace in [false, true] {
+        let mut app = app();
+        app.mode = EditMode::Preview;
+        let target = preview_target(&app, 0);
+        if replace {
+            app.document.replace(None, "Original\n");
+        } else {
+            app.document
+                .apply(text_editor::Action::Edit(text_editor::Edit::Insert('x')));
+        }
+        app.document.preview_blocks();
+        let before = (
+            app.document.snapshot(),
+            app.document.caret_offset(),
+            app.document.render_key(),
+        );
+        let _ = app.update(Message::RevealPreview(target));
+        assert_eq!(
+            before,
+            (
+                app.document.snapshot(),
+                app.document.caret_offset(),
+                app.document.render_key()
+            )
+        );
+        assert_eq!(app.mode, EditMode::Preview);
+    }
+}

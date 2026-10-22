@@ -116,6 +116,7 @@ impl Hylite {
             Message::InsertCodeBlock => self.insert_code_block(),
             Message::Indent(remove) => self.indent(remove),
             Message::EditLines(action) => self.edit_lines(action),
+            Message::RevealPreview(target) => self.reveal_preview(target),
             Message::OpenGoTo => self.open_go_to(),
             Message::CloseGoTo => self.close_go_to(),
             Message::SubmitGoTo => self.submit_go_to(),
@@ -388,7 +389,11 @@ impl Hylite {
     }
 
     fn view_preview(&self) -> Element<'_, Message> {
-        let parsed = crate::document::render_preview(self.document.preview_blocks(), &self.theme());
+        let parsed = crate::document::render_preview(
+            self.document.preview_blocks(),
+            &self.theme(),
+            self.document.snapshot(),
+        );
 
         container(
             iced::widget::scrollable(
