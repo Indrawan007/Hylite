@@ -1,13 +1,21 @@
+# Missing fields and sections use these defaults.
 [editor]
-font_family = "JetBrains Mono Nerd Font"
+# Use an installed font family, e.g. "JetBrains Mono Nerd Font", or "monospace".
+font_family = "monospace"
 font_size = 16.0
+# Tab inserts spaces up to the next stop; pasted literal tabs are preserved.
 tab_size = 4
+# Not implemented yet: true is disabled with a visible warning.
 auto_save = false
 word_wrap = true
+# Read-only lexical Markdown colors; false restores plain Source text.
+syntax_highlighting = true
+# Bare Enter continues simple lists; Shift+Enter always uses native newline.
+auto_continue_lists = true
 default_mode = "source"
 
 [appearance]
 theme = "catppuccin-mocha"
-opacity = 1.0
-content_width = 800
-sidebar_width = 250
+content_width = 820
+sidebar_width = 220
+# Window opacity is controlled by Hyprland, not by this configuration.

@@ -38,9 +38,10 @@ impl HyprlandIntegration {
         self.dispatch("dispatch fullscreen 1")?;
         Ok(())
     }
+}
 
-    pub fn toggle_float(&self) -> anyhow::Result<()> {
-        self.dispatch("dispatch togglefloating active")?;
-        Ok(())
+impl Default for HyprlandIntegration {
+    fn default() -> Self {
+        Self::new()
     }
 }

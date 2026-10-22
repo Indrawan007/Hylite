@@ -1,4 +1,6 @@
-use crate::app::{EditMode, Hylite, Message};
+use crate::app::Hylite;
+use crate::commands::Message;
+use crate::editor::EditMode;
 use iced::widget::{button, container, horizontal_space, row, text};
 use iced::{Element, Length};
 
@@ -32,7 +34,7 @@ fn btn_style(active: bool) -> impl Fn(&iced::Theme, button::Status) -> button::S
     }
 }
 
-pub fn view(app: &Hylite) -> Element<Message> {
+pub fn view(app: &Hylite) -> Element<'_, Message> {
     let mode_btn = |label: &'static str, mode: EditMode| {
         button(text(label).size(12))
             .on_press(Message::SwitchMode(mode))
@@ -56,7 +58,11 @@ pub fn view(app: &Hylite) -> Element<Message> {
                 .padding([4, 10]),
             button(text("Save").size(12))
                 .on_press(Message::SaveFile)
-                .style(btn_style(app.is_dirty))
+                .style(btn_style(app.document.is_dirty()))
+                .padding([4, 10]),
+            button(text("Save As").size(12))
+                .on_press(Message::SaveAs)
+                .style(btn_style(false))
                 .padding([4, 10]),
             button(text("HTML").size(12))
                 .on_press(Message::ExportHtml)

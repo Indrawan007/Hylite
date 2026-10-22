@@ -1,13 +1,14 @@
-use crate::app::{Hylite, Message};
+use crate::app::Hylite;
+use crate::commands::Message;
 use iced::widget::{column, container, text};
 use iced::{Element, Length};
 
-pub fn view(app: &Hylite) -> Element<Message> {
+pub fn view(app: &Hylite) -> Element<'_, Message> {
     let header = text("📁  FILES").size(12).color([0.55, 0.57, 0.68]);
 
     let current = app
-        .file_path
-        .as_ref()
+        .document
+        .path()
         .and_then(|p| p.file_name())
         .and_then(|n| n.to_str())
         .unwrap_or("untitled.md")

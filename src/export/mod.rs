@@ -53,6 +53,86 @@ pub fn export_html(markdown: &str, path: &std::path::Path) -> anyhow::Result<()>
         to_html(markdown)
     );
 
-    std::fs::write(path, page)?;
+    crate::files::atomic_write(path, page.as_bytes())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{export_html, to_html};
+
+    #[test]
+    fn empty_markdown_produces_empty_body() {
+        assert!(to_html("").is_empty());
+    }
+
+    #[test]
+    fn renders_headings_and_inline_formatting() {
+        let html = to_html("# Hylite\n\n**Bold**, *italic*, and `code`.\n");
+
+        assert!(html.contains("<h1>Hylite</h1>"));
+        assert!(html.contains("<strong>Bold</strong>"));
+        assert!(html.contains("<em>italic</em>"));
+        assert!(html.contains("<code>code</code>"));
+    }
+
+    #[test]
+    fn renders_tables_and_task_lists() {
+        let html = to_html("| Name |\n| --- |\n| Hylite |\n\n- [x] Ready\n- [ ] Later\n");
+
+        assert!(html.contains("<table>"));
+        assert!(html.contains("<th>Name</th>"));
+        assert!(html.contains("<td>Hylite</td>"));
+        assert!(html.contains("type=\"checkbox\""));
+        assert!(html.contains("checked=\"\""));
+    }
+
+    #[test]
+    fn escapes_code_without_treating_it_as_html() {
+        let html = to_html("```html\n<script>alert('test')</script>\n```\n");
+
+        assert!(html.contains("class=\"language-html\""));
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn preserves_unicode_text() {
+        let html = to_html("# Catatan ✨\n\nBahasa Indonesia — 日本語.\n");
+
+        assert!(html.contains("Catatan ✨"));
+        assert!(html.contains("Bahasa Indonesia — 日本語."));
+    }
+
+    #[test]
+    fn raw_html_is_currently_preserved_not_sanitized() {
+        // This documents the current trust boundary, not a security guarantee.
+        let html = to_html("<script>alert('test')</script>\n");
+
+        assert!(html.contains("<script>alert('test')</script>"));
+    }
+
+    #[test]
+    fn writes_a_complete_html_document() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("catatan.html");
+
+        export_html("# Catatan\n\nIsi dokumen.\n", &path).unwrap();
+        let page = std::fs::read_to_string(path).unwrap();
+
+        assert!(page.starts_with("<!DOCTYPE html>"));
+        assert!(page.contains("<meta charset=\"utf-8\">"));
+        assert!(page.contains("<style>"));
+        assert!(page.contains("<h1>Catatan</h1>"));
+        assert!(page.contains("<p>Isi dokumen.</p>"));
+        assert!(page.ends_with("</html>"));
+    }
+
+    #[test]
+    fn propagates_write_errors() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("missing").join("catatan.html");
+
+        assert!(export_html("# Catatan", &path).is_err());
+    }
 }

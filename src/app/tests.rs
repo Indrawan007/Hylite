@@ -1,0 +1,1095 @@
+use super::*;
+use crate::operations::{OperationKind, OperationToken};
+use std::path::{Path, PathBuf};
+
+// Do not call Hylite::new(): tests must not read/write the user's config.
+// Returned Tasks are deliberately not executed; native dialogs stay closed.
+fn app() -> Hylite {
+    Hylite {
+        document: Document::new("Original\n"),
+        search: crate::search::Search::default(),
+        go_to: crate::navigation::GoTo::default(),
+        mode: EditMode::Source,
+        sidebar_open: true,
+        zen_mode: false,
+        status_message: String::new(),
+        config: Config::default(),
+        hyprland: HyprlandIntegration::default(),
+        operations: Operations::default(),
+        editor_font: iced::Font::MONOSPACE,
+        config_warning: None,
+        pending_action: None,
+        file_error: None,
+    }
+}
+
+fn edit(app: &mut Hylite) {
+    app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('x'),
+    )));
+}
+
+fn token(app: &Hylite) -> OperationToken {
+    app.operations
+        .active()
+        .expect("expected a running file operation")
+        .token
+}
+
+#[test]
+fn edit_modes_cycle_in_order() {
+    assert_eq!(EditMode::Source.next(), EditMode::Preview);
+    assert_eq!(EditMode::Preview.next(), EditMode::Split);
+    assert_eq!(EditMode::Split.next(), EditMode::Source);
+}
+
+#[test]
+fn edit_mode_labels_are_stable() {
+    assert_eq!(EditMode::Source.label(), "Source");
+    assert_eq!(EditMode::Preview.label(), "Preview");
+    assert_eq!(EditMode::Split.label(), "Split");
+}
+
+#[test]
+fn saving_an_untitled_document_updates_path_and_title() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::SaveFile);
+    let token = token(&app);
+    let path = PathBuf::from("/notes/saved.md");
+    app.update(Message::FileSaved(token, Ok(Some(path.clone()))));
+    assert_eq!(app.document.path(), Some(path.as_path()));
+    assert!(!app.document.is_dirty());
+    assert!(app.title().starts_with("saved.md"));
+    assert!(app.operations.active().is_none());
+}
+
+#[test]
+fn edits_during_save_remain_dirty_but_keep_the_new_path() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::SaveFile);
+    let token = token(&app);
+    edit(&mut app);
+    let edited = app.document.text();
+    app.update(Message::FileSaved(token, Ok(Some("new.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.text(), edited);
+    assert_eq!(app.document.path(), Some(Path::new("new.md")));
+    assert!(app.status_message.contains("newer changes"));
+}
+
+#[test]
+fn save_as_failure_or_cancellation_keeps_old_path_and_changes() {
+    for result in [Ok(None), Err("Permission denied".into())] {
+        let mut app = app();
+        app.replace_document(Some("old.md".into()), "Original\n");
+        edit(&mut app);
+        let before = app.document.text();
+        app.update(Message::SaveAs);
+        let token = token(&app);
+        app.update(Message::FileSaved(token, result));
+        assert_eq!(app.document.path(), Some(Path::new("old.md")));
+        assert_eq!(app.document.text(), before);
+        assert!(app.document.is_dirty());
+        assert!(app.operations.active().is_none());
+    }
+}
+
+#[test]
+fn save_as_success_switches_the_active_path() {
+    let mut app = app();
+    app.replace_document(Some("old.md".into()), "Original\n");
+    app.update(Message::SaveAs);
+    let token = token(&app);
+    app.update(Message::FileSaved(token, Ok(Some("renamed.md".into()))));
+    assert_eq!(app.document.path(), Some(Path::new("renamed.md")));
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn export_outcomes_never_mark_markdown_saved_or_change_its_path() {
+    for dirty in [false, true] {
+        for result in [
+            Ok(Some("note.html".into())),
+            Ok(None),
+            Err("Disk full".into()),
+        ] {
+            let mut app = app();
+            app.replace_document(Some("note.md".into()), "Original\n");
+            if dirty {
+                edit(&mut app);
+            }
+            let before = app.document.text();
+            app.update(Message::ExportHtml);
+            let token = token(&app);
+            app.update(Message::HtmlExported(token, result));
+            assert_eq!(app.document.is_dirty(), dirty);
+            assert_eq!(app.document.path(), Some(Path::new("note.md")));
+            assert_eq!(app.document.text(), before);
+        }
+    }
+}
+
+#[test]
+fn new_open_and_close_prompt_before_losing_changes() {
+    for action in [
+        PendingAction::New,
+        PendingAction::Open,
+        PendingAction::Close(window::Id::unique()),
+    ] {
+        let mut app = app();
+        edit(&mut app);
+        let before = app.document.text();
+        app.request_action(action);
+        assert_eq!(app.pending_action, Some(action));
+        assert!(app.operations.active().is_none());
+        assert_eq!(app.document.text(), before);
+        assert!(app.document.is_dirty());
+    }
+}
+
+#[test]
+fn cancelling_the_prompt_preserves_the_document() {
+    let mut app = app();
+    edit(&mut app);
+    let before = app.document.text();
+    app.update(Message::NewFile);
+    app.update(Message::CancelPendingAction);
+    assert!(app.pending_action.is_none());
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.text(), before);
+}
+
+#[test]
+fn escape_cancels_prompt_without_leaving_zen() {
+    let mut app = app();
+    app.zen_mode = true;
+    edit(&mut app);
+    app.update(Message::NewFile);
+    app.update(Message::ExitZenMode);
+    assert!(app.pending_action.is_none());
+    assert!(app.document.is_dirty());
+    assert!(app.zen_mode);
+}
+
+#[test]
+fn discard_then_new_resets_document_identity() {
+    let mut app = app();
+    edit(&mut app);
+    let previous_id = app.document.snapshot().document_id;
+    app.update(Message::NewFile);
+    app.update(Message::ConfirmDiscard);
+    assert!(app.document.text().trim().is_empty());
+    assert!(app.document.path().is_none());
+    assert!(!app.document.is_dirty());
+    assert!(app.pending_action.is_none());
+    assert_ne!(app.document.snapshot().document_id, previous_id);
+}
+
+#[test]
+fn save_before_new_only_continues_after_success() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::NewFile);
+    app.update(Message::ConfirmSave);
+    let token = token(&app);
+    assert_eq!(app.pending_action, Some(PendingAction::New));
+    assert!(app.document.is_dirty());
+    app.update(Message::FileSaved(token, Ok(Some("old.md".into()))));
+    assert!(app.document.text().trim().is_empty());
+    assert!(app.pending_action.is_none());
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn failed_or_cancelled_save_does_not_continue_a_destructive_action() {
+    for action in [
+        PendingAction::New,
+        PendingAction::Open,
+        PendingAction::Close(window::Id::unique()),
+    ] {
+        for result in [Ok(None), Err("Disk full".into())] {
+            let mut app = app();
+            edit(&mut app);
+            let before = app.document.text();
+            app.request_action(action);
+            app.update(Message::ConfirmSave);
+            let token = token(&app);
+            app.update(Message::FileSaved(token, result));
+            assert_eq!(app.pending_action, Some(action));
+            assert!(app.operations.active().is_none());
+            assert!(app.document.is_dirty());
+            assert_eq!(app.document.text(), before);
+        }
+    }
+}
+
+#[test]
+fn save_before_open_starts_open_only_after_success() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::OpenFile);
+    app.update(Message::ConfirmSave);
+    let saved_token = token(&app);
+    app.update(Message::FileSaved(saved_token, Ok(Some("old.md".into()))));
+    assert!(app.pending_action.is_none());
+    assert_eq!(app.operations.active().unwrap().kind, OperationKind::Open);
+    assert_ne!(token(&app), saved_token);
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn newer_revision_does_not_continue_pending_action_after_save() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::NewFile);
+    app.update(Message::ConfirmSave);
+    let token = token(&app);
+    // Normal editing is blocked by the prompt. Simulate a future edit source.
+    app.document
+        .apply(text_editor::Action::Edit(text_editor::Edit::Insert('y')));
+    app.update(Message::FileSaved(token, Ok(Some("old.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.pending_action, Some(PendingAction::New));
+    assert!(!app.document.text().trim().is_empty());
+}
+
+#[test]
+fn prompt_blocks_edits_and_cannot_be_replaced_by_another_action() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::NewFile);
+    let before = app.document.text();
+    let revision = app.document.snapshot().revision;
+    edit(&mut app);
+    app.update(Message::OpenFile);
+    app.update(Message::CloseRequested(window::Id::unique()));
+    app.update(Message::ExportHtml);
+    assert_eq!(app.pending_action, Some(PendingAction::New));
+    assert_eq!(app.document.text(), before);
+    assert_eq!(app.document.snapshot().revision, revision);
+    assert!(app.operations.active().is_none());
+}
+
+#[test]
+fn prompt_cannot_be_discarded_or_cancelled_while_saving() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::NewFile);
+    app.update(Message::ConfirmSave);
+    let operation = app.operations.active();
+    app.update(Message::ConfirmDiscard);
+    app.update(Message::CancelPendingAction);
+    app.update(Message::ConfirmSave);
+    assert_eq!(app.pending_action, Some(PendingAction::New));
+    assert_eq!(app.operations.active(), operation);
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn only_one_file_operation_can_run_at_once() {
+    let mut app = app();
+    app.update(Message::SaveFile);
+    let operation = app.operations.active();
+    app.update(Message::SaveAs);
+    app.update(Message::OpenFile);
+    app.update(Message::NewFile);
+    app.update(Message::ExportHtml);
+    app.update(Message::CloseRequested(window::Id::unique()));
+    assert_eq!(app.operations.active(), operation);
+    assert!(app.pending_action.is_none());
+    assert!(app.status_message.contains("Wait"));
+}
+
+#[test]
+fn open_cancellation_and_errors_keep_discarded_document_available() {
+    for result in [Ok(None), Err("Invalid UTF-8".into())] {
+        let mut app = app();
+        edit(&mut app);
+        let before = app.document.text();
+        app.update(Message::OpenFile);
+        app.update(Message::ConfirmDiscard);
+        let token = token(&app);
+        app.update(Message::FileOpened(token, result));
+        assert_eq!(app.document.text(), before);
+        assert!(app.document.is_dirty());
+        assert!(app.operations.active().is_none());
+    }
+}
+
+#[test]
+fn opening_blocks_edits_until_the_result_is_processed() {
+    let mut app = app();
+    let before = app.document.text();
+    app.update(Message::OpenFile);
+    let token = token(&app);
+    edit(&mut app);
+    assert_eq!(app.document.text(), before);
+    app.update(Message::FileOpened(
+        token,
+        Ok(Some(("opened.md".into(), "Opened\n".into()))),
+    ));
+    assert_eq!(app.document.text(), "Opened\n");
+    assert_eq!(app.document.path(), Some(Path::new("opened.md")));
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn changed_revision_rejects_an_open_result() {
+    let mut app = app();
+    app.update(Message::OpenFile);
+    let token = token(&app);
+    app.document
+        .apply(text_editor::Action::Edit(text_editor::Edit::Insert('y')));
+    let before = app.document.text();
+    app.update(Message::FileOpened(
+        token,
+        Ok(Some(("other.md".into(), "Other".into()))),
+    ));
+    assert_eq!(app.document.text(), before);
+    assert!(app.document.path().is_none());
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn stale_save_result_cannot_affect_a_replacement_document() {
+    let mut app = app();
+    app.update(Message::SaveFile);
+    let token = token(&app);
+    app.replace_document(Some("replacement.md".into()), "Replacement\n");
+    edit(&mut app);
+    let before = app.document.text();
+    app.update(Message::FileSaved(token, Ok(Some("old.md".into()))));
+    assert_eq!(app.document.path(), Some(Path::new("replacement.md")));
+    assert_eq!(app.document.text(), before);
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn old_or_wrong_kind_results_do_not_consume_the_current_operation() {
+    let mut app = app();
+    app.update(Message::SaveFile);
+    let old = token(&app);
+    app.update(Message::FileSaved(old, Ok(None)));
+    app.update(Message::OpenFile);
+    let active = app.operations.active();
+    app.update(Message::FileSaved(old, Ok(Some("stale.md".into()))));
+    app.update(Message::HtmlExported(
+        token(&app),
+        Ok(Some("wrong.html".into())),
+    ));
+    assert_eq!(app.operations.active(), active);
+    assert!(app.document.path().is_none());
+}
+
+#[test]
+fn errors_are_distinct_from_cancellation_and_visible_in_zen() {
+    let mut app = app();
+    app.zen_mode = true;
+    app.update(Message::SaveFile);
+    let first = token(&app);
+    app.update(Message::FileSaved(first, Ok(None)));
+    assert!(app.file_error.is_none());
+    assert!(app.status_message.contains("cancelled"));
+    app.update(Message::SaveFile);
+    let second = token(&app);
+    app.update(Message::FileSaved(second, Err("Permission denied".into())));
+    assert!(app
+        .file_error
+        .as_ref()
+        .unwrap()
+        .contains("Permission denied"));
+    app.update(Message::ExitZenMode);
+    assert!(app.file_error.is_none());
+    assert!(app.zen_mode);
+}
+
+#[test]
+fn configured_tab_inserts_spaces_as_one_document_revision() {
+    let mut app = app();
+    app.replace_document(None, "");
+    app.config.editor.tab_size = 4;
+    edit(&mut app);
+    let before = app.document.snapshot().revision;
+    app.update(Message::InsertTab);
+    assert_eq!(app.document.text(), "x   \n");
+    assert_eq!(app.document.snapshot().revision, before + 1);
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn tab_respects_the_same_prompt_and_open_guards_as_other_edits() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::NewFile);
+    let before = app.document.text();
+    app.update(Message::InsertTab);
+    assert_eq!(app.document.text(), before);
+    app.update(Message::ConfirmDiscard);
+    app.update(Message::OpenFile);
+    let before = app.document.text();
+    app.update(Message::InsertTab);
+    assert_eq!(app.document.text(), before);
+}
+
+#[test]
+fn dismissing_config_warnings_does_not_clear_file_errors_or_document_changes() {
+    let mut app = app();
+    edit(&mut app);
+    let before = app.document.snapshot();
+    app.config_warning = Some("Invalid font size".into());
+    app.file_error = Some("Disk full".into());
+    app.update(Message::DismissConfigWarning);
+    assert!(app.config_warning.is_none());
+    assert_eq!(app.file_error.as_deref(), Some("Disk full"));
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn undo_during_async_save_remains_dirty_until_the_saved_checkpoint_is_restored() {
+    let mut app = app();
+    app.replace_document(None, "");
+    edit(&mut app);
+    app.update(Message::SaveFile);
+    let saved = token(&app);
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "");
+    app.update(Message::FileSaved(saved, Ok(Some("saved.md".into()))));
+    assert!(app.document.is_dirty());
+    app.update(Message::Redo);
+    assert_eq!(app.document.buffer_text(), "x");
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.path(), Some(Path::new("saved.md")));
+}
+
+#[test]
+fn find_navigation_changes_only_the_cursor_not_document_or_history() {
+    let mut app = app();
+    app.replace_document(None, "é✨ é✨");
+    let before = app.document.snapshot();
+    app.update(Message::OpenFind(false));
+    app.update(Message::FindQueryChanged("é✨".into()));
+    app.update(Message::FindNext(false));
+    app.update(Message::FindNext(false));
+    assert_eq!(app.document.caret_offset(), 6);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.can_undo());
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn replace_all_is_one_undo_step_and_does_not_touch_query_history() {
+    let mut app = app();
+    app.replace_document(None, "a a");
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("a".into()));
+    app.update(Message::ReplacementChanged("aa".into()));
+    assert!(!app.document.can_undo());
+    app.update(Message::ReplaceAll);
+    assert_eq!(app.document.buffer_text(), "aa aa");
+    assert!(app.document.is_dirty());
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "a a");
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+    assert_eq!(app.search.query, "a");
+    assert_eq!(app.search.replacement, "aa");
+}
+
+#[test]
+fn editing_invalidates_the_active_find_match_before_replacement() {
+    let mut app = app();
+    app.replace_document(None, "a a");
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("a".into()));
+    app.update(Message::ReplacementChanged("Z".into()));
+    app.update(Message::FindNext(false));
+    edit(&mut app);
+    let before = app.document.buffer_text();
+    app.update(Message::ReplaceCurrent);
+    assert_eq!(app.document.buffer_text(), before);
+    assert!(app.search.current().is_none());
+}
+
+#[test]
+fn replacement_after_new_document_cannot_reuse_the_previous_active_result() {
+    let mut app = app();
+    app.replace_document(None, "a a");
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("a".into()));
+    app.update(Message::ReplacementChanged("Z".into()));
+    app.update(Message::FindNext(false));
+    app.replace_document(None, "a new file");
+    app.update(Message::ReplaceCurrent);
+    assert_eq!(app.document.buffer_text(), "a new file");
+    assert!(app.search.current().is_none());
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn prompt_blocks_undo_redo_format_indent_and_replace_without_moving_cursor() {
+    let mut app = app();
+    edit(&mut app);
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("Original".into()));
+    app.update(Message::ReplacementChanged("Z".into()));
+    app.update(Message::FindNext(false));
+    app.update(Message::NewFile);
+    let text = app.document.buffer_text();
+    let before = app.document.snapshot();
+    let caret = app.document.caret_offset();
+    for message in [
+        Message::Undo,
+        Message::Redo,
+        Message::FormatInline(crate::text_edit::InlineStyle::Bold),
+        Message::FormatBlock(crate::block_edit::BlockStyle::Heading(1)),
+        Message::InsertLink,
+        Message::InsertCodeBlock,
+        Message::Indent(false),
+        Message::ReplaceCurrent,
+        Message::ReplaceAll,
+    ] {
+        app.update(message);
+    }
+    assert_eq!(app.document.buffer_text(), text);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.caret_offset(), caret);
+    assert_eq!(app.pending_action, Some(PendingAction::New));
+}
+
+#[test]
+fn preview_and_open_operations_reject_source_mutations() {
+    let mut app = app();
+    edit(&mut app);
+    let before = app.document.buffer_text();
+    app.update(Message::SwitchMode(EditMode::Preview));
+    app.update(Message::Undo);
+    app.update(Message::FormatInline(crate::text_edit::InlineStyle::Italic));
+    assert_eq!(app.document.buffer_text(), before);
+    app.update(Message::OpenFind(false));
+    assert_eq!(app.mode, EditMode::Source);
+    app.update(Message::OpenFile);
+    app.update(Message::ConfirmDiscard);
+    app.update(Message::Undo);
+    app.update(Message::Indent(false));
+    assert_eq!(app.document.buffer_text(), before);
+    assert_eq!(app.operations.active().unwrap().kind, OperationKind::Open);
+}
+
+#[test]
+fn escape_closes_find_before_leaving_zen() {
+    let mut app = app();
+    app.zen_mode = true;
+    app.update(Message::OpenFind(false));
+    app.update(Message::ExitZenMode);
+    assert!(!app.search.open);
+    assert!(app.zen_mode);
+}
+
+#[test]
+fn tab_uses_unicode_character_columns_and_selected_lines_indent_atomically() {
+    let mut app = app();
+    app.replace_document(None, "é");
+    app.document.set_caret(2);
+    app.update(Message::InsertTab);
+    assert_eq!(app.document.buffer_text(), "é   ");
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "é");
+    app.replace_document(None, "a\nb");
+    app.update(Message::Edit(text_editor::Action::SelectAll));
+    app.update(Message::InsertTab);
+    assert_eq!(app.document.buffer_text(), "    a\n    b");
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "a\nb");
+}
+
+#[test]
+fn new_formatting_commands_share_preview_and_open_guards() {
+    let mut app = app();
+    app.replace_document(None, "plain");
+    app.update(Message::SwitchMode(EditMode::Preview));
+    let before = app.document.snapshot();
+    for message in [
+        Message::FormatBlock(crate::block_edit::BlockStyle::TaskList),
+        Message::InsertLink,
+        Message::InsertCodeBlock,
+    ] {
+        app.update(message);
+    }
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), "plain");
+    app.update(Message::SwitchMode(EditMode::Source));
+    app.update(Message::OpenFile);
+    for message in [
+        Message::FormatBlock(crate::block_edit::BlockStyle::Heading(1)),
+        Message::InsertLink,
+        Message::InsertCodeBlock,
+    ] {
+        app.update(message);
+    }
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), "plain");
+    assert_eq!(app.operations.active().unwrap().kind, OperationKind::Open);
+}
+
+#[test]
+fn block_formatting_refreshes_search_and_is_undoable_to_saved_checkpoint() {
+    let mut app = app();
+    app.replace_document(None, "é");
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("é".into()));
+    app.update(Message::FindNext(false));
+    assert!(app.search.current().is_some());
+    app.update(Message::FormatBlock(
+        crate::block_edit::BlockStyle::Heading(2),
+    ));
+    assert_eq!(app.document.buffer_text(), "## é");
+    assert_eq!(app.search.count(), 1);
+    assert!(app.search.current().is_none());
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "é");
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn block_formatting_during_save_keeps_the_new_state_dirty() {
+    let mut app = app();
+    app.replace_document(None, "plain");
+    app.update(Message::SaveFile);
+    let token = token(&app);
+    app.update(Message::FormatBlock(
+        crate::block_edit::BlockStyle::Heading(1),
+    ));
+    app.update(Message::FileSaved(token, Ok(Some("saved.md".into()))));
+    assert_eq!(app.document.buffer_text(), "# plain");
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.path(), Some(Path::new("saved.md")));
+    app.update(Message::Undo);
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "plain");
+}
+
+#[test]
+fn user_commands_and_window_blur_are_typing_boundaries() {
+    for boundary in [
+        Message::ToggleSidebar,
+        Message::EndTypingGroup,
+        Message::OpenFind(false),
+    ] {
+        let mut app = app();
+        app.replace_document(None, "");
+        edit(&mut app);
+        app.update(boundary);
+        edit(&mut app);
+        app.update(Message::Undo);
+        assert_eq!(app.document.buffer_text(), "x");
+    }
+}
+
+#[test]
+fn starting_save_directly_seals_the_checkpoint_without_relying_on_ui_dispatch() {
+    let mut app = app();
+    app.replace_document(None, "");
+    edit(&mut app);
+    let token = app.start_operation(OperationKind::Save);
+    edit(&mut app);
+    app.update(Message::FileSaved(token, Ok(Some("saved.md".into()))));
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "x");
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.path(), Some(Path::new("saved.md")));
+}
+
+#[test]
+fn list_enter_refreshes_search_and_honors_config_and_saved_state() {
+    let mut app = app();
+    app.replace_document(None, "- café");
+    app.update(Message::OpenFind(false));
+    app.update(Message::FindQueryChanged("café".into()));
+    app.update(Message::FindNext(false));
+    app.document.set_caret(app.document.buffer_text().len());
+    app.update(Message::InsertNewline);
+    assert_eq!(app.document.buffer_text(), "- café\n- ");
+    assert_eq!(app.search.count(), 1);
+    assert!(app.search.current().is_none());
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "- café");
+    assert!(!app.document.is_dirty());
+    app.config.editor.auto_continue_lists = false;
+    app.update(Message::InsertNewline);
+    assert_eq!(app.document.buffer_text(), "- café\n");
+}
+
+#[test]
+fn list_enter_shares_preview_prompt_and_open_guards() {
+    let mut app = app();
+    app.replace_document(None, "- item");
+    app.document.set_caret(6);
+    let before = app.document.snapshot();
+    app.update(Message::SwitchMode(EditMode::Preview));
+    app.update(Message::InsertNewline);
+    assert_eq!(app.document.snapshot(), before);
+    app.update(Message::SwitchMode(EditMode::Source));
+    app.pending_action = Some(PendingAction::New);
+    app.update(Message::InsertNewline);
+    assert_eq!(app.document.snapshot(), before);
+    app.pending_action = None;
+    app.update(Message::OpenFile);
+    app.update(Message::InsertNewline);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), "- item");
+}
+
+#[test]
+fn list_enter_during_save_keeps_the_new_state_dirty() {
+    let mut app = app();
+    app.replace_document(None, "- item");
+    app.document.set_caret(6);
+    app.update(Message::SaveFile);
+    let saved = token(&app);
+    app.update(Message::InsertNewline);
+    app.update(Message::FileSaved(saved, Ok(Some("list.md".into()))));
+    assert_eq!(app.document.buffer_text(), "- item\n- ");
+    assert!(app.document.is_dirty());
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "- item");
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn go_to_opens_from_preview_with_current_unicode_coordinates() {
+    let mut app = app();
+    app.replace_document(None, "first\né✨");
+    app.document.set_caret("first\né".len());
+    app.mode = EditMode::Preview;
+    app.search.open = true;
+    let before = app.document.snapshot();
+    app.update(Message::OpenGoTo);
+    assert_eq!(app.mode, EditMode::Source);
+    assert!(app.go_to.open);
+    assert_eq!(app.go_to.query, "2:2");
+    assert!(!app.search.open);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn go_to_locates_unicode_without_changing_snapshot_or_undo_redo() {
+    let mut app = app();
+    app.replace_document(None, "first\né✨\n");
+    edit(&mut app);
+    app.update(Message::Undo);
+    assert!(app.document.can_redo());
+    let before = app.document.snapshot();
+    let key = app.document.render_key();
+    app.update(Message::OpenGoTo);
+    app.update(Message::GoToQueryChanged("2:2".into()));
+    app.update(Message::SubmitGoTo);
+    assert!(!app.go_to.open);
+    assert_eq!(app.document.caret_offset(), "first\né".len());
+    assert_eq!(app.document.character_column(), 1);
+    assert_eq!(app.document.buffer_text(), "first\né✨\n");
+    assert_eq!(app.document.snapshot(), before);
+    assert_ne!(app.document.render_key(), key); // native Content reconstructed
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+    assert!(app.document.can_redo());
+    app.update(Message::Redo);
+    assert!(app.document.is_dirty());
+}
+
+#[test]
+fn invalid_go_to_keeps_selection_caret_and_panel_until_corrected() {
+    let mut app = app();
+    app.replace_document(None, "é\n");
+    app.document.apply(text_editor::Action::SelectAll);
+    let selected = app.document.content().selection();
+    let caret = app.document.caret_offset();
+    let before = app.document.snapshot();
+    let key = app.document.render_key();
+    app.update(Message::OpenGoTo);
+    app.update(Message::GoToQueryChanged("1:3".into()));
+    app.update(Message::SubmitGoTo);
+    assert!(app.go_to.open);
+    assert_eq!(
+        app.go_to.error,
+        Some(crate::navigation::Error::ColumnOutOfRange)
+    );
+    assert_eq!(app.document.content().selection(), selected);
+    assert_eq!(app.document.caret_offset(), caret);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.render_key(), key);
+    app.update(Message::GoToQueryChanged("2".into()));
+    assert!(app.go_to.error.is_none());
+    app.update(Message::SubmitGoTo);
+    assert_eq!(app.document.caret_offset(), "é\n".len());
+    assert!(app.document.content().selection().is_none());
+    assert!(!app.go_to.open);
+}
+
+#[test]
+fn go_to_resolves_against_current_text_and_document_replacement_closes_it() {
+    let mut app = app();
+    app.replace_document(None, "old");
+    app.update(Message::OpenGoTo);
+    app.update(Message::GoToQueryChanged("2:2".into()));
+    app.document.apply(text_editor::Action::SelectAll);
+    app.document
+        .apply(text_editor::Action::Edit(text_editor::Edit::Paste(
+            std::sync::Arc::new("before\n世界".into()),
+        )));
+    let edited = app.document.snapshot();
+    app.update(Message::SubmitGoTo);
+    assert_eq!(app.document.caret_offset(), "before\n世".len());
+    assert_eq!(app.document.snapshot(), edited);
+    app.update(Message::OpenGoTo);
+    app.go_to.error = Some(crate::navigation::Error::InvalidAddress);
+    app.replace_document(None, "replacement");
+    assert!(!app.go_to.open);
+    assert!(app.go_to.query.is_empty());
+    assert!(app.go_to.error.is_none());
+    let before = app.document.snapshot();
+    let key = app.document.render_key();
+    app.update(Message::SubmitGoTo); // stale submit cannot jump in the new document
+    app.update(Message::GoToQueryChanged("999".into()));
+    assert!(app.go_to.query.is_empty());
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.render_key(), key);
+}
+
+#[test]
+fn go_to_and_find_are_exclusive_and_navigation_clears_the_replace_target() {
+    let mut app = app();
+    app.replace_document(None, "a\nb");
+    app.update(Message::OpenFind(true));
+    app.update(Message::FindQueryChanged("a".into()));
+    app.update(Message::ReplacementChanged("X".into()));
+    app.update(Message::FindNext(false));
+    assert!(app.search.current().is_some());
+    app.update(Message::OpenGoTo);
+    assert!(!app.search.open);
+    app.update(Message::GoToQueryChanged("2".into()));
+    app.update(Message::SubmitGoTo);
+    assert!(app.search.current().is_none());
+    assert_eq!(app.search.count(), 1);
+    app.update(Message::OpenFind(true));
+    app.update(Message::ReplaceCurrent);
+    assert_eq!(app.document.buffer_text(), "a\nb");
+    app.update(Message::OpenGoTo);
+    app.update(Message::FindNext(false)); // F3 switches back to Find
+    assert!(!app.go_to.open);
+    assert!(app.search.open);
+}
+
+#[test]
+fn go_to_is_blocked_during_prompt_and_open_including_an_already_open_panel() {
+    let mut app = app();
+    app.replace_document(None, "a\nb");
+    app.update(Message::OpenGoTo);
+    let query = app.go_to.query.clone();
+    app.pending_action = Some(PendingAction::New);
+    let before = app.document.snapshot();
+    let key = app.document.render_key();
+    app.update(Message::GoToQueryChanged("2".into()));
+    app.update(Message::SubmitGoTo);
+    app.update(Message::OpenGoTo);
+    assert_eq!(app.go_to.query, query);
+    assert_eq!(app.document.render_key(), key);
+    app.pending_action = None;
+    app.update(Message::OpenFile);
+    assert_eq!(app.operations.active().unwrap().kind, OperationKind::Open);
+    app.update(Message::GoToQueryChanged("2".into()));
+    app.update(Message::SubmitGoTo);
+    app.update(Message::OpenGoTo);
+    assert_eq!(app.go_to.query, query);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.render_key(), key);
+}
+
+#[test]
+fn go_to_during_save_does_not_invalidate_the_saved_checkpoint() {
+    let mut app = app();
+    app.replace_document(None, "a\nb");
+    app.update(Message::SaveFile);
+    let saved = token(&app);
+    app.update(Message::OpenGoTo);
+    app.update(Message::GoToQueryChanged("2".into()));
+    app.update(Message::SubmitGoTo);
+    assert_eq!(app.document.caret_offset(), 2);
+    assert_eq!(app.document.snapshot(), saved.snapshot);
+    app.update(Message::FileSaved(saved, Ok(Some("nav.md".into()))));
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+    assert_eq!(app.document.path(), Some(Path::new("nav.md")));
+}
+
+#[test]
+fn go_to_closes_before_zen_on_escape_and_on_preview_mode_change() {
+    let mut app = app();
+    app.zen_mode = true;
+    app.update(Message::OpenGoTo);
+    app.update(Message::ExitZenMode);
+    assert!(!app.go_to.open);
+    assert!(app.zen_mode);
+    app.update(Message::OpenGoTo);
+    app.update(Message::SwitchMode(EditMode::Preview));
+    assert!(!app.go_to.open);
+    app.update(Message::OpenGoTo);
+    assert_eq!(app.mode, EditMode::Source);
+    app.update(Message::CycleMode);
+    assert_eq!(app.mode, EditMode::Preview);
+    assert!(!app.go_to.open);
+}
+
+#[test]
+fn deletion_during_save_preserves_the_checkpoint_and_refreshes_find() {
+    let mut app = app();
+    app.replace_document(None, "abcd");
+    app.document.set_caret(4);
+    app.update(Message::OpenFind(false));
+    app.update(Message::FindQueryChanged("cd".into()));
+    app.update(Message::FindNext(false));
+    assert!(app.search.current().is_some());
+    app.document.set_caret(4);
+    app.update(Message::SaveFile);
+    let saved = token(&app);
+    // One controller deletion avoids making the save/Find test depend on
+    // wall-clock scheduling. Native burst grouping is clocked in model tests.
+    app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Backspace,
+    )));
+    assert_eq!(app.document.buffer_text(), "abc");
+    assert_eq!(app.search.count(), 0);
+    assert!(app.search.current().is_none());
+    app.update(Message::FileSaved(saved, Ok(Some("deleted.md".into()))));
+    assert!(app.document.is_dirty());
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "abcd");
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.search.count(), 1);
+}
+
+#[test]
+fn native_deletions_share_preview_prompt_and_open_guards() {
+    let mut app = app();
+    app.replace_document(None, "abcd");
+    app.document.set_caret(2);
+    let before = app.document.snapshot();
+    app.mode = EditMode::Preview;
+    for action in [text_editor::Edit::Backspace, text_editor::Edit::Delete] {
+        app.update(Message::Edit(text_editor::Action::Edit(action)));
+    }
+    assert_eq!(app.document.snapshot(), before);
+    app.mode = EditMode::Source;
+    app.pending_action = Some(PendingAction::New);
+    app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Backspace,
+    )));
+    assert_eq!(app.document.snapshot(), before);
+    app.pending_action = None;
+    app.update(Message::OpenFile);
+    app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Delete,
+    )));
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), "abcd");
+}
+
+#[test]
+fn line_commands_refresh_find_and_are_separate_atomic_undo_steps() {
+    let mut app = app();
+    app.replace_document(None, "café\nnext");
+    app.update(Message::OpenFind(false));
+    app.update(Message::FindQueryChanged("café".into()));
+    app.update(Message::FindNext(false));
+    assert!(app.search.current().is_some());
+    app.update(Message::EditLines(crate::line_edit::Action::Duplicate));
+    assert_eq!(app.document.buffer_text(), "café\ncafé\nnext");
+    assert_eq!(app.search.count(), 2);
+    assert!(app.search.current().is_none());
+    app.update(Message::EditLines(crate::line_edit::Action::Delete));
+    assert_eq!(app.document.buffer_text(), "café\nnext");
+    assert_eq!(app.search.count(), 1);
+    assert!(app.document.is_dirty()); // equal text is not the old saved state
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "café\ncafé\nnext");
+    app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "café\nnext");
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn line_commands_share_prompt_preview_and_open_guards() {
+    for action in [
+        crate::line_edit::Action::Duplicate,
+        crate::line_edit::Action::Delete,
+        crate::line_edit::Action::MoveUp,
+        crate::line_edit::Action::MoveDown,
+    ] {
+        let mut app = app();
+        app.replace_document(None, "a\nb");
+        let before = app.document.snapshot();
+        let key = app.document.render_key();
+        app.update(Message::SwitchMode(EditMode::Preview));
+        app.update(Message::EditLines(action));
+        app.update(Message::SwitchMode(EditMode::Source));
+        app.pending_action = Some(PendingAction::New);
+        app.update(Message::EditLines(action));
+        app.pending_action = None;
+        app.update(Message::OpenFile);
+        app.update(Message::EditLines(action));
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.render_key(), key);
+        assert_eq!(app.document.buffer_text(), "a\nb");
+    }
+}
+
+#[test]
+fn line_edit_during_save_keeps_the_new_state_dirty_and_checkpoint_reachable() {
+    for action in [
+        crate::line_edit::Action::Duplicate,
+        crate::line_edit::Action::Delete,
+    ] {
+        let mut app = app();
+        app.replace_document(None, "a\nb");
+        app.update(Message::SaveFile);
+        let saved = token(&app);
+        app.update(Message::EditLines(action));
+        app.update(Message::FileSaved(saved, Ok(Some("lines.md".into()))));
+        assert!(app.document.is_dirty());
+        assert_eq!(app.document.path(), Some(Path::new("lines.md")));
+        app.update(Message::Undo);
+        assert_eq!(app.document.buffer_text(), "a\nb");
+        assert!(!app.document.is_dirty());
+    }
+}
+
+#[test]
+fn moving_lines_during_save_refreshes_find_and_keeps_the_saved_checkpoint_reachable() {
+    for (action, caret) in [
+        (crate::line_edit::Action::MoveUp, 2),
+        (crate::line_edit::Action::MoveDown, 0),
+    ] {
+        let mut app = app();
+        app.replace_document(None, "a\nb");
+        app.update(Message::OpenFind(false));
+        app.update(Message::FindQueryChanged("a".into()));
+        app.update(Message::FindNext(false));
+        assert!(app.search.current().is_some());
+        app.document.set_caret(caret);
+        app.update(Message::SaveFile);
+        let saved = token(&app);
+        app.update(Message::EditLines(action));
+        assert_eq!(app.document.buffer_text(), "b\na");
+        assert_eq!(app.search.count(), 1);
+        assert!(app.search.current().is_none());
+        app.update(Message::FileSaved(saved, Ok(Some("move.md".into()))));
+        assert!(app.document.is_dirty());
+        app.update(Message::Undo);
+        assert_eq!(app.document.buffer_text(), "a\nb");
+        assert!(!app.document.is_dirty());
+        assert!(!app.document.can_undo());
+    }
+}
