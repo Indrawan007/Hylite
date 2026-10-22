@@ -18,6 +18,8 @@ pub enum EditKind {
     Atomic,
     /// Only the validated preview-task transaction path assigns this kind.
     PreviewTask,
+    /// Only the authenticated root ATX heading transaction path assigns this.
+    PreviewHeading,
     Insert(char),
     Backspace,
     Delete,
@@ -122,7 +124,7 @@ fn deletion(before: &Record, after: &str, caret: usize, backwards: bool) -> Opti
 // with the record, without a parallel stack or unbounded provenance map.
 struct Entry {
     record: Record,
-    preview_task: bool,
+    preview_edit: bool,
 }
 
 pub struct History {
@@ -178,7 +180,7 @@ impl History {
                     deletion(&before, after, caret, true).map(GroupKind::Backspace)
                 }
                 EditKind::Delete => deletion(&before, after, caret, false).map(GroupKind::Delete),
-                EditKind::Atomic | EditKind::PreviewTask => None,
+                EditKind::Atomic | EditKind::PreviewTask | EditKind::PreviewHeading => None,
             }
         } else {
             None
@@ -201,7 +203,7 @@ impl History {
         });
         let base_state = before.state_id;
         if merge.is_none() {
-            if matches!(kind, EditKind::PreviewTask) {
+            if matches!(kind, EditKind::PreviewTask | EditKind::PreviewHeading) {
                 self.record_entry(before, true);
             } else {
                 self.record(before);
@@ -233,7 +235,7 @@ impl History {
         self.record_entry(before, false);
     }
 
-    fn record_entry(&mut self, before: Record, preview_task: bool) {
+    fn record_entry(&mut self, before: Record, preview_edit: bool) {
         self.break_group();
         self.redo.clear();
         if before.text.len() > self.max_bytes || self.max_entries == 0 {
@@ -243,7 +245,7 @@ impl History {
         }
         self.undo.push_back(Entry {
             record: before,
-            preview_task,
+            preview_edit,
         });
         self.trim();
     }
@@ -255,13 +257,13 @@ impl History {
         self.redo.back().map(|entry| &entry.record)
     }
     /// The top edge only: never scan past a Source transaction.
-    pub fn preview_task_available(&self, redo: bool) -> bool {
+    pub fn preview_edit_available(&self, redo: bool) -> bool {
         let entry = if redo {
             self.redo.back()
         } else {
             self.undo.back()
         };
-        entry.is_some_and(|entry| entry.preview_task)
+        entry.is_some_and(|entry| entry.preview_edit)
     }
 
     pub fn limited(&self) -> bool {
@@ -274,7 +276,7 @@ impl History {
         if current.text.len() <= self.max_bytes {
             self.redo.push_back(Entry {
                 record: current,
-                preview_task: target.preview_task,
+                preview_edit: target.preview_edit,
             });
         } else {
             self.redo.clear();
@@ -290,7 +292,7 @@ impl History {
         if current.text.len() <= self.max_bytes {
             self.undo.push_back(Entry {
                 record: current,
-                preview_task: target.preview_task,
+                preview_edit: target.preview_edit,
             });
         } else {
             self.undo.clear();

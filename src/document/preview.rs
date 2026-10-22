@@ -47,7 +47,7 @@ pub fn render_preview<'a>(
         render_blocks(blocks, colors, snapshot)
     };
     column![
-        text("Task checkboxes edit Source · links stay inert · other blocks read-only")
+        text("Tasks / root ATX headings edit Source · links inert · other blocks read-only")
             .size(11)
             .color(colors.text),
         content,
@@ -195,17 +195,31 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
             Kind::Rule => horizontal_rule(1).into(),
         };
     let element = if let Some(action) = source_action(block, snapshot) {
-        column![
-            button(text("Show block source").size(11))
-                .padding([2, 6])
-                .height(24)
-                .width(Length::Fill)
-                .on_press(action),
-            element
-        ]
+        let mut actions = row![button(text("Show block source").size(11))
+            .padding([2, 6])
+            .height(24)
+            .width(Length::Fill)
+            .on_press(action)]
         .spacing(4)
-        .width(Length::Fill)
-        .into()
+        .width(Length::Fill);
+        if matches!(block.kind, Kind::Heading(_)) {
+            for (label, direction) in [
+                ("H−", crate::preview_heading::Direction::Promote),
+                ("H+", crate::preview_heading::Direction::Demote),
+            ] {
+                actions = actions.push(
+                    button(text(label).size(11))
+                        .padding([2, 6])
+                        .height(24)
+                        .width(48)
+                        .on_press_maybe(heading_action(block, snapshot, direction)),
+                );
+            }
+        }
+        column![actions, element]
+            .spacing(4)
+            .width(Length::Fill)
+            .into()
     } else {
         element
     };
@@ -223,6 +237,33 @@ fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
     block
         .source_navigable()
         .then(|| Message::RevealPreview(Target::block(snapshot, block.source.clone())))
+}
+
+fn heading_action(
+    block: &Block,
+    snapshot: Snapshot,
+    direction: crate::preview_heading::Direction,
+) -> Option<Message> {
+    use crate::preview_heading::{Direction, Target};
+    let Kind::Heading(level) = block.kind else {
+        return None;
+    };
+    let allowed = match direction {
+        Direction::Promote => level > 1,
+        Direction::Demote => level < 6,
+    };
+    if !allowed {
+        return None;
+    }
+    Some(Message::AdjustPreviewHeading(
+        Target {
+            snapshot,
+            block: block.source.clone(),
+            marker: block.heading_marker.clone()?,
+            level,
+        },
+        direction,
+    ))
 }
 
 fn task_action(item: &Block, snapshot: Snapshot) -> Option<Message> {
@@ -367,6 +408,54 @@ mod tests {
         let blocks = super::super::preview_model::parse("- [\t] disabled\n- plain\n");
         for item in &blocks[0].children {
             assert!(task_action(item, Snapshot::default()).is_none());
+        }
+    }
+    #[test]
+    fn heading_actions_stamp_exact_root_provenance_and_enforce_level_endpoints() {
+        use crate::preview_heading::Direction;
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 8,
+            state_id: 9,
+        };
+        for level in 1..=6 {
+            let source = format!("{} **raw**\n", "#".repeat(level as usize));
+            let blocks = super::super::preview_model::parse(&source);
+            for direction in [Direction::Promote, Direction::Demote] {
+                let allowed = match direction {
+                    Direction::Promote => level > 1,
+                    Direction::Demote => level < 6,
+                };
+                let action = heading_action(&blocks[0], snapshot, direction);
+                assert_eq!(action.is_some(), allowed);
+                if let Some(Message::AdjustPreviewHeading(target, actual_direction)) = action {
+                    assert_eq!(actual_direction, direction);
+                    assert_eq!(target.snapshot, snapshot);
+                    assert_eq!(target.block, blocks[0].source);
+                    assert_eq!(target.marker, 0..level as usize);
+                    assert_eq!(target.level, level);
+                }
+            }
+        }
+    }
+    #[test]
+    fn setext_nested_and_non_heading_blocks_cannot_emit_heading_mutations() {
+        use crate::preview_heading::Direction;
+        for source in [
+            "title\n=====\n",
+            "> ## nested\n",
+            "- parent\n  ## nested\n",
+            "plain\n",
+        ] {
+            fn check(blocks: &[Block]) {
+                for block in blocks {
+                    for direction in [Direction::Promote, Direction::Demote] {
+                        assert!(heading_action(block, Snapshot::default(), direction).is_none());
+                    }
+                    check(&block.children);
+                }
+            }
+            check(&super::super::preview_model::parse(source));
         }
     }
 }

@@ -52,6 +52,8 @@ pub struct Block {
     pub source: Range<usize>,
     pub runs: Vec<Run>,
     pub children: Vec<Block>,
+    /// Root ATX markers only. Setext/container headings remain non-editable.
+    pub heading_marker: Option<Range<usize>>,
 }
 
 impl Block {
@@ -108,6 +110,7 @@ fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) 
         source,
         runs,
         children,
+        heading_marker: None,
     }
 }
 
@@ -261,7 +264,17 @@ fn blocks(
                         };
                         let content = inline(events, source, tag_end);
                         task = task.or(content.task);
-                        node(kind, range, content.runs, vec![])
+                        let mut block = node(kind, range, content.runs, vec![]);
+                        if depth == 0 {
+                            if let Kind::Heading(level) = block.kind {
+                                block.heading_marker = crate::preview_heading::marker_range(
+                                    source,
+                                    &block.source,
+                                    level,
+                                );
+                            }
+                        }
+                        block
                     }
                     Tag::BlockQuote(_) | Tag::List(_) | Tag::Item => {
                         let (children, checked) = blocks(events, source, Some(tag_end), depth + 1);

@@ -216,6 +216,30 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(keys.count("ctrl+z"), 6)
         self.assertEqual(desktop.screenshot.call_count, 2)
 
+    def test_heading_probe_covers_both_controls_history_and_split_focus_without_source_click(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_preview_heading(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        demoted = b"#" + source
+        self.assertTrue(source.startswith(b"##\t") and source.endswith(b"\n\t"))
+        self.assertIn("café🙂".encode("utf-8"), source)
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:7]],
+                         [source, demoted, source, demoted, source, demoted[:3] + b"X" + demoted[3:], source])
+        self.assertEqual(len(copies), 8)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "932", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+        ])
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+z"), 6)
+        self.assertEqual(keys.count("ctrl+y"), 1)
+        desktop.type_ascii.assert_called_once_with("X")
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]

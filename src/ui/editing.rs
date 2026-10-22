@@ -1,4 +1,4 @@
-//! Source actions and task-only Preview history; button/controller guards agree.
+//! Source actions and validated-edit Preview history; button/controller guards agree.
 
 use crate::app::Hylite;
 use crate::block_edit::BlockStyle;
@@ -58,7 +58,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown))
         ),
         text(if app.mode == EditMode::Preview {
-            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: task history only"
+            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: task/heading history only"
         } else {
             "Bold: Ctrl+Shift+B · Ctrl+B: sidebar"
         })

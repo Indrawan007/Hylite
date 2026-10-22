@@ -123,6 +123,32 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewTask)
     }
 
+    pub(crate) fn adjust_preview_heading(
+        &mut self,
+        target: &crate::preview_heading::Target,
+        direction: crate::preview_heading::Direction,
+    ) -> bool {
+        if target.snapshot != self.snapshot
+            || !self.preview.get().is_some_and(|blocks| {
+                blocks.iter().any(|block| {
+                    block.source == target.block
+                        && block.kind == preview_model::Kind::Heading(target.level)
+                        && block.heading_marker.as_ref() == Some(&target.marker)
+                })
+            })
+        {
+            return false;
+        }
+        let Some(change) =
+            crate::preview_heading::plan(&self.buffer_text(), self.snapshot, target, direction)
+        else {
+            return false;
+        };
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewHeading)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -407,7 +433,7 @@ impl Document {
     }
 
     pub(crate) fn preview_history_available(&self, redo: bool) -> bool {
-        self.history.preview_task_available(redo)
+        self.history.preview_edit_available(redo)
     }
 
     pub(crate) fn restore_preview_history(&mut self, redo: bool) -> bool {
@@ -502,3 +528,7 @@ mod preview_reveal_tests;
 #[cfg(test)]
 #[path = "preview_task_tests.rs"]
 mod preview_task_tests;
+
+#[cfg(test)]
+#[path = "preview_heading_tests.rs"]
+mod preview_heading_tests;

@@ -30,3 +30,6 @@ mod preview_navigation;
 
 #[path = "../src/preview_task.rs"]
 mod preview_task;
+
+#[path = "../src/preview_heading.rs"]
+mod preview_heading;

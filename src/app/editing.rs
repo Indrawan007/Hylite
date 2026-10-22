@@ -1,4 +1,4 @@
-//! Source edits share transaction/history; explicit preview tasks have a narrow guard.
+//! Source edits share transaction/history; explicit preview edits have a narrow guard.
 
 use super::Hylite;
 use crate::block_edit::BlockStyle;
@@ -91,6 +91,25 @@ impl Hylite {
         }
     }
 
+    pub(super) fn adjust_preview_heading(
+        &mut self,
+        target: crate::preview_heading::Target,
+        direction: crate::preview_heading::Direction,
+    ) -> Task<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.adjust_preview_heading(&target, direction) {
+            self.status_message = "Heading level adjusted in Source".into();
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message =
+                "Heading target is stale, unsupported or at its level limit; document kept".into();
+            Task::none()
+        }
+    }
+
     pub(super) fn insert_newline(&mut self) -> Task<Message> {
         if !self.source_edit_allowed() {
             return Task::none();
@@ -132,9 +151,9 @@ impl Hylite {
         }
         if self.document.restore_preview_history(redo) {
             self.status_message = if redo {
-                "Redo preview task"
+                "Redo preview edit"
             } else {
-                "Undo preview task"
+                "Undo preview edit"
             }
             .into();
             self.edited();

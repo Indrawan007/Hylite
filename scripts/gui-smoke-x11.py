@@ -548,6 +548,55 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
+def exercise_preview_heading(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("##\tcafé🙂 **raw** &amp; ##  \n\n"
+              "- [X] untouched\n\n```md\n## literal\n```\n\t").encode("utf-8")
+    demoted = b"#" + source
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Heading fixture: exact raw Source with closing hashes and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")  # Preview -> Split; automatic Source focus.
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")  # Split -> Source.
+        desktop.key("ctrl+shift+m")  # Source -> Preview.
+
+    # The heading's existing provenance bar keeps its height; H-/H+ are at
+    # its right edge. These are product clicks, never Source refocus clicks.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    inspect("Preview H+ changes exactly one opening hash", demoted)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Preview Undo restores raw heading without normalizing its body", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    inspect("Preview Redo restores one-hash heading edit", demoted)
+    back_to_preview()
+    desktop.screenshot(artifacts / "heading-preview.png")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "932", "151", "click", "1")
+    time.sleep(0.25)
+    inspect("Preview H- preserves closing hashes, raw inline markup and whitespace", source)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split H+ restores Source keyboard focus at marker end", demoted[:3] + b"X" + demoted[3:], refocus=False)
+    desktop.screenshot(artifacts / "heading-split.png")
+    desktop.key("ctrl+z")  # Only the native Source sentinel.
+    desktop.key("ctrl+z")  # Only the Split heading transaction.
+    desktop.expect_copy("Split heading and Source typing remain separate Undo transactions", source, refocus=False)
+    desktop.key("ctrl+z")  # Preview H-.
+    desktop.key("ctrl+z")  # Preview H+.
+    desktop.key("ctrl+z")  # Source paste; no extra history from rendering/navigation.
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Heading edits Undo back to exact clean welcome without extra history", welcome, refocus=False)
+    desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -667,6 +716,7 @@ def main():
                 exercise_cell_reveal(desktop, artifacts)
                 exercise_task_toggle(desktop, artifacts)
                 exercise_preview_task_history(desktop, artifacts)
+                exercise_preview_heading(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -686,7 +736,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

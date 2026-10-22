@@ -633,3 +633,45 @@ fn task_like_source_in_code_html_and_table_cells_has_no_task_item_action() {
     assert_eq!(actual.len(), 1);
     assert!(actual[0].1.source.is_some());
 }
+
+#[test]
+fn root_atx_headings_cache_exact_markers_without_display_text_reconstruction() {
+    for indent in 0..=3 {
+        for level in 1..=6 {
+            let source = format!(
+                "{}{}\tcafé🙂 **raw** ###  \n",
+                " ".repeat(indent),
+                "#".repeat(level)
+            );
+            let blocks = parse(&source);
+            assert_eq!(blocks[0].kind, Kind::Heading(level as u8));
+            assert_eq!(blocks[0].heading_marker, Some(indent..indent + level));
+            assert_eq!(
+                source
+                    .get(blocks[0].heading_marker.clone().unwrap())
+                    .unwrap(),
+                "#".repeat(level)
+            );
+            validate(&blocks, &source, 0..source.len());
+        }
+    }
+}
+
+#[test]
+fn setext_and_nested_headings_have_no_editable_marker_even_with_atx_looking_text() {
+    fn check(blocks: &[Block]) {
+        for block in blocks {
+            assert!(block.heading_marker.is_none());
+            check(&block.children);
+        }
+    }
+    for source in [
+        "title\n=====\n",
+        "> ## nested\n",
+        "- parent\n  ## nested\n",
+        "```md\n## code\n```\n",
+        "<div>\n## html\n</div>\n",
+    ] {
+        check(&parse(source));
+    }
+}
