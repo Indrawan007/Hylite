@@ -72,6 +72,12 @@ class Desktop:
 
     def key(self, combination):
         self.command("xdotool", "key", "--clearmodifiers", "--delay", "40", combination)
+        # Iced publishes SelectAll as a Message, while Copy reads selection
+        # directly in the widget event handler. Allow a frame/update between
+        # human-paced shortcuts; otherwise Copy can see the preceding click's
+        # selection when both key sequences land in one event batch. Assertions
+        # still require a fresh clipboard response and exact expected bytes.
+        time.sleep(0.25)
 
     def title_is_dirty(self, expected):
         def matches():
