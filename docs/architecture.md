@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6c
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6d
 
-Stage 6c: build debug, Clippy dan **486 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **23 helper Python dan 109 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 6d: build debug, Clippy dan **510 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **24 helper Python dan 116 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -8,10 +8,11 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading 6a–6c mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading 6a–6d mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
+- **`preview_setext.rs`**: planner penggantian run underline root Setext H1↔H2, preserving panjang/indent/raw body/suffix, tanpa konversi ATX. Field metadata dan message terpisah, guard/Atomic commit/history sama dengan heading ATX.
 - **`preview_task.rs`**: target item/marker/checked/snapshot dan planner satu byte; Document memeriksa exact cached task membership sebelum jalur Atomic Source.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
@@ -221,6 +222,28 @@ masih O(1) top-only, ikut record saat transfer/trim/branch/reset. Tidak mencari
 melewati Source hash edit yang tampak identik atau membuka history umum.
 Semua native Preview typing/formatting guard dan Ignored-only shortcut tetap.
 [Kontrak, bukti dan batas Stage 6c](testing-stage6c.md).
+
+## Kontrol level heading Setext root (Stage 6d)
+
+`Block::setext_marker` terpisah dari `heading_marker` ATX. Root Heading yang
+bukan ATX mencoba scanner underline Setext; nested/code/HTML/rule tetap tanpa
+target. Scanner memvalidasi range UTF-8, full final underline line, 0–3 spasi
+indent, run satu atau lebih `=` untuk H1 / `-` untuk H2, suffix space/tab dan
+body nonblank. Scanner lexical tidak membuktikan konteks root: Document tetap
+menuntut exact warm root membership dan full Snapshot saat command diterima.
+
+`AdjustPreviewSetext` memakai handler/target sendiri; adapter ATX tetap menolak
+Setext seperti 6c. Renderer mencoba action Setext sebagai fallback pada kontrol
+H−/H+ yang sama. H1 hanya boleh demote ke H2, H2 hanya promote ke H1, tanpa
+konversi ke ATX/paragraph. TextChange mengganti run underline saja dengan panjang
+sama, preserving body multiline/inline raw/indent/suffix. Commit masih
+`PreviewHeading` Atomic; history top-only tidak berubah. Mode/guard/token/save/
+cache/search sama dengan ATX; caret ditempatkan di akhir underline run agar
+Split dapat menerima keyboard Source setelah fokus scoped dipulihkan.
+
+GUI byte-exact memeriksa perubahan/Undo/Redo dan sentinel Source, tanpa refocus
+click, bukan bukti pixel/layout/Wayland. Tidak mengubah grammar/options parser,
+serializer, lockfile atau worker file. [Kontrak dan bukti Stage 6d](testing-stage6d.md).
 
 ## Invariant dokumen
 

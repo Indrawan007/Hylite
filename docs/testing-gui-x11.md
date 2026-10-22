@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 486 pada Stage 6c). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 510 pada Stage 6d). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -370,3 +370,30 @@ retry startup, expected-byte relaxation atau perubahan Source refocus gate.
 Setext/nested disabled state, query-focus heading runtime, keyboard accessibility,
 HiDPI dan desktop Arch/Hyprland/Wayland belum diverifikasi di jendela nyata.
 [Kontrak dan checklist Stage 6c](testing-stage6c.md).
+
+## Tambahan runner Stage 6d: level heading Setext root
+
+[CI 39765116882](https://github.com/Indrawan007/Hylite/actions/runs/39765116882),
+commit `cac30e8`: **116 GUI** (102 clipboard, 12 title, 2 exit normal),
+**510 Cargo**, **194 core mandiri** (subset Cargo), **24 Python**. Tambahan 7 Copy:
+
+1. Fixture multiline Unicode/raw inline/entity/underline indent dan whitespace,
+   task kapital X lain, fenced underline literal dan terminal tab.
+2. Preview H+: hanya run underline `=====` menjadi `-----`.
+3. Preview Undo: seluruh raw heading semula, bukan normalized/ATX.
+4. Preview Redo: run hyphen kembali, panjang/indent/suffix/body utuh.
+5. Split H− lalu ketik X: keyboard Source menerima sentinel tepat di akhir run
+   equals (sebelum suffix), bukan body/query. Ini sengaja merusak underline.
+6. Source Undo X lalu Undo Split Setext: run hyphen; transaksi harus terpisah.
+7. Undo Preview Setext lalu paste: welcome exact dan clean, tanpa history tambahan.
+
+Semua Copy `refocus=False`; dua klik hanya kontrol produk, tidak ada Source
+click/workaround fokus. `setext-preview.png` dan `setext-split.png` bukan pixel
+assertion dan belum direview visual. Mock helper mengunci bytes/urutan/shortcut/
+klik tanpa memakai parser produk. Job `119778526781` success pada 22 Oktober
+2026; step GUI 10:43:46–10:46:30 UTC. Timeout global tetap 180 detik, exit alami
+0, tidak menambah hook/retry atau melonggarkan gate lama. Skenario lama termasuk
+ATX, Source frontier, clipboard tab/Unicode dan lifecycle tetap dijalankan.
+
+Query-focus Setext runtime, disabled/HiDPI/accessibility dan desktop
+Arch/Hyprland/Wayland belum diverifikasi. [Kontrak Stage 6d](testing-stage6d.md).

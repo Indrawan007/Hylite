@@ -1,5 +1,9 @@
 # Stage 6c — kontrol level heading ATX tervalidasi
 
+**Catatan historis:** 6c hanya membuka root ATX.
+[Successor 6d](testing-stage6d.md) menambah level Setext root melalui action
+terpisah, tanpa konversi ATX atau perubahan kontrak planner/adapter ATX.
+
 Successor [checkbox 6a](testing-stage6a.md) / [history task 6b](testing-stage6b.md).
 Ini **bukan WYSIWYG umum**: hanya root ATX heading yang mempunyai kontrol level.
 

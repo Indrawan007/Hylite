@@ -148,6 +148,23 @@ lockfile/dependensi/grammar dan options parser/file worker, timeout 180 detik
 atau gate lama.
 [Kontrak dan batas Stage 6c](testing-stage6c.md).
 
+Update heading Setext Stage 6d:
+[CI run 39765116882](https://github.com/Indrawan007/Hylite/actions/runs/39765116882),
+commit `cac30e8797712746c3ca82d60c7fe6d0a56f3445`, **success**. Job
+`119778526781`, 2026-10-22 10:42:33–10:46:34 UTC: **510 Cargo**, **194 strict core**
+(subset Cargo), **24 Python**, **116 GUI X11** (102 clipboard, 12 title, 2 exit
+alami 0), format/build debug/Clippy strict. Tambahan 24 Rust: planner7/model2/
+Document8/adapter2/controller5. GUI menambah 7 clipboard checks: H+/Undo/Redo
+Preview dan H− Split mempertahankan multiline raw body/indent/panjang underline/
+whitespace; sentinel Source tepat di underline end tanpa refocus click. Atomic
+Setext dan native typing harus menjadi dua Undo, lalu fixture Undo ke welcome
+clean. Artifact API `12419393417`, `gui-x11-smoke`, 1.367.061 bytes, belum expired
+saat diperiksa; screenshot belum direview visual. Kontrak ATX lama tetap ditolak
+untuk Setext; action/metadata terpisah memperluas heading-level edits tanpa
+konversi format. Tidak mengubah grammar/options parser, dependensi/lockfile,
+serializer, worker file, budget history/timeout/lifecycle gate atau menambah
+hook/retry. [Kontrak dan batas Stage 6d](testing-stage6d.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -186,7 +203,7 @@ atau gate lama.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
-Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c level heading
-terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6c](testing-stage6c.md).
+Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext
+terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6d](testing-stage6d.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

@@ -33,7 +33,7 @@ teks bebas. Kontrol H−/H+ yang sama kini juga mendukung heading Setext root.
 
 ## Tes
 
-24 Rust baru, expected total Cargo 510 (belum dianggap lulus sampai CI):
+24 Rust baru, total Cargo 510 (lulus pada CI di bawah):
 
 - **7 core planner**: multiline raw bytes/round-trip, panjang run/indent/EOF,
   arah H1/H2, unsupported/malformed, bounds UTF-8/range, full snapshot/level,
@@ -64,9 +64,15 @@ runtime hook, retry startup atau refocus workaround.
 
 ## Status eksekusi
 
-Lokal **194 strict core** dan **24 Python** lulus; format/diff diperiksa.
-Native Cargo/Clippy/build dan GUI masih menunggu CI. Expected GUI total 116
-(102 clipboard, 12 title, 2 exit native normal), bukan hasil yang sudah diasumsikan.
+[CI 39765116882](https://github.com/Indrawan007/Hylite/actions/runs/39765116882)
+**success** pada `cac30e8797712746c3ca82d60c7fe6d0a56f3445`. Job
+`119778526781`, 2026-10-22 10:42:33–10:46:34 UTC: **510 Cargo**, **194 strict core**
+(subset Cargo), **24 Python**, **116 GUI** (102 clipboard, 12 title, 2 exit native
+normal), format/build debug/Clippy `-D warnings` lulus. Step GUI
+10:43:46–10:46:30 UTC, dalam budget 180 detik tanpa relaksasi gate.
+Artifact API `12419393417`, `gui-x11-smoke`, 1.367.061 bytes, belum expired saat
+diperiksa; screenshot belum direview visual. Ini bukan pixel/layout oracle
+atau verifikasi Wayland/Hyprland. [Detail GUI](testing-gui-x11.md).
 
 Repo sempat kembali menunjuk base `70d2a49` sementara seluruh worktree persis
 sama dengan remote final 6c `877d9d5` (semua tracked blob dibandingkan). Ref dan

@@ -2,17 +2,18 @@
 
 Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**, dengan pengalaman MarkText sebagai acuan. Hylite tidak menggunakan Electron atau WebView.
 
-> **Status: prototipe awal (0.1.0), belum siap untuk dokumen penting.** WYSIWYG umum ala MarkText belum tersedia; Stage 6a–6c baru prototipe checkbox task, level heading ATX dan Undo/Redo terbatas. Simpan salinan cadangan sebelum mencoba aplikasi.
+> **Status: prototipe awal (0.1.0), belum siap untuk dokumen penting.** WYSIWYG umum ala MarkText belum tersedia; Stage 6a–6d baru prototipe checkbox task, level heading ATX/Setext dan Undo/Redo terbatas. Simpan salinan cadangan sebelum mencoba aplikasi.
 
 ## Fitur yang sudah diimplementasikan
 
-- Editor Source, preview native terstruktur (Stage 5a–5e), dan Split view; blok preview tetap tidak editable kecuali checkbox task dan kontrol level heading root ATX.
+- Editor Source, preview native terstruktur (Stage 5a–5e), dan Split view; blok preview tetap tidak editable kecuali checkbox task dan kontrol level heading root ATX/Setext.
 - Cache model preview lazy per revisi konten; renderer meminjam teks model, sementara edit/undo/redo membuang model lama. Ini belum incremental parsing atau benchmark speedup.
 - Tombol **Show block source** pada leaf preview membuka Split dan memfokuskan awal rentang provenance Source; target stale ditolak. Ini bukan glyph/selection mapping.
 - **Klik kanan sel tabel → Source**: target harus cocok dengan tabel/baris/kolom/revisi saat ini; sel padding tanpa rentang sumber tidak mempunyai action. Klik kiri tetap read-only.
 - **Prototipe 6a: checkbox task di Preview/Split** mengubah satu byte marker kanonis melalui transaksi Source Atomic. Target stale/forged ditolak; tidak men-serialize ulang AST.
-- **Prototipe 6b–6c: Undo/Redo edit tervalidasi langsung di Preview**, lewat Ctrl+Z, Ctrl+Shift+Z/Ctrl+Y dan toolbar. Hanya transaksi checkbox/level heading di puncak history; tidak melewati edit Source. Source/Split mempertahankan Undo/Redo umum.
-- **Prototipe 6c: H−/H+ pada heading root ATX** di Preview/Split, dibatasi level 1–6. Hanya satu byte `#` pembuka berubah; isi raw/closing hashes/whitespace tetap utuh. Setext dan heading dalam container tidak bisa diedit lewat kontrol ini.
+- **Prototipe 6b–6d: Undo/Redo edit tervalidasi langsung di Preview**, lewat Ctrl+Z, Ctrl+Shift+Z/Ctrl+Y dan toolbar. Hanya transaksi checkbox/level heading di puncak history; tidak melewati edit Source. Source/Split mempertahankan Undo/Redo umum.
+- **Prototipe 6c: H−/H+ pada heading root ATX** di Preview/Split, dibatasi level 1–6. Hanya satu byte `#` pembuka berubah; isi raw/closing hashes/whitespace tetap utuh. Heading dalam container tetap tidak bisa diedit lewat kontrol ini.
+- **Prototipe 6d: H−/H+ untuk heading Setext root** mengubah level 1↔2 hanya dengan mengganti run `=`/`-` pada underline. Panjang garis, indent, body multiline/raw dan whitespace tidak dinormalisasi; tidak dikonversi ke ATX.
 - Open, Save, Save As, dan ekspor HTML dengan CSS Catppuccin.
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
@@ -22,7 +23,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
 
-Preview memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, checkbox task kanonis interaktif, code block, rule, serta **tabel GFM native dengan header/alignment dan scroll horizontal**. Warna mengikuti tema. Tabel dibatasi 12 kolom, 128 row termasuk header dan 512 sel; jika melebihi salah satu batas, seluruh source tabel tampil sebagai fallback. HTML/footnote/math tetap source inert; gambar tidak dimuat dan tautan tidak dibuka. Selain checkbox task dan level heading root ATX, blok tetap tidak editable. Ini **belum WYSIWYG umum** atau mapping glyph/selection dua arah. Navigasi provenance hanya menuju awal rentang byte blok atau sel, bukan posisi glyph yang diklik. [Fondasi renderer](docs/testing-stage5a.md), [tabel Stage 5b](docs/testing-stage5b.md), [cache Stage 5c](docs/testing-stage5c.md), [navigasi blok Stage 5d](docs/testing-stage5d.md), [navigasi sel Stage 5e](docs/testing-stage5e.md), [prototipe task Stage 6a](docs/testing-stage6a.md), [history task Stage 6b](docs/testing-stage6b.md), dan [heading Stage 6c](docs/testing-stage6c.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
+Preview memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, checkbox task kanonis interaktif, code block, rule, serta **tabel GFM native dengan header/alignment dan scroll horizontal**. Warna mengikuti tema. Tabel dibatasi 12 kolom, 128 row termasuk header dan 512 sel; jika melebihi salah satu batas, seluruh source tabel tampil sebagai fallback. HTML/footnote/math tetap source inert; gambar tidak dimuat dan tautan tidak dibuka. Selain checkbox task dan level heading root ATX/Setext, blok tetap tidak editable. Ini **belum WYSIWYG umum** atau mapping glyph/selection dua arah. Navigasi provenance hanya menuju awal rentang byte blok atau sel, bukan posisi glyph yang diklik. [Fondasi renderer](docs/testing-stage5a.md), [tabel Stage 5b](docs/testing-stage5b.md), [cache Stage 5c](docs/testing-stage5c.md), [navigasi blok Stage 5d](docs/testing-stage5d.md), [navigasi sel Stage 5e](docs/testing-stage5e.md), [prototipe task Stage 6a](docs/testing-stage6a.md), [history task Stage 6b](docs/testing-stage6b.md), [heading ATX Stage 6c](docs/testing-stage6c.md), dan [heading Setext Stage 6d](docs/testing-stage6d.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
 
 ## Build di Arch Linux
 
@@ -73,12 +74,12 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 ### Status verifikasi — 22 Oktober 2026
 
-- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a–6c.
-- **Build native debug, Clippy `-D warnings`, dan 486 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39739554830](https://github.com/Indrawan007/Hylite/actions/runs/39739554830), commit `8e641dd`.
-- **187 tes core** lulus mandiri melalui `./scripts/test-source-core.sh`: 150 baseline + 12 resolver navigasi + 10 planner task + 8 history Preview + 7 planner heading. Semuanya **subset 486 tes Cargo**, bukan tambahan 187 tes unik. Stage 6c menambah 25 tes Rust: 8 core, 8 Document, 2 model, 2 adapter dan 5 controller.
-- **Smoke GUI X11/Xvfb + tiny-skia lulus: 109 pemeriksaan** (95 clipboard, 12 title konfirmasi, 2 exit native normal). Tambahan 8 clipboard check menguji H−/H+, Undo/Redo Preview dan fokus Source di Split, byte-exact tanpa refocus Source. Screenshot bukan pixel/glyph oracle. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [heading Stage 6c](docs/testing-stage6c.md).
-- **23 tes Python helper** (4 reporter + 19 runner GUI) lulus. [Catatan verifikasi native](docs/verification-native.md) mencatat pula percobaan awal 6b yang gagal restart exit 101; root cause belum diketahui, bukan diklaim diperbaiki oleh perubahan diagnostik/fitur 6c.
-- Preview hanya mengedit checkbox dan level heading root ATX tervalidasi; Undo/Redo hanya edge eligible di puncak, bukan history umum. WYSIWYG umum, edit teks bebas/selection sel, glyph/selection mapping dan synchronized scrolling belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
+- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a–6d.
+- **Build native debug, Clippy `-D warnings`, dan 510 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39765116882](https://github.com/Indrawan007/Hylite/actions/runs/39765116882), commit `cac30e8`.
+- **194 tes core** lulus mandiri melalui `./scripts/test-source-core.sh`: 150 baseline + 12 resolver navigasi + 10 planner task + 8 history Preview + 7 planner ATX + 7 planner Setext. Semuanya **subset 510 tes Cargo**, bukan tambahan 194 tes unik. Stage 6d menambah 24 tes Rust: 7 core, 8 Document, 2 model, 2 adapter dan 5 controller.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus: 116 pemeriksaan** (102 clipboard, 12 title konfirmasi, 2 exit native normal). Tambahan 7 clipboard check menguji Setext H−/H+, Undo/Redo Preview dan fokus Source di akhir underline, byte-exact tanpa refocus Source. Screenshot bukan pixel/glyph oracle. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [Setext Stage 6d](docs/testing-stage6d.md).
+- **24 tes Python helper** (4 reporter + 20 runner GUI) lulus. [Catatan verifikasi native](docs/verification-native.md) mencatat pula percobaan awal 6b yang gagal restart exit 101; root cause belum diketahui, bukan diklaim diperbaiki oleh diagnostik/fitur 6c–6d.
+- Preview hanya mengedit checkbox dan level heading root ATX/Setext tervalidasi; Undo/Redo hanya edge eligible di puncak, bukan history umum. WYSIWYG umum, edit teks bebas/selection sel, glyph/selection mapping dan synchronized scrolling belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
 
 ## Konfigurasi
 
@@ -352,7 +353,7 @@ Model dokumen masih memakai `text_editor::Content` milik Iced sebagai satu-satun
 3. Pemisahan model dokumen, operasi file, dan konfigurasi — teruji dalam suite Cargo; desktop target belum diverifikasi.
 4. Source editor untuk penggunaan harian — iterasi 4a–4j tersedia; integrasi desktop dan fitur Source lanjutan belum selesai.
 5. Renderer Markdown native — 5a read-only, 5b tabel, 5c cache, 5d navigasi blok dan 5e navigasi sel tersedia; cakupan Markdown, mapping dan optimasi lanjutan belum lengkap.
-6. Prototipe WYSIWYG dan pemetaan posisi sumber — 6a checkbox, 6b history terbatas dan 6c level heading root ATX tersedia; editing umum serta glyph/selection mapping belum tersedia.
+6. Prototipe WYSIWYG dan pemetaan posisi sumber — 6a checkbox, 6b history terbatas, 6c level root ATX dan 6d level root Setext tersedia; editing umum serta glyph/selection mapping belum tersedia.
 7. Pengalaman editing ala MarkText.
 8. Workspace, recovery, dan integrasi Hyprland yang tangguh.
 9. Optimasi, packaging Arch, dan persiapan rilis.
