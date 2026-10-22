@@ -434,3 +434,33 @@ font produk diubah dari default 16 ke 14, bukan menggeser koordinat probe atau
 menambah Source refocus. Run hijau tetap memeriksa seluruh gate lama. Disabled/
 tooltip/query-focus batch runtime dan desktop Arch/Hyprland/Wayland tetap manual.
 [Kontrak/cap/auth/history Stage 6e](testing-stage6e.md).
+
+## Tambahan runner Stage 6f: alignment tabel pada suite privat ketiga
+
+`--suite table-alignment` membuka app/Xvfb/XDG/env/clipboard baru, bukan
+menambahkan waktu atau mengurangi 116 checks default regression maupun 9
+checks task-batch. Ketiga step workflow tetap timeout 5 menit, setiap runner
+alarm 180s, job budget 45 menit. Alignment mempunyai 8 exact Copy + 1 client
+Close exit alami; empat klik hanya picker dan opsi produk. Semua Copy tanpa
+Source refocus. Tidak ada runtime hook/retry.
+
+Fixture mengandung UTF-8, escaped pipe, entity, raw inline, ragged row, indent,
+whitespace/dash count dan terminal tab. Probe memilih Column 1 Center di Preview,
+Undo/Redo, lalu Column 2 Left di Split, mengetik X tepat sesudah token delimiter,
+memisahkan dua Atomic alignments dari native Source typing, dan kembali welcome
+clean. Bukti di subfolder `table-alignment/`; screenshot bukan pixel assertion.
+Dua Python helper baru mengunci probe dan dispatch eksklusif, guard private
+DISPLAY mencakup ketiga suite. [Kontrak/hasil aktual Stage 6f](testing-stage6f.md).
+
+Run pertama 39784221190 lulus 556 Cargo/Clippy/build dan 116+9 GUI lama; suite
+baru menemukan collision oracle `replace("--:")` dengan suffix token Center
+`:---:` kolom pertama. Actual aplikasi sudah benar pada kolom kedua `:--X`.
+Oracle baru mengunci delimiter kedua dengan pipes/spacing dan assertion literal
+line independen; bukan mengubah byte expectations gate lama/klik/fokus/deadline.
+[CI 39784983010](https://github.com/Indrawan007/Hylite/actions/runs/39784983010)
+pada `894227f` **success**: 556 Cargo / 210 core (subset) / 29 Python / **116+9+9
+GUI**. Alignment step 13:20:20–13:20:34 UTC, 22 Oktober 2026. Total 134 checks di
+**tiga** suite (118 clipboard, 12 title, 4 exit alami); artifact `12428428377`
+berukuran 1.668.936 bytes belum expired saat diperiksa, screenshot belum direview
+visual. Query-focus runtime/alignment glyph/keyboard menu/HiDPI/accessibility dan
+Arch/Hyprland/Wayland/portal/GPU tetap belum diverifikasi.

@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6e
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6f
 
-Stage 6e: build debug, Clippy dan **530 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **27 helper Python serta 116 regresi + 9 batch checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 6f: build debug, Clippy dan **556 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **29 helper Python serta 116 regresi + 9 batch + 9 alignment checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -8,12 +8,13 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading 6a–6e mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6f mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
 - **`preview_setext.rs`**: planner penggantian run underline root Setext H1↔H2, preserving panjang/indent/raw body/suffix, tanpa konversi ATX. Field metadata dan message terpisah, guard/Atomic commit/history sama dengan heading ATX.
 - **`preview_task.rs`**: target item/marker/checked/snapshot dan planner satu byte; planner batch mengganti hanya middle bytes yang perlu berubah pada rentang source verbatim. Document memeriksa exact cached membership (daftar lengkap untuk batch), dengan cap 1024 sebelum jalur Atomic Source.
+- **`preview_table_edit.rs`**: shared Alignment dan planner token delimiter root; full snapshot/column/count/marker/expected alignment. Document menuntut warm root Table membership, bukan pola lexical. Commit Atomic `PreviewTable` hanya mengubah colon, tanpa serialisasi sel.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
 - **`document/state.rs`**: memiliki satu buffer `text_editor::Content`, path aktif, ID dokumen, revisi operasi monotonik, checkpoint konten, checkpoint terakhir disimpan, dan bounded history. Edit efektif melalui `apply`/`change`; penggantian dokumen melalui `replace`; hasil save melalui `mark_saved`.
@@ -410,3 +411,21 @@ Mode dan tema memakai enum, bukan string bebas. Default per field memungkinkan k
 ## Bukan bagian dari tahap ini
 
 Belum ada AST dokumen, WYSIWYG, parsing AST incremental, history AST lintas mode WYSIWYG, pemantauan perubahan file eksternal, autosave, atau recovery. Buffer Iced masih menjadi model teks native. Serialisasi operasi di dalam aplikasi bukan penguncian lintas proses atau jaminan terhadap force-kill.
+
+## Alignment kolom tabel root (Stage 6f)
+
+`Table.delimiters` hanya terisi untuk root projected table, sesudah hasil lexical
+sesuai alignment pulldown-cmark. Nested atau fallback cap lama tetap tanpa target.
+Picker menawarkan tiga pilihan noncurrent per kolom dan membawa exact snapshot,
+table range, column/count, token range, expected alignment. Document mencari hanya
+anggota root cache warm; lexical planner tidak pernah cukup untuk otorisasi.
+
+Perubahan hanya colon token terpilih, dengan dash count/pipes/whitespace/header/
+body verbatim. Cold/stale/forged/no-op ditolak tanpa mutasi/history. Caret sesudah
+token baru, cache/search terbarui, satu Atomic trusted `PreviewTable` edge yang
+ikut top-only Preview history. Source edits tetap barrier, Save/Export checkpoint
+semantics dan logical focus sama. Tidak membuka free text Preview/cell editing.
+
+Suite `table-alignment` terpisah tidak menggantikan 116 regresi maupun 9 batch;
+setiap invokasi masih private Xvfb / alarm 180s / step 5 menit. [Kontrak, hasil
+aktual dan batas Stage 6f](testing-stage6f.md).

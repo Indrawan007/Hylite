@@ -1,6 +1,25 @@
 # Verifikasi build dan tes native — 22 Oktober 2026
 
-## Bukti yang diamati
+## Stage 6f terbaru — alignment kolom tabel root
+
+[CI 39784983010](https://github.com/Indrawan007/Hylite/actions/runs/39784983010),
+`894227f3d863a396bc2f05a8fccbb5d1a8571fd5`, job `119845680831` **success** pada
+22 Oktober 2026, 13:13:43–13:20:38 UTC. Native debug build, format, strict Clippy,
+**556 Cargo**, **210 strict core** (subset Cargo), **29 Python**, **116 regresi +
+9 task-batch + 9 table-alignment GUI** lulus. Suite GUI tetap tiga private Xvfb
+terpisah, alarm 180s dan step 5 menit masing-masing, bukan deadline lebih besar.
+134 checks = 118 clipboard + 12 title + 4 exit alami. Artifact `12428428377`
+1.668.936 bytes belum expired saat diperiksa; screenshot belum direview visual.
+
+Run pertama 39784221190 lulus native dan 116+9 GUI lama tetapi oracle suite baru
+menabrakkan suffix `--:` pada token Center kolom pertama. Actual produk benar di
+kolom kedua; oracle dipersempit ke delimiter kedua dengan pipe/spacing dan helper
+mengunci literal expected line independen. Tidak mengubah gate regresi lama,
+produk, refocus/klik atau deadline. Run success di atas menguji koreksi tersebut.
+[Kontrak dan batas Stage 6f](testing-stage6f.md). Ini bukan WYSIWYG umum, pixel/
+alignment glyph proof atau verifikasi Arch/Hyprland/Wayland/portal/GPU/IME/RTL.
+
+## Bukti baseline Source yang diamati
 
 [GitHub Actions run 39707517350](https://github.com/Indrawan007/Hylite/actions/runs/39707517350)
 **success**, job **Linux build, lint, and tests**, pada commit
@@ -230,6 +249,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6e](testing-stage6e.md).
+6e batch task dan 6f alignment kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6f](testing-stage6f.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
