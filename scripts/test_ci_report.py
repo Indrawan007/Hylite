@@ -28,12 +28,22 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("100%25", output)
         self.assertEqual(ci_report.escape("%\r\n"), "%25%0D%0A")
 
-    def test_failure_tail_has_at_most_four_annotations_and_success_is_notice(self):
+    def test_failure_tail_has_at_most_eight_annotations_and_success_is_notice(self):
         output = self.rendered("x" * 100000, 1)
-        self.assertEqual(output.count("::error title="), 4)
+        self.assertEqual(output.count("::error title="), 8)
         notice = self.rendered("", 0)
         self.assertIn("::notice title=", notice)
         self.assertNotIn("::error title=", notice)
+
+    def test_failure_chunks_preserve_a_panic_beyond_the_checks_message_truncation_boundary(self):
+        panic = "thread main panicked at native restart fixture"
+        log = "P" * 4500 + panic + "Q" * 2000
+        output = self.rendered(log, 101)
+        annotations = [line.split("::", 2)[2] for line in output.splitlines()
+                       if line.startswith("::error title=")]
+        self.assertEqual("".join(annotations), log)
+        self.assertTrue(all(len(message) <= 3000 for message in annotations))
+        self.assertTrue(any(panic in message for message in annotations))
 
     def test_shell_wrapper_preserves_success_and_failure_exit_codes(self):
         for status in [0, 7, 101]:

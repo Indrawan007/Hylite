@@ -88,6 +88,17 @@ Lokal **179 core strict** dan **21 Python** lulus; format/diff diperiksa. Full
 Cargo/Clippy/build/keyboard/toolbar GUI native masih menunggu CI, bukan diasumsikan
 lulus dari harness mandiri.
 
+Percobaan [CI 39736591093](https://github.com/Indrawan007/Hylite/actions/runs/39736591093)
+lulus format/Clippy/build, 179 core dan 461 Cargo. Probe history keyboard/toolbar
+baru dan boundary Source sudah lewat, tetapi gate lifecycle gagal saat proses
+kedua startup (exit 101). Root diagnostic berada di bagian annotation yang
+terpotong: pelapor lama membuat chunk 6000 karakter sedangkan Checks API
+menyimpan hanya 4096. Reporter sekarang membuat chunk 3000 (total tail tetap
+24 KiB, maksimum 8 annotation), dengan regression test menjaga panic pada offset
+4500 tidak hilang. Ini perbaikan diagnostik, bukan retry aplikasi, relaksasi
+timeout atau pelonggaran pemeriksaan lifecycle. Hasil native lengkap berikutnya
+tetap harus diamati; exit 101 belum diasumsikan sebagai masalah fitur/infra tertentu.
+
 ## Batas/manual — belum dinyatakan lulus
 
 - [ ] Keyboard layout non-default, IME/RTL, aksesibilitas/touchpad.
