@@ -313,7 +313,7 @@ class SmokeHelperTests(unittest.TestCase):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
-        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells"]:
+        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation"]:
             with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
                  patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
                  patch("sys.stderr", new_callable=io.StringIO), \
@@ -432,6 +432,41 @@ class SmokeHelperTests(unittest.TestCase):
             gui.exercise_suite(desktop,artifacts,binary,"table-cells")
             cells.assert_called_once_with(desktop,artifacts)
             regression.assert_not_called(); batch.assert_not_called(); alignment.assert_not_called(); rows.assert_not_called()
+
+    def test_navigation_probe_protects_dirty_drafts_bounds_offsets_and_source_focus(self):
+        desktop=Mock(window="42")
+        with patch.object(gui.time,"sleep"):
+            gui.exercise_cell_navigation(desktop,Path("/unused-evidence"))
+        source=desktop.paste_from_clean.call_args.args[0]
+        initial="café🙂 **raw**".encode("utf-8")
+        value="applied **é🙂**".encode("utf-8")
+        second=b"a\\|b &amp;"
+        edited=source.replace(initial,value,1)
+        sentinel=source.replace(initial,b"finalX",1)
+        self.assertEqual(sentinel.splitlines()[2],b" | finalX | a\\|b &amp; |")
+        copies=desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies),15)
+        self.assertEqual([c.args[1] for c in copies[1:14]],[source,b"Count",initial,b"pending",value,second,value,second,edited,source,edited,sentinel,edited])
+        self.assertEqual(copies[0].args[1],copies[-1].args[1])
+        self.assertTrue(all(c.kwargs=={"refocus":False} for c in copies))
+        clicks=[c.args for c in desktop.command.call_args_list]
+        self.assertEqual(len(clicks),13)
+        self.assertEqual([c[4] for c in clicks if c[5]=="244"],["240","360","360","500","360","500","240","500","500"])
+        self.assertEqual([c.args for c in desktop.type_ascii.call_args_list],[("pending",),("discard me",),("final",),("X",)])
+        desktop.request_close.assert_called_once_with();desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count,2)
+
+    def test_navigation_dispatch_does_not_replace_any_of_five_previous_suites(self):
+        desktop,artifacts,binary=Mock(),Path("/unused"),Path("/unused/binary")
+        with patch.object(gui,"exercise_cell_navigation") as navigation, \
+             patch.object(gui,"exercise") as regression, \
+             patch.object(gui,"exercise_task_batch") as batch, \
+             patch.object(gui,"exercise_table_alignment") as alignment, \
+             patch.object(gui,"exercise_table_rows") as rows, \
+             patch.object(gui,"exercise_table_cells") as cells:
+            gui.exercise_suite(desktop,artifacts,binary,"cell-navigation")
+            navigation.assert_called_once_with(desktop,artifacts)
+            regression.assert_not_called();batch.assert_not_called();alignment.assert_not_called();rows.assert_not_called();cells.assert_not_called()
 
     def xlib_probe(self, protocols):
         connection = Mock()

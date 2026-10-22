@@ -356,6 +356,61 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewTable)
     }
 
+    pub(crate) fn adjacent_preview_cell(
+        &self,
+        target: &crate::preview_cell::Target,
+        direction: crate::preview_cell::Direction,
+    ) -> Option<crate::preview_cell::Target> {
+        self.preview_cell_payload(target)?;
+        let position = crate::preview_cell::neighbor(target, direction)?;
+        cell_in_blocks(
+            self.preview.get()?,
+            self.snapshot,
+            target.table.start,
+            (target.rows, target.columns),
+            position,
+        )
+    }
+
+    /// Preflight the exact post-edit projection before committing. Navigation
+    /// failure never leaves a partially applied Source edit or stale draft.
+    pub(crate) fn edit_preview_cell_and_next(
+        &mut self,
+        target: &crate::preview_cell::Target,
+        value: &str,
+    ) -> Option<(crate::preview_cell::Target, bool)> {
+        let before_payload = self.preview_cell_payload(target)?;
+        let position = crate::preview_cell::neighbor(target, crate::preview_cell::Direction::Next)?;
+        if !crate::preview_cell::valid_value(value) {
+            return None;
+        }
+        if before_payload == value {
+            return self
+                .adjacent_preview_cell(target, crate::preview_cell::Direction::Next)
+                .map(|next| (next, false));
+        }
+        let source = self.buffer_text();
+        let change = crate::preview_cell::plan(&source, self.snapshot, target, value)?;
+        let mut candidate = source;
+        candidate.replace_range(change.range.clone(), &change.replacement);
+        let blocks = preview_model::parse(&candidate);
+        let mut next = cell_in_blocks(
+            &blocks,
+            self.snapshot,
+            target.table.start,
+            (target.rows, target.columns),
+            position,
+        )?;
+        self.break_undo_group();
+        let before = self.record();
+        if !self.commit_kind(before, change, EditKind::PreviewTable) {
+            return None;
+        }
+        next.snapshot = self.snapshot;
+        self.preview = OnceCell::from(blocks);
+        Some((next, true))
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -718,6 +773,41 @@ fn content_at(text: &str, caret: usize) -> Option<text_editor::Content> {
     let column = prefix.rsplit('\n').next().unwrap_or("").len();
     (buffer_text(&content) == text && content.cursor_position() == (line, column))
         .then_some(content)
+}
+
+fn cell_in_blocks(
+    blocks: &[Block],
+    snapshot: Snapshot,
+    start: usize,
+    dimensions: (usize, usize),
+    position: (usize, usize),
+) -> Option<crate::preview_cell::Target> {
+    blocks.iter().find_map(|block| {
+        if block.source.start != start {
+            return None;
+        }
+        let preview_model::Kind::Table(table) = &block.kind else {
+            return None;
+        };
+        if (table.rows.len(), table.alignments.len()) != dimensions {
+            return None;
+        }
+        let payload = table
+            .editable_cells
+            .as_ref()?
+            .get(position.0)?
+            .get(position.1)?
+            .clone();
+        Some(crate::preview_cell::Target {
+            snapshot,
+            table: block.source.clone(),
+            row: position.0,
+            column: position.1,
+            rows: dimensions.0,
+            columns: dimensions.1,
+            payload,
+        })
+    })
 }
 
 #[cfg(test)]

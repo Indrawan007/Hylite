@@ -2763,3 +2763,195 @@ fn inflight_save_ack_during_draft_never_saves_unapplied_text_and_apply_remains_d
     let _ = app.update(Message::PreviewHistory(false));
     assert!(!app.document.is_dirty());
 }
+
+#[test]
+fn unchanged_draft_navigation_crosses_header_and_body_without_document_changes() {
+    use crate::preview_cell::Direction;
+    let mut app = cell_app();
+    let source = app.document.buffer_text();
+    let t = cell_target(&app, 0, 1);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::MovePreviewCell(Direction::Next));
+    let d = app.cell_draft.as_ref().unwrap();
+    assert_eq!((d.target.row, d.target.column), (1, 0));
+    assert_eq!(d.value, "café🙂");
+    assert!(app.title().contains("[cell 1:1]"));
+    let _ = app.update(Message::MovePreviewCell(Direction::Previous));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "b");
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        )
+    );
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn dirty_navigation_refusal_keeps_text_but_does_not_poison_explicit_apply() {
+    use crate::preview_cell::Direction;
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t.clone()));
+    let _ = app.update(Message::PreviewCellChanged("modified".into()));
+    let _ = app.update(Message::MovePreviewCell(Direction::Next));
+    let d = app.cell_draft.as_ref().unwrap();
+    assert_eq!(d.target, t);
+    assert_eq!(d.value, "modified");
+    assert!(d.navigation_notice.is_some());
+    assert!(d.error.is_none());
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert!(app.document.buffer_text().contains("| modified |"));
+}
+#[test]
+fn apply_next_opens_fresh_raw_payload_and_cancel_only_discards_current_unapplied_draft() {
+    let mut app = cell_app();
+    let source = app.document.buffer_text();
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("new **é🙂**".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    let d = app.cell_draft.as_ref().unwrap();
+    assert_eq!((d.target.row, d.target.column), (1, 1));
+    assert_eq!(d.value, "raw");
+    assert_eq!(d.target.snapshot, app.document.snapshot());
+    let _ = app.update(Message::PreviewCellChanged("discard this".into()));
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.cell_draft.is_none());
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("café🙂", "new **é🙂**", 1)
+    );
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn no_op_apply_next_and_table_boundaries_create_no_history_and_keep_redo() {
+    use crate::preview_cell::Direction;
+    let mut app = cell_app();
+    assert!(app.document.change(crate::text_edit::TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(app.document.undo());
+    let t = cell_target(&app, 0, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t.clone()));
+    let _ = app.update(Message::MovePreviewCell(Direction::Previous));
+    assert_eq!(app.cell_draft.as_ref().unwrap().target, t);
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "b");
+    let _ = app.update(Message::MovePreviewCell(Direction::Next));
+    let _ = app.update(Message::MovePreviewCell(Direction::Next));
+    let _ = app.update(Message::PreviewCellChanged("last modified".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    let d = app.cell_draft.as_ref().unwrap();
+    assert_eq!((d.target.row, d.target.column), (1, 1));
+    assert_eq!(d.value, "last modified");
+    assert!(d.error.is_none());
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.document.can_redo());
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn invalid_or_stale_navigation_never_applies_and_retains_current_draft() {
+    use crate::preview_cell::Direction;
+    let mut app = cell_app();
+    let t = cell_target(&app, 0, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("bad|pipe".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    let _ = app.update(Message::MovePreviewCell(Direction::Next));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "bad|pipe");
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::PreviewCellChanged("valid".into()));
+    app.document.replace(None, "replacement\n");
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "valid");
+    assert!(app.cell_draft.as_ref().unwrap().error.is_some());
+    assert_eq!(app.document.buffer_text(), "replacement\n");
+}
+#[test]
+fn apply_next_respects_modal_file_mode_history_guards_and_inflight_save_ack() {
+    let mut app = cell_app();
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let t = cell_target(&app, 0, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("new header".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    let after = app.document.snapshot();
+    for msg in [
+        Message::NewFile,
+        Message::OpenFile,
+        Message::SaveFile,
+        Message::CycleMode,
+        Message::PreviewHistory(false),
+        Message::CloseRequested(window::Id::unique()),
+    ] {
+        let _ = app.update(msg);
+    }
+    assert_eq!(app.document.snapshot(), after);
+    assert_eq!(app.mode, EditMode::Preview);
+    assert!(app.cell_draft.is_some());
+    let _ = app.update(Message::FileSaved(token, Ok(Some("nav.md".into()))));
+    assert!(app.document.is_dirty() && app.cell_draft.is_some());
+    let _ = app.update(Message::CancelPreviewCell);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(!app.document.is_dirty());
+}
+#[test]
+fn sequential_cell_applies_are_distinct_atomic_edges_and_refresh_split_find_context() {
+    let mut app = cell_app();
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("needle".into()));
+    let t = cell_target(&app, 0, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("needle1".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    assert_eq!(app.search.count(), 1);
+    assert!(app.search.open && app.cell_draft.is_some());
+    let _ = app.update(Message::PreviewCellChanged("needle2".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    assert_eq!(app.search.count(), 2);
+    let _ = app.update(Message::CancelPreviewCell);
+    assert_eq!(app.mode, EditMode::Split);
+    assert_eq!(app.search.query, "needle");
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.search.count(), 1);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.search.count(), 0);
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn new_cell_navigation_messages_without_a_draft_never_mutate_or_open_one() {
+    use crate::preview_cell::Direction;
+    let mut app = cell_app();
+    let before = app.document.snapshot();
+    for msg in [
+        Message::MovePreviewCell(Direction::Next),
+        Message::MovePreviewCell(Direction::Previous),
+        Message::ApplyPreviewCellNext,
+    ] {
+        let _ = app.update(msg);
+    }
+    assert!(app.cell_draft.is_none());
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.can_undo());
+}

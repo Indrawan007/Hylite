@@ -19,6 +19,30 @@ pub struct Target {
     pub payload: Range<usize>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Previous,
+    Next,
+}
+
+/// Row-major, bounded, no wrap beyond the first/last real cell.
+pub fn neighbor(target: &Target, direction: Direction) -> Option<(usize, usize)> {
+    if !(1..=MAX_ROWS).contains(&target.rows)
+        || !(1..=MAX_COLUMNS).contains(&target.columns)
+        || target.rows * target.columns > MAX_CELLS
+        || target.row >= target.rows
+        || target.column >= target.columns
+    {
+        return None;
+    }
+    let index = target.row * target.columns + target.column;
+    let next = match direction {
+        Direction::Previous => index.checked_sub(1)?,
+        Direction::Next => index.checked_add(1)?,
+    };
+    (next < target.rows * target.columns).then_some((next / target.columns, next % target.columns))
+}
+
 pub fn valid_value(value: &str) -> bool {
     if value.len() > MAX_BYTES || value.chars().any(|c| c.is_control() && c != '\t') {
         return false;
@@ -250,5 +274,81 @@ mod tests {
     fn lexical_table_inside_fence_still_requires_model_provenance() {
         let source = "```\n|a|b|\n|-|-|\n|x|y|\n```\n";
         assert!(cells(source, &(4..source.len() - 4), 2, 2).is_some());
+    }
+    #[test]
+    fn neighbors_are_row_major_including_header_and_cross_row_transitions() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let t = target(source, 0, 1);
+        assert_eq!(neighbor(&t, Direction::Next), Some((1, 0)));
+        assert_eq!(
+            neighbor(&target(source, 1, 0), Direction::Previous),
+            Some((0, 1))
+        );
+        assert_eq!(
+            neighbor(&target(source, 0, 0), Direction::Next),
+            Some((0, 1))
+        );
+    }
+    #[test]
+    fn first_and_last_neighbors_never_wrap_or_repeat_the_current_cell() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        assert_eq!(neighbor(&target(source, 0, 0), Direction::Previous), None);
+        assert_eq!(neighbor(&target(source, 1, 1), Direction::Next), None);
+    }
+    #[test]
+    fn neighbor_invalid_dimensions_indices_and_integer_overflow_are_rejected() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        for case in 0..8 {
+            let mut t = target(source, 0, 0);
+            match case {
+                0 => t.rows = 0,
+                1 => t.columns = 0,
+                2 => t.rows = usize::MAX,
+                3 => t.columns = usize::MAX,
+                4 => t.row = usize::MAX,
+                5 => t.column = usize::MAX,
+                6 => {
+                    t.rows = 43;
+                    t.columns = 12;
+                }
+                _ => t.columns = 13,
+            }
+            for direction in [Direction::Previous, Direction::Next] {
+                assert!(neighbor(&t, direction).is_none());
+            }
+        }
+    }
+    #[test]
+    fn neighbor_traversal_and_inverse_cover_every_cell_at_existing_caps() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        for (rows, columns) in [(1, 1), (128, 4), (42, 12)] {
+            let mut t = target(source, 0, 0);
+            t.rows = rows;
+            t.columns = columns;
+            for index in 0..rows * columns {
+                assert_eq!((t.row, t.column), (index / columns, index % columns));
+                if let Some((r, c)) = neighbor(&t, Direction::Next) {
+                    let mut next = t.clone();
+                    next.row = r;
+                    next.column = c;
+                    assert_eq!(
+                        neighbor(&next, Direction::Previous),
+                        Some((t.row, t.column))
+                    );
+                    t = next;
+                } else {
+                    assert_eq!(index, rows * columns - 1);
+                }
+            }
+        }
+    }
+    #[test]
+    fn neighbor_does_not_authenticate_snapshot_or_payload_provenance() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let mut t = target(source, 0, 0);
+        t.snapshot.revision = 99;
+        t.payload = 0..usize::MAX;
+        assert_eq!(neighbor(&t, Direction::Next), Some((0, 1)));
+        assert!(payload(source, Snapshot::default(), &t).is_none());
     }
 }

@@ -40,6 +40,8 @@ pub enum Message {
     OpenPreviewCell(crate::preview_cell::Target),
     PreviewCellChanged(String),
     ApplyPreviewCell,
+    MovePreviewCell(crate::preview_cell::Direction),
+    ApplyPreviewCellNext,
     CancelPreviewCell,
     EditPreviewTableRow(
         crate::preview_table_row::Target,

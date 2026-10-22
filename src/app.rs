@@ -92,11 +92,13 @@ impl Hylite {
             Some(PendingAction::Close(_)) => " [confirm Close]",
             None => "",
         };
-        let draft = if self.cell_draft.is_some() {
-            " [cell draft]"
-        } else {
-            ""
-        };
+        let draft = self.cell_draft.as_ref().map_or_else(String::new, |draft| {
+            format!(
+                " [cell draft] [cell {}:{}]",
+                draft.target.row,
+                draft.target.column + 1
+            )
+        });
         format!("{filename}{dirty}{zen}{confirmation}{draft} — Hylite")
     }
 
@@ -109,6 +111,8 @@ impl Hylite {
                 &message,
                 Message::PreviewCellChanged(_)
                     | Message::ApplyPreviewCell
+                    | Message::ApplyPreviewCellNext
+                    | Message::MovePreviewCell(_)
                     | Message::CancelPreviewCell
                     | Message::EndTypingGroup
                     | Message::FileOpened(..)
@@ -133,6 +137,8 @@ impl Hylite {
             Message::OpenPreviewCell(target) => self.open_preview_cell(target),
             Message::PreviewCellChanged(value) => self.change_preview_cell(value),
             Message::ApplyPreviewCell => self.apply_preview_cell(),
+            Message::ApplyPreviewCellNext => self.apply_preview_cell_next(),
+            Message::MovePreviewCell(direction) => self.move_preview_cell(direction),
             Message::CancelPreviewCell => self.cancel_preview_cell(),
             Message::EndTypingGroup => Task::none(),
             Message::Edit(action) => self.edit_native(action),
