@@ -329,7 +329,8 @@ class SmokeHelperTests(unittest.TestCase):
             gui.exercise_table_alignment(desktop, Path("/unused-evidence"))
         source = desktop.paste_from_clean.call_args.args[0]
         centered = source.replace(b"---", b":---:", 1)
-        sentinel = centered.replace(b"--:", b":--X", 1)
+        sentinel = centered.replace(b"| --: |", b"| :--X |", 1)
+        self.assertEqual(sentinel.splitlines()[1], b"  | :---:  | :--X |")
         self.assertTrue(source.endswith(b"\n\t"))
         self.assertIn(b"a\\|b &amp;", source)
         copies = desktop.expect_copy.call_args_list

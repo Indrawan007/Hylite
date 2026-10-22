@@ -753,6 +753,7 @@ fn nested_and_limit_fallback_tables_never_gain_alignment_delimiter_targets() {
         "> |a|b|\n> |---|---|\n> |1|2|\n",
         "- parent\n\n  |a|b|\n  |---|---|\n  |1|2|\n",
         "```md\n|a|b|\n|---|---|\n```\n",
+        "a|b\n\t|---|---|\n1|2\n",
     ] {
         check(&parse(source));
     }

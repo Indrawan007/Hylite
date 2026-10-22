@@ -622,11 +622,14 @@ mod tests {
                 check(&block.children);
             }
         }
+        let wide = format!("|{}\n|{}\n", "a|".repeat(13), "---|".repeat(13));
         for source in [
             "> |a|b|\n> |---|---|\n> |1|2|\n",
             "- parent\n\n  |a|b|\n  |---|---|\n  |1|2|\n",
             "title\n---\n",
             "plain\n",
+            "a|b\n\t|---|---|\n1|2\n",
+            &wide,
         ] {
             check(&super::super::preview_model::parse(source));
         }

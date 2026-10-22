@@ -776,7 +776,7 @@ def exercise_table_alignment(desktop, artifacts):
     source = ("| Name | Count |\n  | ---  | --: |\n"
               "| café🙂 **raw** | a\\|b &amp; |\n| short |\n\nterminal\n\t").encode("utf-8")
     centered = source.replace(b"---", b":---:", 1)
-    sentinel = centered.replace(b"--:", b":--X", 1)
+    sentinel = centered.replace(b"| --: |", b"| :--X |", 1)
     desktop.find_window()
     desktop.title_is_dirty(False)
     desktop.expect_copy("Table alignment suite: fresh clean welcome", welcome, refocus=False)
