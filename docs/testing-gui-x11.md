@@ -604,3 +604,31 @@ header-only/1kolom/11→12kolom UI, large menu keyboard/scroll, active Find/Go-t
 physical focus, Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap manual.
 Tidak ada ragged/column delete/reorder atau inline WYSIWYG. [Kontrak dan batas
 Stage6k](testing-stage6k.md).
+
+## Stage 6l: explicit atomic column deletion, suite privat kesembilan
+
+`--suite table-column-delete` memakai private Xvfb/app/XDG/env/clipboard sendiri,
+alarm180s/step5min, job45min tetap. Semua19 old exercise bodies AST-identical
+terhadap36c137c; delapan gate lama utuh tanpa perubahan bytes/koordinat/refocus/
+deadline/retry/runtime hook. Dua helper baru mengunci independent full Source
+literals/surviving-header caret/four-click/Undo/no-refocus/exit dan exclusive
+dispatch; private DISPLAY guard mencakup sembilan suite sebelum subprocess.
+
+[CI 39871210748](https://github.com/Indrawan007/Hylite/actions/runs/39871210748),
+`4926698`, **success**, **694 Cargo /250 strict core (subset) /41 Python**,
+22 Oktober23:28:51 UTC /23 Oktober2026 Makassar. New suite **11 checks** =10
+exact Source Copy +natural close0. Preview Delete first column memotong header/
+delimiter/body sebagai satu history edge, retained Count/right alignment/raw
+entity/tab utuh. Satu Undo/Redo memulihkan seluruh column. Split Delete last
+column lalu native X masuk ke surviving Name header payload tanpa Source
+refocus. Undo typing/delete/paste terpisah sampai welcome clean. Delete choices
+appended sesudah seluruh18 label prefix6k; width/font/action-bar geometry lama.
+
+Total **206 GUI =116+9+9+9+14+16+11+11+11** =184 clipboard (175 Source +9 draft),
+12 title,10 natural exits. Artifact `12466407895`,2.237.302 bytes, belum expired
+saat diperiksa; screenshot belum direview visual. Evidence `table-column-delete/`
+`column-delete-preview.png` / `column-delete-split.png` bukan pixel/glyph oracle.
+Last-column protection diuji model/Document/controller, bukan menu absence pixel
+assertion. Middle/header-only/empty/12kolom UI, large menu scroll/keyboard,
+Find/Go-to physical focus dan Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap
+manual. Bukan whole-table delete/inline WYSIWYG. [Kontrak dan batas Stage6l](testing-stage6l.md).

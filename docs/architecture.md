@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6k
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6l
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6k mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6l mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -544,3 +544,29 @@ Scanner dibatasi column/line counts, tetapi reconstruction/history dan full pars
 preflight tetap O(n), bukan speedup. Tidak ada column delete/reorder/resize atau
 implicit insertion/inline editing. Suite GUI kedelapan private mempertahankan
 ketujuh gate lama. [Kontrak, hasil dan batas6k](testing-stage6k.md).
+
+## Explicit atomic column deletion (Stage 6l)
+
+`preview_table_column::Action::Delete` memotong raw selected segment beserta
+right separator per physical line sambil mempertahankan left separator/semua
+retained bytes/alignment/tab. Scanner/backslash parity/canonical rectangle/full
+LF lines6k tetap. `can_delete` menolak last column dan shapes di luar renderer
+caps, bukan growth cap. `Table.deletable_columns` terpisah dari insertable flag:
+12kolom/512sel boleh berkurang tanpa mengizinkan additional growth.
+
+Document memilih eligibility sesuai action, tetap authentic warm current root/
+full snapshot/ranges/header/marker; candidate full parse sebelum mutation harus
+complete canonical root, same rows, one fewer columns. Satu whole-table Atomic
+PreviewTable edge, old cache invalidated, fresh target untuk aksi/cell berikut.
+Planner resolve Source caret ke header payload neighbor kanan (atau kiri jika
+last selected) dari canonical replacement cells. Empty retained payload memakai
+empty range. Source typing berikutnya transaksi/barrier sendiri; file/modal/
+checkpoint/search/logical navigation context guards6k tetap. Tidak ada implicit
+commit atau pembuangan draft. Delete explicit seperti Row Delete6g, tanpa prompt
+baru; Undo memulihkan selected content. Delete last column tidak ditawarkan dan command-nya ditolak.
+
+Delete menu tail sesudah seluruh prefix6k, termasuk column insert choices; tidak
+mengubah width/font/action-bar geometry lama. Suite GUI kesembilan private
+mempertahankan delapan gate lama. [Kontrak, bukti dan batas6l](testing-stage6l.md).
+Reconstruction/history +preflight tetap O(n), bukan speedup. Bukan column reorder/
+resize/bulk deletion/whole-table delete atau inline WYSIWYG.
