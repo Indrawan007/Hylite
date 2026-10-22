@@ -1055,6 +1055,62 @@ def exercise_cell_navigation(desktop, artifacts):
     desktop.expect_native_exit("Cell navigation suite clean client Close exits naturally")
 
 
+
+def exercise_table_insert(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    row = " | café🙂 **raw** | a\\|b &amp; |\n".encode("utf-8")
+    source = b"| Name | Count |\n  | ---  | --: |\n" + row + b"\nafter\n\t"
+    before = source.replace(row, b" |  |  |\n" + row, 1)
+    after = source.replace(row, row + b" |  |  |\n", 1)
+    typed = source.replace(row, row + b" | X |  |\n", 1)
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Insert suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Insert fixture retains raw Unicode, escaped pipe, entity and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    # Alignment(6), old row(2), cell(4), then explicit Insert blank before.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "391", "click", "1")
+    time.sleep(0.25)
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    inspect("Preview Insert before adds only one canonical blank row with selected indent", before)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo removes the complete inserted row byte-exact", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    desktop.screenshot(artifacts / "insert-preview.png")
+    inspect("Preview Redo restores the same blank row without normalizing old bytes", before)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Undo before Split restores the original table and menu prefix", source)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "409", "click", "1")
+    time.sleep(0.25)  # Original row: Insert blank after, fourteenth option.
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split Insert after restores Source focus inside first new blank cell", typed, refocus=False)
+    desktop.screenshot(artifacts / "insert-split.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Native typing Undo does not undo the separate inserted row", after, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("A second Undo removes only Insert after and keeps the fixture", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Both insert directions leave no hidden history before clean welcome", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Insert suite clean client Close exits naturally")
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -1079,13 +1135,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_table_cells(desktop, artifacts)
     elif suite == "cell-navigation":
         exercise_cell_navigation(desktop, artifacts)
+    elif suite == "table-insert":
+        exercise_table_insert(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -1133,7 +1191,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
+                    "scope": "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

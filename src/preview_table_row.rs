@@ -1,4 +1,5 @@
 //! Conservative root-table body-row edits: whole LF-terminated pipe-leading lines.
+//! Insertions add only a bounded blank canonical row; existing bytes stay raw.
 //! Lexical validation is not provenance; Document authenticates the warm model.
 use crate::document::Snapshot;
 use crate::preview_table_edit::{self, MAX_COLUMNS};
@@ -12,12 +13,16 @@ pub const MAX_CELLS: usize = 512;
 pub enum Action {
     Duplicate,
     Delete,
+    InsertBefore,
+    InsertAfter,
 }
 impl std::fmt::Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::Duplicate => "Duplicate",
             Self::Delete => "Delete",
+            Self::InsertBefore => "Insert blank before",
+            Self::InsertAfter => "Insert blank after",
         })
     }
 }
@@ -85,6 +90,23 @@ pub fn plan(
                 range: target.line.end..target.line.end,
                 caret: 0,
                 replacement,
+            })
+        }
+        Action::InsertBefore | Action::InsertAfter
+            if can_duplicate(target.rows, target.columns) =>
+        {
+            let line = source.get(target.line.clone())?;
+            let indent = line.bytes().take_while(|b| *b == b' ').count();
+            let at = if action == Action::InsertBefore {
+                target.line.start
+            } else {
+                target.line.end
+            };
+            Some(TextChange {
+                range: at..at,
+                replacement: format!("{}|{}\n", " ".repeat(indent), "  |".repeat(target.columns)),
+                // Inside the first blank cell, not the selected old row.
+                caret: indent + 2,
             })
         }
         Action::Delete => Some(TextChange {
@@ -212,5 +234,117 @@ mod tests {
     fn lexical_lines_cannot_authenticate_a_fenced_table() {
         let source = "```\n|a|b|\n|-|-|\n|x|y|\n```\n";
         assert!(lines(source, &(4..source.len() - 4), 2).is_some());
+    }
+    #[test]
+    fn insert_before_after_preserves_every_old_byte_and_places_caret_in_first_blank_cell() {
+        let table = "|a|b|\n|---|--:|\n   | café🙂 **raw** | a\\|b &amp; |\n| short |\n";
+        let source = format!("before\n\n{table}\nafter\n\t");
+        let mut t = target(table, 1);
+        t.table = 8..8 + table.len();
+        t.line = t.line.start + 8..t.line.end + 8;
+        for (action, at) in [
+            (Action::InsertBefore, t.line.start),
+            (Action::InsertAfter, t.line.end),
+        ] {
+            let change = plan(&source, Snapshot::default(), &t, action).unwrap();
+            assert_eq!(change.range, at..at);
+            assert_eq!(change.replacement, "   |  |  |\n");
+            assert_eq!(change.caret, 5);
+            let mut expected = source.clone();
+            expected.insert_str(at, "   |  |  |\n");
+            let mut actual = source.clone();
+            actual.replace_range(change.range, &change.replacement);
+            assert_eq!(actual, expected);
+            assert_eq!(&actual[..at], &source[..at]);
+            assert_eq!(&actual[at + change.replacement.len()..], &source[at..]);
+        }
+    }
+    #[test]
+    fn inserted_blank_row_uses_header_column_count_not_ragged_body_width() {
+        for columns in 1..=MAX_COLUMNS {
+            let source = format!(
+                "|{}\n|{}\n| ragged |\n",
+                "h|".repeat(columns),
+                "---|".repeat(columns)
+            );
+            let table = 0..source.len();
+            let line = lines(&source, &table, columns).unwrap()[0].clone();
+            let t = Target {
+                snapshot: Snapshot::default(),
+                table,
+                row: 1,
+                rows: 2,
+                columns,
+                line,
+            };
+            for action in [Action::InsertBefore, Action::InsertAfter] {
+                let change = plan(&source, Snapshot::default(), &t, action).unwrap();
+                assert_eq!(change.replacement, format!("|{}\n", "  |".repeat(columns)));
+                assert_eq!(
+                    change.replacement.bytes().filter(|b| *b == b'|').count(),
+                    columns + 1
+                );
+                assert_eq!(change.caret, 2);
+            }
+        }
+    }
+    #[test]
+    fn insert_refuses_stale_forged_header_and_bad_dimensions_without_allocating_a_row() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        for action in [Action::InsertBefore, Action::InsertAfter] {
+            for case in 0..10 {
+                let mut t = target(source, 1);
+                match case {
+                    0 => t.snapshot.document_id += 1,
+                    1 => t.snapshot.revision += 1,
+                    2 => t.snapshot.state_id += 1,
+                    3 => t.row = 0,
+                    4 => t.row = usize::MAX,
+                    5 => t.rows = usize::MAX,
+                    6 => t.columns = usize::MAX,
+                    7 => t.line.start += 1,
+                    8 => t.line.end -= 1,
+                    _ => t.table.end -= 1,
+                }
+                assert!(plan(source, Snapshot::default(), &t, action).is_none());
+            }
+        }
+    }
+    #[test]
+    fn insert_growth_caps_and_noncanonical_eof_are_all_or_nothing() {
+        for columns in [2, 12] {
+            let count = if columns == 2 { 127 } else { 41 };
+            let source = format!(
+                "|{}\n|{}\n{}",
+                "h|".repeat(columns),
+                "---|".repeat(columns),
+                format!("|{}\n", "x|".repeat(columns)).repeat(count)
+            );
+            let table = 0..source.len();
+            let t = Target {
+                snapshot: Snapshot::default(),
+                line: lines(&source, &table, columns).unwrap()[0].clone(),
+                table,
+                row: 1,
+                rows: count + 1,
+                columns,
+            };
+            for action in [Action::InsertBefore, Action::InsertAfter] {
+                assert!(plan(&source, Snapshot::default(), &t, action).is_none());
+            }
+        }
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let mut t = target(source, 1);
+        t.table.end -= 1;
+        t.line.end -= 1;
+        for action in [Action::InsertBefore, Action::InsertAfter] {
+            assert!(plan(
+                source.trim_end_matches('\n'),
+                Snapshot::default(),
+                &t,
+                action
+            )
+            .is_none());
+        }
     }
 }

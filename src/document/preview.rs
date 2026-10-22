@@ -395,6 +395,30 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
             }
         }
     }
+    // Append after every old alignment/row/cell choice. Old picker positions
+    // and labels are part of the existing native GUI regression contract.
+    if crate::preview_table_row::can_duplicate(table.rows.len(), table.alignments.len()) {
+        if let Some(lines) = &table.body_lines {
+            for (index, line) in lines.iter().enumerate() {
+                for action in [
+                    crate::preview_table_row::Action::InsertBefore,
+                    crate::preview_table_row::Action::InsertAfter,
+                ] {
+                    choices.push(TableActionChoice::Row(
+                        crate::preview_table_row::Target {
+                            snapshot,
+                            table: block.source.clone(),
+                            row: index + 1,
+                            rows: table.rows.len(),
+                            columns: table.alignments.len(),
+                            line: line.clone(),
+                        },
+                        action,
+                    ));
+                }
+            }
+        }
+    }
     choices
 }
 
@@ -773,7 +797,7 @@ mod tests {
             state_id: 3,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 12);
+        assert_eq!(choices.len(), 14);
         assert_eq!(
             &choices[..8],
             table_action_choices(&blocks[0], snapshot).as_slice()
@@ -794,10 +818,13 @@ mod tests {
     #[test]
     fn ragged_and_nested_table_pickers_never_offer_cell_edit() {
         let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|\n");
-        assert_eq!(
-            table_picker_choices(&blocks[0], Snapshot::default()),
-            table_action_choices(&blocks[0], Snapshot::default())
-        );
+        let choices = table_picker_choices(&blocks[0], Snapshot::default());
+        let old = table_action_choices(&blocks[0], Snapshot::default());
+        assert_eq!(&choices[..old.len()], old.as_slice());
+        assert_eq!(choices.len(), old.len() + 2);
+        assert!(!choices
+            .iter()
+            .any(|c| matches!(c, TableActionChoice::Cell(_))));
         fn check(blocks: &[Block]) {
             for block in blocks {
                 assert!(!table_picker_choices(block, Snapshot::default())
@@ -809,5 +836,95 @@ mod tests {
         check(&super::super::preview_model::parse(
             "> |a|b|\n> |-|-|\n> |x|y|\n",
         ));
+    }
+    #[test]
+    fn blank_insert_choices_append_after_all_old_actions_and_authenticate_body_line() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n  |x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 9,
+            revision: 3,
+            state_id: 7,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 14);
+        assert_eq!(
+            choices[..12]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Cell 0:1: Edit",
+                "Cell 0:2: Edit",
+                "Cell 1:1: Edit",
+                "Cell 1:2: Edit",
+            ]
+        );
+        for (index, action) in [
+            crate::preview_table_row::Action::InsertBefore,
+            crate::preview_table_row::Action::InsertAfter,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let TableActionChoice::Row(target, actual) = &choices[12 + index] else {
+                panic!("insert")
+            };
+            assert_eq!(*actual, action);
+            assert_eq!(target.snapshot, snapshot);
+            assert_eq!(target.table, blocks[0].source);
+            assert_eq!(target.row, 1);
+            assert_eq!(target.rows, 2);
+            assert_eq!(target.columns, 2);
+            assert_eq!(target.line, 12..20);
+            assert_eq!(choices[12 + index].to_string(), format!("Row 1: {action}"));
+            assert!(
+                matches!(choices[12 + index].clone().message(), Message::EditPreviewTableRow(_, a) if a == action)
+            );
+        }
+    }
+    #[test]
+    fn no_insert_choices_for_header_only_noncanonical_nested_or_growth_caps() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(
+                    !table_picker_choices(block, Snapshot::default()).iter().any(
+                        |choice| matches!(
+                            choice,
+                            TableActionChoice::Row(
+                                _,
+                                crate::preview_table_row::Action::InsertBefore
+                                    | crate::preview_table_row::Action::InsertAfter
+                            )
+                        )
+                    )
+                );
+                check(&block.children);
+            }
+        }
+        for source in [
+            "|a|b|\n|-|-|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+        for (columns, body) in [(2, 127), (12, 41), (13, 1)] {
+            let source = format!(
+                "|{}\n|{}\n{}",
+                "a|".repeat(columns),
+                "---|".repeat(columns),
+                format!("|{}\n", "x|".repeat(columns)).repeat(body)
+            );
+            check(&super::super::preview_model::parse(&source));
+        }
     }
 }

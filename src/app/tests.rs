@@ -2955,3 +2955,169 @@ fn new_cell_navigation_messages_without_a_draft_never_mutate_or_open_one() {
     assert_eq!(app.document.snapshot(), before);
     assert!(!app.document.can_undo());
 }
+
+#[test]
+fn blank_row_insert_in_preview_and_split_is_one_trusted_transaction() {
+    use crate::preview_table_row::Action;
+    for mode in [EditMode::Preview, EditMode::Split] {
+        for action in [Action::InsertBefore, Action::InsertAfter] {
+            let mut app = app();
+            let source = "|a|b|\n|-|-|\n  |café🙂|a\\|b|\n\nend\n\t";
+            app.document = Document::new(source);
+            app.mode = mode;
+            let t = table_row_target(&app);
+            let at = if action == Action::InsertBefore {
+                t.line.start
+            } else {
+                t.line.end
+            };
+            let mut expected = source.to_owned();
+            expected.insert_str(at, "  |  |  |\n");
+            let _ = app.update(Message::EditPreviewTableRow(t, action));
+            assert_eq!(app.document.buffer_text(), expected);
+            assert_eq!(app.document.caret_offset(), at + 4);
+            assert_eq!(app.mode, mode);
+            let history = if mode == EditMode::Preview {
+                Message::PreviewHistory(false)
+            } else {
+                Message::Undo
+            };
+            let _ = app.update(history);
+            assert_eq!(app.document.buffer_text(), source);
+            assert!(!app.document.is_dirty() && !app.document.can_undo());
+            let _ = app.update(if mode == EditMode::Preview {
+                Message::PreviewHistory(true)
+            } else {
+                Message::Redo
+            });
+            assert_eq!(app.document.buffer_text(), expected);
+        }
+    }
+}
+#[test]
+fn blank_row_insert_preserves_modal_file_guards_and_save_export_snapshots() {
+    use crate::preview_table_row::Action;
+    for action in [Action::InsertBefore, Action::InsertAfter] {
+        for case in 0..6 {
+            let mut app = app();
+            let source = "|a|b|\n|-|-|\n|x|y|\n";
+            app.document = Document::new(source);
+            app.mode = if case == 0 {
+                EditMode::Source
+            } else {
+                EditMode::Preview
+            };
+            let t = table_row_target(&app);
+            if case == 1 {
+                app.pending_action = Some(PendingAction::New);
+            }
+            if (2..=4).contains(&case) {
+                let kind = match case {
+                    2 => OperationKind::Open,
+                    3 => OperationKind::Save,
+                    _ => OperationKind::Export,
+                };
+                assert!(app
+                    .operations
+                    .start(kind, app.document.snapshot())
+                    .is_some());
+            }
+            if case == 5 {
+                let cell = cell_target(&app, 1, 0);
+                let _ = app.update(Message::OpenPreviewCell(cell));
+                let _ = app.update(Message::PreviewCellChanged("draft kept".into()));
+            }
+            let token = app.operations.active();
+            let snapshot = app.document.snapshot();
+            let _ = app.update(Message::EditPreviewTableRow(t, action));
+            assert_eq!(app.operations.active(), token);
+            if case == 3 || case == 4 {
+                assert_ne!(app.document.snapshot(), snapshot);
+                assert_eq!(token.unwrap().token.snapshot, snapshot);
+                assert!(app.document.is_dirty());
+            } else {
+                assert_eq!(app.document.snapshot(), snapshot);
+                assert_eq!(app.document.buffer_text(), source);
+                assert!(!app.document.can_undo());
+            }
+            if case == 5 {
+                assert_eq!(app.cell_draft.as_ref().unwrap().value, "draft kept");
+            }
+        }
+    }
+}
+#[test]
+fn insert_refreshes_search_offsets_without_changing_logical_query_focus() {
+    let mut app = app();
+    app.document = Document::new("|a|b|\n|-|-|\n|needle|y|\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("needle".into()));
+    assert_eq!(app.search.count(), 1);
+    let before = app.search.navigate(false).unwrap();
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::InsertBefore,
+    ));
+    assert!(app.search.open);
+    assert_eq!(app.search.query, "needle");
+    assert!(app.search.current().is_none());
+    assert_eq!(app.search.count(), 1);
+    assert_eq!(app.search.navigate(false).unwrap().start, before.start + 8);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.search.navigate(false).unwrap(), before);
+}
+#[test]
+fn refused_stale_insertion_preserves_redo_then_source_typing_remains_a_barrier() {
+    let mut app = app();
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let old = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        old.clone(),
+        crate::preview_table_row::Action::InsertAfter,
+    ));
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.document.preview_blocks();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::EditPreviewTableRow(
+        old,
+        crate::preview_table_row::Action::InsertBefore,
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.document.can_redo());
+    let _ = app.update(Message::PreviewHistory(true));
+    let inserted = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    edit(&mut app);
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_ne!(app.document.buffer_text(), inserted);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), inserted);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), source);
+}
+#[test]
+fn insertion_save_ack_keeps_checkpoint_identity_across_preview_history() {
+    let mut app = app();
+    app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n");
+    app.mode = EditMode::Preview;
+    let t = table_row_target(&app);
+    let _ = app.update(Message::EditPreviewTableRow(
+        t,
+        crate::preview_table_row::Action::InsertBefore,
+    ));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("insert.md".into()))));
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+}
