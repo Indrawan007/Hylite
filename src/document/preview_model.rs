@@ -4,6 +4,10 @@ use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::ops::Range;
 use std::sync::Arc;
 
+#[path = "preview_table.rs"]
+mod table;
+pub use table::{Alignment, Cell, Table};
+
 pub const MAX_NESTING: usize = 24;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -31,6 +35,7 @@ pub enum Kind {
     Item(Option<bool>),
     Code { info: String, text: String },
     Rule,
+    Table(Table),
     Literal { label: &'static str, text: String },
 }
 
@@ -247,6 +252,7 @@ fn blocks(
                         };
                         node(kind, range, vec![], children)
                     }
+                    Tag::Table(alignments) => table::parse(events, source, range, alignments),
                     Tag::CodeBlock(kind) => {
                         let info = match kind {
                             CodeBlockKind::Fenced(info) => info.into_string(),
@@ -264,7 +270,6 @@ fn blocks(
                     }
                     tag => {
                         let label = match tag {
-                            Tag::Table(_) => "Table — source fallback",
                             Tag::HtmlBlock => "Raw HTML — inert source",
                             Tag::FootnoteDefinition(_) => "Footnote — source fallback",
                             _ => "Unsupported block — source fallback",

@@ -5,6 +5,9 @@ use crate::commands::Message;
 use iced::widget::{column, container, horizontal_rule, rich_text, row, text, tooltip};
 use iced::{font, Border, Color, Element, Font, Length, Theme};
 
+#[path = "preview_table_view.rs"]
+mod table;
+
 #[derive(Clone, Copy)]
 struct Colors {
     text: Color,
@@ -172,6 +175,7 @@ fn render_block(block: Block, colors: Colors) -> Element<'static, Message> {
             label,
             text: payload,
         } => code_panel(label.into(), payload, colors),
+        Kind::Table(table) => table::render(table, colors),
         Kind::Rule => horizontal_rule(1).into(),
     };
     // Provenance is inspectable without pretending source byte ranges already

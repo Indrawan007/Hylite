@@ -111,6 +111,20 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(desktop.screenshot.call_count, 3)
         self.assertEqual(desktop.expect_copy.call_args.args[1], (gui.ROOT / "src/welcome.md").read_bytes())
 
+    def test_table_probe_preserves_exact_utf8_fixture_and_uses_horizontal_wheel(self):
+        desktop = Mock(window="42")
+        gui.exercise_tables(desktop, Path("/unused-evidence"))
+        fixture = desktop.paste_from_clean.call_args.args[0]
+        self.assertIn("café🙂".encode("utf-8"), fixture)
+        self.assertTrue(fixture.endswith(b"\n\t"))
+        self.assertIn(b"a\\|b &amp;", fixture)
+        for call in desktop.expect_copy.call_args_list[:3]:
+            self.assertEqual(call.args[1], fixture)
+        self.assertEqual(desktop.expect_copy.call_count, 4)
+        self.assertEqual(desktop.screenshot.call_count, 3)
+        self.assertEqual(desktop.command.call_args.args[-1], "7")
+        self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 3)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]

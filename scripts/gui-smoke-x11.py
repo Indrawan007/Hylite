@@ -345,6 +345,39 @@ def exercise_preview(desktop, artifacts):
     desktop.expect_copy("Preview rendering and blocked input add no undo entry", welcome, refocus=False)
 
 
+
+def exercise_tables(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    wide_row = "|" + " cell |" * 13 + "\n"
+    wide_delimiter = "|" + " --- |" * 13 + "\n"
+    source = ("# Native tables\n\n"
+              "| **Name** | Left | Center | Right | Plain | Code | Link | Empty |\n"
+              "| --- | :--- | :---: | ---: | --- | --- | --- | --- |\n"
+              "| café🙂 | *left* | ~~center~~ | 42 | a\\|b &amp; | `c\\|d` | [inert](https://example.invalid) | |\n"
+              "| short | padded |\n"
+              "| last | b | c | d | e | f | g | h | EXTRA SOURCE ONLY |\n\n"
+              "> | quoted | count |\n> | --- | ---: |\n> | child | 3 |\n\n"
+              + wide_row + wide_delimiter + wide_row + "\nterminal\n\t").encode("utf-8")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Table fixture: Source with alignment, ragged rows and limit fallback", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "tables-native.png")
+    # Send real horizontal wheel events inside the table viewport. Screenshots
+    # record runtime behavior, not an automatic assertion of scrollbar position.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "200",
+                    "click", "--repeat", "6", "--delay", "70", "7")
+    desktop.screenshot(artifacts / "tables-horizontal.png")
+    desktop.type_ascii("LEAK")
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "tables-split.png")
+    desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
+    desktop.key("ctrl+shift+m")
+    desktop.expect_copy("Table mode cycle preserves all source including excess cells and terminal tab", source)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Table rendering adds no undo entries or document edits", welcome, refocus=False)
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -458,6 +491,7 @@ def main():
                 exercise(desktop, artifacts)
                 exercise_navigation(desktop, artifacts)
                 exercise_preview(desktop, artifacts)
+                exercise_tables(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -477,7 +511,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split cycle, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

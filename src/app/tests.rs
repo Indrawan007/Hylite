@@ -1167,7 +1167,10 @@ fn cancelling_confirmation_preserves_source_and_query_contexts() {
 #[test]
 fn native_preview_and_split_views_do_not_change_source_revisions_or_history() {
     let mut app = app();
-    app.document = Document::new("# **café🙂**\n\n> - [x] child\n\n```\ncode  \n\n```\n\t");
+    let table = "| **Name** | Count |\n| :--- | ---: |\n| café🙂 | `3` |\n";
+    let wide_row = format!("|{}\n", " cell |".repeat(13));
+    let wide_delimiter = format!("|{}\n", " --- |".repeat(13));
+    app.document = Document::new(&format!("# **café🙂**\n\n> - [x] child\n\n```\ncode  \n\n```\n\n{table}\n{wide_row}{wide_delimiter}{wide_row}\n\t"));
     edit(&mut app);
     for dirty in [true, false] {
         if !dirty {
