@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j dan preview read-only 5a
+# Arsitektur: Source 4a–4j dan preview read-only 5a–5b
 
-Stage 5a: build debug, Clippy dan **347 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **15 tes helper Python dan 67 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [hasil renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland atau visual/pixel oracle.
+Stage 5b: build debug, Clippy dan **361 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **16 tes helper Python dan 71 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [hasil tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland atau visual/pixel oracle.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -51,6 +51,28 @@ mengubah display text. Ini belum AST editable, WYSIWYG, hit-testing caret,
 selection mapping atau sinkronisasi scroll. Parsing dan widget dibangun ulang
 per view; caching/incremental parsing/virtualisasi belum diimplementasikan.
 Lihat [cakupan, batas, dan bukti pengujian](testing-stage5a.md).
+
+## Tabel native (Stage 5b)
+
+`document/preview_table.rs` dipanggil untuk `Tag::Table` dari parser block.
+`Kind::Table` memuat alignment, row header/body, dan sel dengan inline runs;
+setiap row/sel memiliki source range. Parser GFM menentukan padding sel kosong
+(rentang dapat kosong di akhir row) dan mengabaikan body cell ekstra hanya dalam
+preview. Source dan rentang row tetap mempertahankan seluruh byte.
+
+Grid `preview_table_view.rs` mengonsumsi model menjadi row teks dan layer divider
+native. Row teks menentukan tinggi maksimal terlebih dahulu; overlay divider
+mengikuti tinggi itu tanpa menyebarkan Fill-height ke outer vertical scroll.
+Kolom fixed 160 logical px termasuk padding, alignment native per kolom,
+header bold dan background tema. Horizontal scroll lokal menampung tabel lebar;
+inline link/image/HTML tetap inert melalui renderer span yang sama.
+
+Per tabel: maksimal 12 kolom, 128 row termasuk header, dan 512 sel termasuk
+empty/padded/header. Salah satu limit terlampaui berarti seluruh source tabel
+menjadi fallback literal; tail setelah tabel/quote tidak tertelan. Ini batas
+eager widget count, bukan memori/CPU total atau budget global seluruh dokumen.
+Belum auto-size kolom, editing tabel, virtualisasi atau source↔caret mapping.
+Lihat [cakupan dan batas Stage 5b](testing-stage5b.md).
 
 ## Invariant dokumen
 

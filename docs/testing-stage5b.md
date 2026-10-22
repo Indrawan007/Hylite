@@ -80,16 +80,34 @@ sendiri tetap dapat panjang.
 sebagai artifact runtime. Pengiriman wheel dan screenshot **tidak membuktikan
 secara otomatis posisi scrollbar, batas sel, glyph atau layout visual benar**.
 
-## Status eksekusi
+## Status eksekusi — lulus
 
-Lokal: 35 tes model dengan source parser versi lockfile lulus melalui
-`clippy-driver -D warnings`, 150 tes core Source dan 16 helper Python lulus;
-format dan `git diff --check` lulus. Gate native Cargo/Iced/Clippy/build dan GUI
-CI masih menunggu hasil; hasil akan dicatat setelah benar-benar diamati.
+[CI run 39717665832](https://github.com/Indrawan007/Hylite/actions/runs/39717665832),
+commit `414c0f0a21cf882f3c4056663a240af279d99960`, job `119623561633`:
+**success** pada Ubuntu 24.04 / Rust stable, 2m37s.
 
-Gate standar tetap memakai `--locked --all-targets --all-features`, Clippy
-`-D warnings`, serta Xvfb/XDG privat. Tidak ada test hook aplikasi, pengurangan
-assertion atau perluasan waktu gate untuk menutupi kegagalan.
+| Gate | Hasil yang diamati |
+| --- | --- |
+| Format / harness core dengan lint ketat | Lulus; 150 core |
+| Clippy `--locked --all-targets --all-features -- -D warnings` | Lulus |
+| Build native debug, semua target/fitur | Lulus |
+| Cargo test, semua target/fitur | **361 passed**, 0 failed, 0 ignored |
+| Python helper | **16 passed**: 3 reporter + 13 runner GUI |
+| GUI X11/Xvfb + tiny-skia | **71 pemeriksaan lulus**: 57 clipboard + 12 title + 2 native exit |
+
+150 core dan 14 tes Rust tambahan Stage 5b **termasuk dalam 361 tes Cargo**, bukan
+tambahan di luar angka tersebut. Tes model juga lulus terpisah lokal dengan
+source parser versi lockfile melalui `clippy-driver -D warnings`; hasil itu
+bukan pengganti gate native penuh di atas.
+
+[Artifact screenshot/log/summary](https://github.com/Indrawan007/Hylite/actions/runs/39717665832/artifacts/12398924451)
+tersedia mengikuti retensi 7 hari. Screenshot direkam dari aplikasi sebenarnya,
+tetapi posisi scrollbar/glyph/sel tidak diperiksa oleh pixel oracle atau review
+manual dalam kelulusan CI ini.
+
+Gate tetap memakai lockfile, semua target/fitur, Clippy `-D warnings`, serta
+Xvfb/XDG privat. Tidak ada test hook aplikasi, pengurangan assertion, perubahan
+batas waktu, atau merge ke `main`.
 
 ## Belum diverifikasi / berikutnya
 

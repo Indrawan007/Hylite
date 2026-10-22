@@ -6,7 +6,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 
 ## Fitur yang sudah diimplementasikan
 
-- Editor Source, preview read-only native terstruktur (Stage 5a), dan Split view.
+- Editor Source, preview read-only native terstruktur (Stage 5a–5b), dan Split view.
 - Open, Save, Save As, dan ekspor HTML dengan CSS Catppuccin.
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
@@ -16,7 +16,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
 
-Preview Stage 5a memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, code block, dan rule. Warna mengikuti tema. Tabel/HTML/footnote/math tampil sebagai sumber inert; gambar tidak dimuat dan tautan tidak dibuka. Ini **belum WYSIWYG** atau source↔caret mapping. [Cakupan dan pengujian renderer](docs/testing-stage5a.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
+Preview memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, code block, rule, serta **tabel GFM native dengan header/alignment dan scroll horizontal**. Warna mengikuti tema. Tabel dibatasi 12 kolom, 128 row termasuk header dan 512 sel; jika melebihi salah satu batas, seluruh source tabel tampil sebagai fallback. HTML/footnote/math tetap source inert; gambar tidak dimuat dan tautan tidak dibuka. Ini **belum WYSIWYG** atau source↔caret mapping. [Fondasi renderer](docs/testing-stage5a.md) dan [tabel Stage 5b](docs/testing-stage5b.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
 
 ## Build di Arch Linux
 
@@ -67,11 +67,11 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 ### Status verifikasi — 22 Oktober 2026
 
-- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a.
-- **Build native debug, Clippy `-D warnings`, dan 347 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39716266646](https://github.com/Indrawan007/Hylite/actions/runs/39716266646), commit `ea182b1`.
-- **150 tes inti Source** juga lulus mandiri dengan `clippy-driver` melalui `./scripts/test-source-core.sh`. Tes ini merupakan **subset 347 tes Cargo**, bukan tambahan 150 tes unik. Sebanyak 27 tes Rust baru mencakup model preview, adapter Iced dan invariant view/controller.
-- **Smoke GUI X11/Xvfb + tiny-skia lulus: 67 pemeriksaan** (53 clipboard, 12 title konfirmasi, 2 exit native normal). Siklus Preview/Split mempertahankan Source byte-exact dan tidak menambah undo; gate navigasi/fokus, New/Cancel/Discard serta close dirty/clean tetap lulus. Screenshot bukan assertion pixel/glyph. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [renderer Stage 5a](docs/testing-stage5a.md).
-- **15 tes Python helper** (3 reporter + 12 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat dan batas bukti.
+- Format seluruh sumber diperiksa; `Cargo.lock` tidak berubah dalam Stage 5a–5b.
+- **Build native debug, Clippy `-D warnings`, dan 361 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39717665832](https://github.com/Indrawan007/Hylite/actions/runs/39717665832), commit `414c0f0`.
+- **150 tes inti Source** juga lulus mandiri melalui `./scripts/test-source-core.sh`. Tes ini merupakan **subset 361 tes Cargo**, bukan tambahan 150 tes unik. Stage 5b menambahkan 14 tes Rust atas model/adapter tabel; tes invariant view/controller diperluas tanpa menggandakan count.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus: 71 pemeriksaan** (57 clipboard, 12 title konfirmasi, 2 exit native normal). Siklus Preview/Split dengan tabel mempertahankan Source byte-exact dan tidak menambah undo; gate navigasi/fokus, New/Cancel/Discard serta close dirty/clean tetap lulus. Screenshot bukan assertion pixel/glyph. [Bukti GUI](docs/testing-gui-x11.md), [lifecycle](docs/testing-lifecycle-x11.md), dan [tabel Stage 5b](docs/testing-stage5b.md).
+- **16 tes Python helper** (3 reporter + 13 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat dan batas bukti.
 - WYSIWYG/source↔caret mapping belum ada. Wayland/Hyprland, portal file dialog, IPC, IME/RTL, layout visual pada desktop target dan renderer GPU masih perlu pengujian langsung; kelulusan X11/unit test tidak menggantikannya.
 
 ## Konfigurasi
@@ -322,6 +322,8 @@ src/
 │   ├── snapshot.rs     # Identitas revisi tanpa dependensi UI
 │   ├── preview_model.rs # Proyeksi block/inline owned dan provenance UTF-8
 │   ├── preview_model_tests.rs # Struktur, fallback, code whitespace, nesting
+│   ├── preview_table.rs # Proyeksi tabel GFM, provenance dan batas eager widget
+│   ├── preview_table_view.rs # Grid Iced, alignment, header dan scroll horizontal
 │   └── preview.rs      # Renderer read-only rich text/widget Iced
 ├── operations.rs       # Serialisasi operasi dan penolakan hasil kedaluwarsa
 ├── export/mod.rs       # Konversi/ekspor HTML
@@ -340,7 +342,7 @@ Model dokumen masih memakai `text_editor::Content` milik Iced sebagai satu-satun
 2. Keamanan dokumen dan perbaikan save/export — tes model/filesystem lulus; portal dan failure runtime masih perlu diuji.
 3. Pemisahan model dokumen, operasi file, dan konfigurasi — teruji dalam suite Cargo; desktop target belum diverifikasi.
 4. Source editor untuk penggunaan harian — iterasi 4a–4j tersedia; integrasi desktop dan fitur Source lanjutan belum selesai.
-5. Renderer Markdown native — Stage 5a read-only terstruktur tersedia; cakupan Markdown dan optimasi belum lengkap.
+5. Renderer Markdown native — Stage 5a read-only dan 5b tabel tersedia; cakupan Markdown dan optimasi belum lengkap.
 6. Prototipe WYSIWYG dan pemetaan posisi sumber.
 7. Pengalaman editing ala MarkText.
 8. Workspace, recovery, dan integrasi Hyprland yang tangguh.

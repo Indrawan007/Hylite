@@ -1,5 +1,8 @@
 # Stage 5a — fondasi preview Markdown native read-only
 
+> Catatan historis fondasi 5a. Tabel yang pada iterasi ini masih fallback kini
+> diperluas menjadi grid native pada [Stage 5b](testing-stage5b.md).
+
 Source tetap otoritatif; ini **bukan WYSIWYG** dan bukan pernyataan Tahap 4 telah
 selesai. Tidak ada perubahan serializer, format save, undo/history, atau worker
 file/ekspor. Tidak menambah dependensi maupun mengubah `Cargo.lock`.

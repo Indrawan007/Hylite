@@ -53,6 +53,15 @@ Source/Preview/Split tanpa perubahan/undo tambahan. 150 core adalah subset 347.
 Screenshot bukan pixel assertion; model range belum menjadi source↔caret map.
 Lihat [detail, artifact dan batas Stage 5a](testing-stage5a.md).
 
+Update tabel Stage 5b: [CI run 39717665832](https://github.com/Indrawan007/Hylite/actions/runs/39717665832),
+commit `414c0f0`, lulus **361 tes Cargo**, **16 helper Python**, **71 pemeriksaan
+GUI X11**, build debug/format/Clippy strict. Tambahan 14 tes Rust terdiri dari 12
+tes model tabel dan 2 tes adapter; satu tes fallback lama diganti menjadi tes
+struktur tabel. Controller/view invariant diperluas. Empat clipboard check baru
+memeriksa Source byte-exact sebelum/sesudah mode cycle, input/wheel saat Preview,
+dan satu Undo kembali ke baseline. 150 core tetap subset 361; scrollbar/glyph/
+layout visual bukan assertion otomatis. Lihat [bukti dan batas tabel](testing-stage5b.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

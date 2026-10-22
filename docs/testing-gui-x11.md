@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 347 pada Stage 5a). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 361 pada Stage 5b). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -199,3 +199,21 @@ fokus otomatis. Gate navigasi/lifecycle tanpa klik tetap dipertahankan.
 Screenshot tambahan `preview-native.png`, `preview-fallbacks.png` (setelah wheel)
 dan `preview-split.png` merekam jendela nyata, tetapi bukan assertion pixel/glyph.
 Hasil dan keterbatasan pengujian renderer ada di [Stage 5a](testing-stage5a.md).
+
+## Tambahan runner Stage 5b: tabel native
+
+**Lulus** pada [CI run 39717665832](https://github.com/Indrawan007/Hylite/actions/runs/39717665832),
+commit `414c0f0`: **71 pemeriksaan GUI** (57 clipboard, 12 title, 2 native exit),
+361 tes Cargo dan 16 helper Python. Empat clipboard check tabel ditambahkan pada
+67 gate sebelumnya; navigasi/fokus/lifecycle tidak dikurangi.
+
+Fixture 8 kolom mencakup alignment, inline styles, Unicode, escaped pipe/entity,
+missing dan excess body cells, tabel di quote serta tabel 13 kolom fallback.
+Wheel horizontal X11 dikirim dan input saat Preview tidak boleh bocor ke Source.
+Source/Preview/Split cycle tetap byte-exact sampai terminal tab dan satu Undo
+mengembalikan baseline clean. Copy sesudah mode change mengklik Source, bukan
+klaim pemulihan fokus otomatis.
+
+`tables-native.png`, `tables-horizontal.png`, `tables-split.png` merekam jendela
+sebenarnya. Screenshot bukan assertion posisi scrollbar, alignment/glyph atau
+batas sel secara pixel. Detail dan manual checklist ada di [Stage 5b](testing-stage5b.md).
