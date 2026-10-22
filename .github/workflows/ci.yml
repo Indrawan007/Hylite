@@ -82,6 +82,9 @@ jobs:
       - name: Smoke test body-row moves on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-row-move --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-row-move"
+      - name: Smoke test column moves on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite table-column-move --artifacts "$RUNNER_TEMP/hylite-gui-smoke/table-column-move"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

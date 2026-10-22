@@ -493,6 +493,32 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
             }
         }
     }
+    // Column moves follow the whole 6m prefix and carry alignment with raw cells.
+    if table.deletable_columns {
+        if let (Some(rows), Some(markers)) = (&table.editable_cells, &table.delimiters) {
+            if let Some(header) = rows.first() {
+                for (column, payload) in header.iter().enumerate() {
+                    let target = crate::preview_table_column::Target {
+                        snapshot,
+                        table: block.source.clone(),
+                        column,
+                        columns: table.alignments.len(),
+                        rows: table.rows.len(),
+                        header: payload.clone(),
+                        marker: markers[column].clone(),
+                    };
+                    for action in [
+                        crate::preview_table_column::Action::MoveLeft,
+                        crate::preview_table_column::Action::MoveRight,
+                    ] {
+                        if crate::preview_table_column::neighbor(&target, action).is_some() {
+                            choices.push(TableActionChoice::Column(target.clone(), action));
+                        }
+                    }
+                }
+            }
+        }
+    }
     choices
 }
 
@@ -871,7 +897,7 @@ mod tests {
             state_id: 3,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 20);
+        assert_eq!(choices.len(), 22);
         assert_eq!(
             &choices[..8],
             table_action_choices(&blocks[0], snapshot).as_slice()
@@ -920,7 +946,7 @@ mod tests {
             state_id: 7,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 20);
+        assert_eq!(choices.len(), 22);
         assert_eq!(
             choices[..12]
                 .iter()
@@ -1010,7 +1036,7 @@ mod tests {
             state_id: 5,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 20);
+        assert_eq!(choices.len(), 22);
         assert_eq!(
             choices[..14]
                 .iter()
@@ -1137,7 +1163,7 @@ mod tests {
             state_id: 11,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 20);
+        assert_eq!(choices.len(), 22);
         assert_eq!(
             choices[..18]
                 .iter()
@@ -1351,5 +1377,138 @@ mod tests {
         );
         assert!(!moves.contains(&(1, crate::preview_table_row::Action::MoveUp)));
         assert!(!moves.contains(&(127, crate::preview_table_row::Action::MoveDown)));
+    }
+    #[test]
+    fn column_moves_follow_all_twenty_old_choices_with_exact_authenticated_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 22);
+        assert_eq!(
+            choices[..20]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Cell 0:1: Edit",
+                "Cell 0:2: Edit",
+                "Cell 1:1: Edit",
+                "Cell 1:2: Edit",
+                "Row 1: Insert blank before",
+                "Row 1: Insert blank after",
+                "Column 1: Insert before",
+                "Column 1: Insert after",
+                "Column 2: Insert before",
+                "Column 2: Insert after",
+                "Column 1: Delete",
+                "Column 2: Delete",
+            ]
+        );
+        for (index, column, action) in [
+            (20, 0, crate::preview_table_column::Action::MoveRight),
+            (21, 1, crate::preview_table_column::Action::MoveLeft),
+        ] {
+            let TableActionChoice::Column(t, a) = &choices[index] else {
+                panic!("move")
+            };
+            assert_eq!(*a, action);
+            assert_eq!(t.snapshot, snapshot);
+            assert_eq!(t.table, 0..18);
+            assert_eq!((t.column, t.columns, t.rows), (column, 2, 2));
+            assert_eq!(t.header, 1 + column * 2..2 + column * 2);
+            assert_eq!(t.marker, 7 + column * 2..8 + column * 2);
+            assert_eq!(
+                choices[index].to_string(),
+                format!("Column {}: {action}", column + 1)
+            );
+            assert!(
+                matches!(choices[index].clone().message(),Message::EditPreviewTableColumn(_,a) if a==action)
+            );
+        }
+    }
+    #[test]
+    fn column_moves_never_wrap_single_column_or_unsupported_shapes() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(
+                    !table_picker_choices(block, Snapshot::default())
+                        .iter()
+                        .any(|c| matches!(
+                            c,
+                            TableActionChoice::Column(
+                                _,
+                                crate::preview_table_column::Action::MoveLeft
+                                    | crate::preview_table_column::Action::MoveRight
+                            )
+                        ))
+                );
+                check(&block.children);
+            }
+        }
+        for source in [
+            "|a|\n|-|\n",
+            "|a|\n|-|\n|x|\n",
+            "|a|b|\n|-|-|\n|x|\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn column_moves_offer_only_bounded_neighbors_in_header_only_and_growth_caps() {
+        for source in [
+            "|a|b|\n|-|-|\n".to_owned(),
+            format!(
+                "|{}\n|{}\n|{}\n",
+                "h|".repeat(12),
+                "---|".repeat(12),
+                "x|".repeat(12)
+            ),
+            format!("|a|b|c|d|\n|-|-|-|-|\n{}", "|x|y|z|w|\n".repeat(127)),
+        ] {
+            let blocks = super::super::preview_model::parse(&source);
+            let Kind::Table(table) = &blocks[0].kind else {
+                panic!("table")
+            };
+            let choices = table_picker_choices(&blocks[0], Snapshot::default());
+            let moves: Vec<_> = choices
+                .iter()
+                .filter_map(|c| match c {
+                    TableActionChoice::Column(
+                        t,
+                        a @ (crate::preview_table_column::Action::MoveLeft
+                        | crate::preview_table_column::Action::MoveRight),
+                    ) => Some((t.column, *a)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(moves.len(), 2 * (table.alignments.len() - 1));
+            assert_eq!(
+                moves[0],
+                (0, crate::preview_table_column::Action::MoveRight)
+            );
+            assert_eq!(
+                *moves.last().unwrap(),
+                (
+                    table.alignments.len() - 1,
+                    crate::preview_table_column::Action::MoveLeft
+                )
+            );
+        }
     }
 }

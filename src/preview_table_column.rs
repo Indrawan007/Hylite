@@ -1,4 +1,4 @@
-//! Explicit column insertion/deletion; retained raw segments stay byte-for-byte.
+//! Explicit column insertion/deletion/movement; raw segments stay byte-for-byte.
 //! Lexical checks are not provenance: Document authenticates and preflights roots.
 use crate::document::Snapshot;
 use crate::preview_cell;
@@ -12,6 +12,8 @@ pub enum Action {
     InsertBefore,
     InsertAfter,
     Delete,
+    MoveLeft,
+    MoveRight,
 }
 impl std::fmt::Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -19,6 +21,8 @@ impl std::fmt::Display for Action {
             Self::InsertBefore => "Insert before",
             Self::InsertAfter => "Insert after",
             Self::Delete => "Delete",
+            Self::MoveLeft => "Move left",
+            Self::MoveRight => "Move right",
         })
     }
 }
@@ -44,6 +48,18 @@ pub fn can_delete(rows: usize, columns: usize) -> bool {
     (1..=MAX_ROWS).contains(&rows)
         && (2..=MAX_COLUMNS).contains(&columns)
         && rows * columns <= MAX_CELLS
+}
+
+/// Bounded column index only, never root/range/snapshot authentication.
+pub fn neighbor(target: &Target, action: Action) -> Option<usize> {
+    if !can_delete(target.rows, target.columns) || target.column >= target.columns {
+        return None;
+    }
+    match action {
+        Action::MoveLeft => target.column.checked_sub(1),
+        Action::MoveRight if target.column + 1 < target.columns => Some(target.column + 1),
+        _ => None,
+    }
 }
 
 /// Full-line canonical separators, ignoring escaped pipes even in raw code text.
@@ -100,6 +116,7 @@ pub fn plan(
     if current != target.snapshot
         || !match action {
             Action::Delete => can_delete(target.rows, target.columns),
+            Action::MoveLeft | Action::MoveRight => neighbor(target, action).is_some(),
             Action::InsertBefore | Action::InsertAfter => can_insert(target.rows, target.columns),
         }
         || target.column >= target.columns
@@ -123,7 +140,18 @@ pub fn plan(
         .enumerate()
     {
         let separators = pipes(line, target.columns)?;
-        if action == Action::Delete {
+        if let Some(adjacent) = neighbor(target, action) {
+            let left = target.column.min(adjacent);
+            let start = separators.get(left)? + 1;
+            let middle = separators.get(left + 1)? + 1;
+            let end = separators.get(left + 2)? + 1;
+            // Raw segments include their right separator. Move all whitespace,
+            // markup and delimiter alignment with the selected logical column.
+            replacement.push_str(&line[..start]);
+            replacement.push_str(&line[middle..end]);
+            replacement.push_str(&line[start..middle]);
+            replacement.push_str(&line[end..]);
+        } else if action == Action::Delete {
             // Keep the left separator, delete only this raw segment and its
             // right separator. Existing neighbors and trailing bytes stay raw.
             let start = separators.get(target.column)? + 1;
@@ -154,6 +182,18 @@ pub fn plan(
         )?;
         let neighbor = target.column.min(target.columns - 2);
         caret = remaining.first()?.get(neighbor)?.start;
+    }
+    if let Some(adjacent) = neighbor(target, action) {
+        if replacement == source.get(target.table.clone())? {
+            return None; // Identical entire raw columns do not create an edge.
+        }
+        let moved = preview_cell::cells(
+            &replacement,
+            &(0..replacement.len()),
+            target.columns,
+            target.rows,
+        )?;
+        caret = moved.first()?.get(adjacent)?.start;
     }
     Some(TextChange {
         range: target.table.clone(),
@@ -448,5 +488,164 @@ mod tests {
             apply(&source, &t, Action::Delete),
             "before\n\n   |  |\t\n  |--:|\t\n |  |\t\n\nafter\n\t"
         );
+    }
+    #[test]
+    fn column_moves_swap_raw_cells_and_alignment_across_every_physical_line() {
+        let source = "| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n";
+        let expected = "| Count | Name |\n  | --: | ---  |\n | a\\|b &amp; | café🙂 **raw** |\n";
+        for (column, action, caret) in [(0, Action::MoveRight, 10), (1, Action::MoveLeft, 2)] {
+            let t = target(source, 2, 2, column);
+            let change = plan(source, Snapshot::default(), &t, action).unwrap();
+            assert_eq!(change.replacement, expected);
+            assert_eq!(change.caret, caret);
+            assert_eq!(apply(source, &t, action), expected);
+        }
+    }
+    #[test]
+    fn middle_column_move_preserves_escaped_pipes_indent_tabs_and_outside_bytes() {
+        let raw="| A | `B` | é🙂 |\t\n| :-- | --- | --: |\t\n   | a\\|b | **move** | keep\\\\\\|x |\t\n";
+        let source = format!("before\n\n   {raw}\nafter\n\t");
+        let mut t = target(raw, 3, 2, 1);
+        t.table = 11..11 + raw.len();
+        t.header = t.header.start + 11..t.header.end + 11;
+        t.marker = t.marker.start + 11..t.marker.end + 11;
+        let expected="before\n\n   | A | é🙂 | `B` |\t\n| :-- | --: | --- |\t\n   | a\\|b | keep\\\\\\|x | **move** |\t\n\nafter\n\t";
+        let change = plan(&source, Snapshot::default(), &t, Action::MoveRight).unwrap();
+        assert_eq!(apply(&source, &t, Action::MoveRight), expected);
+        assert_eq!(
+            change.range.start + change.caret,
+            expected.find("`B`").unwrap()
+        );
+    }
+    #[test]
+    fn column_neighbor_is_bounded_no_wrap_and_rejects_invalid_shapes_and_non_move_actions() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let mut t = target(source, 2, 2, 0);
+        assert_eq!(neighbor(&t, Action::MoveLeft), None);
+        assert_eq!(neighbor(&t, Action::MoveRight), Some(1));
+        t.column = 1;
+        assert_eq!(neighbor(&t, Action::MoveLeft), Some(0));
+        assert_eq!(neighbor(&t, Action::MoveRight), None);
+        for a in [Action::InsertBefore, Action::InsertAfter, Action::Delete] {
+            assert_eq!(neighbor(&t, a), None);
+        }
+        for (row_count, column_count, column) in [
+            (0, 2, 0),
+            (129, 2, 0),
+            (2, 0, 0),
+            (2, 1, 0),
+            (2, 13, 0),
+            (128, 5, 0),
+            (2, 2, usize::MAX),
+            (usize::MAX, usize::MAX, 0),
+        ] {
+            t.rows = row_count;
+            t.columns = column_count;
+            t.column = column;
+            for a in [Action::MoveLeft, Action::MoveRight] {
+                assert!(neighbor(&t, a).is_none());
+            }
+        }
+    }
+    #[test]
+    fn column_moves_require_exact_snapshot_header_marker_dimensions_and_table() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        for (column, action) in [(0, Action::MoveRight), (1, Action::MoveLeft)] {
+            for case in 0..12 {
+                let mut t = target(source, 2, 2, column);
+                match case {
+                    0 => t.snapshot.document_id += 1,
+                    1 => t.snapshot.revision += 1,
+                    2 => t.snapshot.state_id += 1,
+                    3 => t.table.end -= 1,
+                    4 => t.column = usize::MAX,
+                    5 => t.columns = usize::MAX,
+                    6 => t.rows = usize::MAX,
+                    7 => t.header.start += 1,
+                    8 => t.header.end += 1,
+                    9 => t.marker.start += 1,
+                    10 => t.marker.end += 1,
+                    _ => t.table.start = usize::MAX,
+                }
+                assert!(plan(source, Snapshot::default(), &t, action).is_none());
+            }
+        }
+    }
+    #[test]
+    fn identical_entire_raw_columns_are_noops_but_body_alignment_or_spacing_difference_moves() {
+        for source in ["|a|a|\n|-|-|\n|x|x|\n", "|  |  |\n|---|---|\n"] {
+            let rows = source.lines().count() - 1;
+            for (column, action) in [(0, Action::MoveRight), (1, Action::MoveLeft)] {
+                assert!(plan(
+                    source,
+                    Snapshot::default(),
+                    &target(source, 2, rows, column),
+                    action
+                )
+                .is_none());
+            }
+        }
+        for source in [
+            "|a|a|\n|-|-|\n|x|y|\n",
+            "|a|a|\n|-|:-|\n|x|x|\n",
+            "| a |a|\n|-|-|\n|x|x|\n",
+        ] {
+            assert!(plan(
+                source,
+                Snapshot::default(),
+                &target(source, 2, 2, 0),
+                Action::MoveRight
+            )
+            .is_some());
+        }
+    }
+    #[test]
+    fn column_moves_work_for_header_only_empty_cells_and_at_growth_caps() {
+        let raw = "|a|  |\n|-|--:|\n";
+        assert_eq!(
+            apply(raw, &target(raw, 2, 1, 0), Action::MoveRight),
+            "|  |a|\n|--:|-|\n"
+        );
+        for (rows, columns) in [(42, 12), (128, 4)] {
+            let source = format!(
+                "|{}\n|{}\n{}",
+                (0..columns).map(|n| format!("{n}|")).collect::<String>(),
+                "---|".repeat(columns),
+                format!("|{}\n", "x|".repeat(columns)).repeat(rows - 1)
+            );
+            assert!(!can_insert(rows, columns));
+            let t = target(&source, columns, rows, 0);
+            let new = apply(&source, &t, Action::MoveRight);
+            assert!(preview_cell::cells(&new, &(0..new.len()), columns, rows).is_some());
+            assert!(new.starts_with("|1|0|"));
+        }
+    }
+    #[test]
+    fn moves_reject_noncanonical_rectangles_eof_but_lexical_fenced_success_is_not_authentication() {
+        for source in [
+            "|a|b|\n|-|-|\n|x|\n",
+            "a|b\n-|-\nx|y\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "|a|b|\n|-|-|\n|x|y|z|\n",
+        ] {
+            let t = Target {
+                snapshot: Snapshot::default(),
+                table: 0..source.len(),
+                column: 0,
+                columns: 2,
+                rows: 2,
+                header: 1..2,
+                marker: 7..8,
+            };
+            assert!(plan(source, Snapshot::default(), &t, Action::MoveRight).is_none());
+        }
+        let raw = "|a|b|\n|-|-|\n|x|y|\n";
+        let source = format!("```\n{raw}```\n");
+        let mut t = target(raw, 2, 2, 0);
+        t.table = 4..4 + raw.len();
+        t.header = t.header.start + 4..t.header.end + 4;
+        t.marker = t.marker.start + 4..t.marker.end + 4;
+        assert!(plan(&source, Snapshot::default(), &t, Action::MoveRight).is_some());
     }
 }

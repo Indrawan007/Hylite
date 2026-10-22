@@ -198,7 +198,8 @@ impl Hylite {
             self.restore_input_focus()
         } else {
             self.status_message =
-                "Column target is stale, unsupported or exceeds limits; document kept".into();
+                "Column target is stale, unsupported, unchanged or exceeds limits; document kept"
+                    .into();
             Task::none()
         }
     }

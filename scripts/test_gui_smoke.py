@@ -313,7 +313,7 @@ class SmokeHelperTests(unittest.TestCase):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
-        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move"]:
+        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move"]:
             with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
                  patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
                  patch("sys.stderr", new_callable=io.StringIO), \
@@ -675,6 +675,42 @@ class SmokeHelperTests(unittest.TestCase):
             old = [stack.enter_context(patch.object(gui, name)) for name in names]
             new = stack.enter_context(patch.object(gui, "exercise_table_row_move"))
             gui.exercise_suite(desktop, artifacts, binary, "table-row-move")
+            new.assert_called_once_with(desktop, artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_column_move_probe_locks_raw_segments_alignment_and_selected_header_caret(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_table_column_move(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies), 10)
+        moved = ("| Count | Name |\n  | --: | ---  |\n | a\\|b &amp; | café🙂 **raw** |\n\nafter\n\t").encode("utf-8")
+        typed = ("| XCount | Name |\n  | --: | ---  |\n | a\\|b &amp; | café🙂 **raw** |\n\nafter\n\t").encode("utf-8")
+        self.assertEqual(source.splitlines()[0], b"| Name | Count |")
+        self.assertEqual([call.args[1] for call in copies[1:-1]], [source, moved, source, moved, source, typed, moved, source])
+        self.assertEqual(copies[0].args[1], copies[-1].args[1])
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "900", "538", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1080", "556", "click", "1"),
+        ])
+        desktop.type_ascii.assert_called_once_with("X")
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
+    def test_column_move_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts, binary = Mock(), Path("/unused"), Path("/unused/binary")
+        names = ["exercise", "exercise_task_batch", "exercise_table_alignment", "exercise_table_rows", "exercise_table_cells", "exercise_cell_navigation", "exercise_table_insert", "exercise_table_columns", "exercise_table_column_delete", "exercise_table_row_move"]
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_table_column_move"))
+            gui.exercise_suite(desktop, artifacts, binary, "table-column-move")
             new.assert_called_once_with(desktop, artifacts)
             for probe in old:
                 probe.assert_not_called()
