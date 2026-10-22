@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6j
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6k
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6j mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6k mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -519,3 +519,28 @@ creation pada Next atau sesi draft. Table picker menambahkan kedua action per
 body row **setelah semua opsi lama**, mempertahankan labels/index/menu bar height
 lama. Native suite ketujuh privat tidak mengganti enam gate terdahulu. [Kontrak,
 tes dan batas6j](testing-stage6j.md). Reconstruction/history O(n), bukan speedup.
+
+## Explicit atomic blank columns (Stage 6k)
+
+`preview_table_column::{Target,Action,can_insert,full_lines,plan}` memindai outer
+pipe separators dengan backslash parity. Hanya canonical rectangular root cells
+6h ditambah seluruh physical lines termasuk delimiter pipe-leading/trailing LF.
+`Table.insertable_columns` derived eligibility: editable cells, valid full lines,
+growth<=12kolom/128row/512sel. Header-only boleh; ragged/nested/EOF/fallback tidak.
+Metadata bukan authority Source. Picker menambah new column choices sesudah seluruh
+prefix6j, memakai existing column index/header payload/marker/full snapshot.
+
+Document menuntut warm current exact root range/dimensions/header/marker, lalu
+planner hanya menyisipkan `  |` per header/body dan ` --- |` pada delimiter.
+Seluruh old segments/prefix/suffix/tab/dash/alignment dipertahankan raw; tidak ada
+AST serialization. Satu whole-table TextChange +candidate full Source preflight
+membuktikan complete canonical root/dimensions sebelum satu Atomic PreviewTable.
+Commit menginvalidasi projection lama; target berikut harus didapat dari parse
+baru. Source caret di antara dua spasi new **header** cell, bukan body. Native
+Source typing berikut tetap transaction/barrier terpisah; Save/Export snapshots,
+modal/prompt/Open guard dan logical search/Go-to context tetap.
+
+Scanner dibatasi column/line counts, tetapi reconstruction/history dan full parse
+preflight tetap O(n), bukan speedup. Tidak ada column delete/reorder/resize atau
+implicit insertion/inline editing. Suite GUI kedelapan private mempertahankan
+ketujuh gate lama. [Kontrak, hasil dan batas6k](testing-stage6k.md).

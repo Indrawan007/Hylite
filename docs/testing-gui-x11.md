@@ -576,3 +576,31 @@ saat diperiksa; screenshot belum direview visual. Evidence `table-insert/`
 scroll/keyboard, ragged/1kolom/12kolom/3spasi UI, Find/Go-to physical focus dan
 Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU belum diverifikasi. Header-only
 insertion/auto-add row tidak tersedia. [Kontrak dan batas Stage6j](testing-stage6j.md).
+
+## Stage 6k: atomic blank columns, suite privat kedelapan
+
+`--suite table-columns` memakai private Xvfb/app/XDG/env/clipboard sendiri,
+alarm180s/step5min, job45min tetap. Semua18 old exercise bodies AST-identical
+terhadapddd5afa; tujuh gate lama utuh tanpa perubahan bytes/koordinat/refocus/
+deadline dan tanpa retry/runtime hook. Dua helper baru mengunci independent full
+Source literals/header-caret/four-click/Undo/no-refocus/exit dan exclusive dispatch;
+private DISPLAY guard mencakup semua delapan suite sebelum subprocess.
+
+[CI 39867392194](https://github.com/Indrawan007/Hylite/actions/runs/39867392194),
+`9b1e931`, **success**, **672 Cargo /243 strict core (subset) /39 Python**,
+22 Oktober22:53:50 UTC /23 Oktober2026 Makassar. New suite **11 checks** =10
+exact Source Copy +natural close0. Preview Insert before kolom1 memperbarui blank
+header/delimiter/body sebagai satu history edge, raw segments/alignment/tab utuh.
+Satu Undo/Redo memulihkan seluruh column; Split Insert after kolom terakhir lalu
+native X masuk ke new header cell tanpa Source refocus. Undo typing/column/paste
+terpisah sampai welcome clean. Semua old alignment/row/cell/row-insert labels
+berada pada prefix sama; new column choices appended dengan width/bar height lama.
+
+Total **195 GUI =116+9+9+9+14+16+11+11** =174 clipboard (165 Source +9 draft),
+12 title,9 natural exits. Artifact `12464787718`,2.143.016 bytes, belum expired
+saat diperiksa; screenshot belum direview visual. Evidence `table-columns/`
+`columns-preview.png` / `columns-split.png` bukan pixel/glyph oracle. Middle/
+header-only/1kolom/11→12kolom UI, large menu keyboard/scroll, active Find/Go-to
+physical focus, Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap manual.
+Tidak ada ragged/column delete/reorder atau inline WYSIWYG. [Kontrak dan batas
+Stage6k](testing-stage6k.md).
