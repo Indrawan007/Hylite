@@ -616,10 +616,20 @@ fn parser_tab_task_stays_visible_but_has_no_editable_canonical_token() {
 
 #[test]
 fn task_like_source_in_code_html_and_table_cells_has_no_task_item_action() {
-    let source = "```md\n- [ ] code\n```\n\n<script> - [ ] raw </script>\n\na|b\n-|-\n- [ ] literal|text\n\n- \\[ ] escaped\n";
+    let source = "```md\n- [ ] code\n```\n\n<script> - [ ] raw </script>\n\n|a|b|\n|-|-|\n|- [ ] literal|text|\n\n- \\[ ] escaped\n";
     let blocks = parse(source);
     let mut found = Vec::new();
     tasks(&blocks, &mut found);
     assert!(found.is_empty());
+    assert!(blocks
+        .iter()
+        .any(|block| matches!(block.kind, Kind::Table(_))));
     validate(&blocks, source, 0..source.len());
+    // Without a leading pipe, a list marker interrupts the table. That is a
+    // real task item according to GFM, not a task-like string inside a cell.
+    let interrupted = parse("a|b\n-|-\n- [ ] actual task|text\n");
+    let mut actual = Vec::new();
+    tasks(&interrupted, &mut actual);
+    assert_eq!(actual.len(), 1);
+    assert!(actual[0].1.source.is_some());
 }

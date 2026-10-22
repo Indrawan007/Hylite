@@ -79,6 +79,14 @@ Lokal **172 core strict** dan **20 Python** lulus; format/diff diperiksa. Gate
 Cargo/Clippy/build/Iced serta klik GUI native baru masih menunggu CI; tes core
 bukan pengganti runtime native.
 
+Percobaan [CI 39733392375](https://github.com/Indrawan007/Hylite/actions/runs/39733392375)
+lulus format/core/Python/Clippy/build dan 438 tes Cargo, tetapi satu fixture
+model salah: baris body tabel yang mulai `- [ ]` tanpa leading pipe sebenarnya
+menginterupsi tabel sebagai task list GFM. Fixture sel memakai leading pipe dan
+menuntut node Table benar-benar ada; kasus interupsi justru juga ditegaskan
+sebagai satu task nyata. Tidak mengubah parser produksi atau melemahkan gate.
+GUI pada percobaan itu belum dijalankan.
+
 ## Checklist manual — belum dinyatakan lulus
 
 - [ ] Checkbox nested/loose/quoted, multiline, disabled, resize dan Light/Dark.
