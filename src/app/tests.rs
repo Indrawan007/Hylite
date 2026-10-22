@@ -1952,3 +1952,157 @@ fn save_ack_for_a_heading_checkpoint_does_not_clean_an_undone_preview_state() {
     assert!(!app.document.is_dirty());
     assert_eq!(app.document.buffer_text(), "### hi\n");
 }
+
+fn preview_setext_target(app: &Hylite) -> crate::preview_setext::Target {
+    let block = &app.document.preview_blocks()[0];
+    crate::preview_setext::Target {
+        snapshot: app.document.snapshot(),
+        block: block.source.clone(),
+        marker: block.setext_marker.clone().unwrap(),
+        level: 1,
+    }
+}
+
+#[test]
+fn setext_preview_undo_redo_preserves_mode_body_and_checkpoint() {
+    let mut app = app();
+    let source = "café🙂 **raw**  \ncontinued\n  ====\t\n\t";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let target = preview_setext_target(&app);
+    let _ = app.update(Message::AdjustPreviewSetext(
+        target,
+        crate::preview_heading::Direction::Demote,
+    ));
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("====", "----", 1)
+    );
+    assert!(app.document.is_dirty() && app.preview_history_allowed(false));
+    assert_eq!(app.mode, EditMode::Preview);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("====", "----", 1)
+    );
+    assert_eq!(app.mode, EditMode::Preview);
+}
+
+#[test]
+fn setext_command_rejects_source_prompt_open_but_allows_save_export_without_consuming_tokens() {
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("title\n===\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let target = preview_setext_target(&app);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case >= 2 {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let operation = app.operations.active();
+        let before = app.document.snapshot();
+        let _ = app.update(Message::AdjustPreviewSetext(
+            target,
+            crate::preview_heading::Direction::Demote,
+        ));
+        assert_eq!(app.operations.active(), operation);
+        assert_eq!(
+            app.document.buffer_text(),
+            if case < 3 {
+                "title\n===\n"
+            } else {
+                "title\n---\n"
+            }
+        );
+        assert_eq!(app.document.is_dirty(), case >= 3);
+        if case < 3 {
+            assert_eq!(app.document.snapshot(), before);
+        }
+    }
+}
+
+#[test]
+fn split_setext_updates_find_and_preserves_the_query_context() {
+    let mut app = app();
+    app.document = Document::new("title\n===\n");
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("---".into()));
+    assert_eq!(app.search.count(), 0);
+    let target = preview_setext_target(&app);
+    let _ = app.update(Message::AdjustPreviewSetext(
+        target,
+        crate::preview_heading::Direction::Demote,
+    ));
+    assert!(app.search.open);
+    assert_eq!(app.search.query, "---");
+    assert_eq!(app.search.count(), 1);
+    assert_eq!(app.mode, EditMode::Split);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "title\n===\n");
+}
+
+#[test]
+fn stale_setext_message_and_general_typing_cannot_create_extra_preview_history() {
+    let mut app = app();
+    app.document = Document::new("title\n===\n");
+    app.mode = EditMode::Preview;
+    let target = preview_setext_target(&app);
+    let _ = app.update(Message::AdjustPreviewSetext(
+        target.clone(),
+        crate::preview_heading::Direction::Demote,
+    ));
+    let before = app.document.snapshot();
+    let _ = app.update(Message::AdjustPreviewSetext(
+        target,
+        crate::preview_heading::Direction::Promote,
+    ));
+    edit(&mut app);
+    let _ = app.update(Message::FormatBlock(
+        crate::block_edit::BlockStyle::Heading(1),
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(!app.document.can_undo());
+    assert_eq!(app.document.buffer_text(), "title\n===\n");
+}
+
+#[test]
+fn setext_save_ack_during_preview_history_marks_only_the_snapshot_written() {
+    let mut app = app();
+    app.document = Document::new("title\n===\n");
+    app.mode = EditMode::Preview;
+    let target = preview_setext_target(&app);
+    let _ = app.update(Message::AdjustPreviewSetext(
+        target,
+        crate::preview_heading::Direction::Demote,
+    ));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("setext.md".into()))));
+    assert!(app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "title\n===\n");
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+    assert_eq!(app.document.buffer_text(), "title\n---\n");
+}

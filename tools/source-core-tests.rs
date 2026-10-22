@@ -33,3 +33,6 @@ mod preview_task;
 
 #[path = "../src/preview_heading.rs"]
 mod preview_heading;
+
+#[path = "../src/preview_setext.rs"]
+mod preview_setext;

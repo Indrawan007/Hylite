@@ -52,8 +52,10 @@ pub struct Block {
     pub source: Range<usize>,
     pub runs: Vec<Run>,
     pub children: Vec<Block>,
-    /// Root ATX markers only. Setext/container headings remain non-editable.
+    /// Root ATX markers only. Setext uses its separate underline metadata.
     pub heading_marker: Option<Range<usize>>,
+    /// Root Setext underline run, separate from the ATX opening marker.
+    pub setext_marker: Option<Range<usize>>,
 }
 
 impl Block {
@@ -111,6 +113,7 @@ fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) 
         runs,
         children,
         heading_marker: None,
+        setext_marker: None,
     }
 }
 
@@ -272,6 +275,13 @@ fn blocks(
                                     &block.source,
                                     level,
                                 );
+                                if block.heading_marker.is_none() {
+                                    block.setext_marker = crate::preview_setext::marker_range(
+                                        source,
+                                        &block.source,
+                                        level,
+                                    );
+                                }
                             }
                         }
                         block

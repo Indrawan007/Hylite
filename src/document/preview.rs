@@ -47,7 +47,7 @@ pub fn render_preview<'a>(
         render_blocks(blocks, colors, snapshot)
     };
     column![
-        text("Tasks / root ATX headings edit Source · links inert · other blocks read-only")
+        text("Tasks / root headings edit Source · links inert · other blocks read-only")
             .size(11)
             .color(colors.text),
         content,
@@ -212,7 +212,10 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                         .padding([2, 6])
                         .height(24)
                         .width(48)
-                        .on_press_maybe(heading_action(block, snapshot, direction)),
+                        .on_press_maybe(
+                            heading_action(block, snapshot, direction)
+                                .or_else(|| setext_action(block, snapshot, direction)),
+                        ),
                 );
             }
         }
@@ -260,6 +263,32 @@ fn heading_action(
             snapshot,
             block: block.source.clone(),
             marker: block.heading_marker.clone()?,
+            level,
+        },
+        direction,
+    ))
+}
+
+fn setext_action(
+    block: &Block,
+    snapshot: Snapshot,
+    direction: crate::preview_heading::Direction,
+) -> Option<Message> {
+    use crate::preview_heading::Direction;
+    let Kind::Heading(level) = block.kind else {
+        return None;
+    };
+    if !matches!(
+        (level, direction),
+        (1, Direction::Demote) | (2, Direction::Promote)
+    ) {
+        return None;
+    }
+    Some(Message::AdjustPreviewSetext(
+        crate::preview_setext::Target {
+            snapshot,
+            block: block.source.clone(),
+            marker: block.setext_marker.clone()?,
             level,
         },
         direction,
@@ -455,6 +484,57 @@ mod tests {
                     check(&block.children);
                 }
             }
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn setext_actions_stamp_underline_provenance_and_only_allow_levels_one_two() {
+        use crate::preview_heading::Direction;
+        let snapshot = Snapshot {
+            document_id: 4,
+            revision: 8,
+            state_id: 9,
+        };
+        for (marker, level) in [("===", 1), ("---", 2)] {
+            let source = format!("café🙂\n  {marker}\t\n");
+            let blocks = super::super::preview_model::parse(&source);
+            for direction in [Direction::Promote, Direction::Demote] {
+                let allowed = matches!(
+                    (level, direction),
+                    (1, Direction::Demote) | (2, Direction::Promote)
+                );
+                let action = setext_action(&blocks[0], snapshot, direction);
+                assert_eq!(action.is_some(), allowed);
+                if let Some(Message::AdjustPreviewSetext(target, actual)) = action {
+                    assert_eq!(actual, direction);
+                    assert_eq!(target.snapshot, snapshot);
+                    assert_eq!(target.block, blocks[0].source);
+                    assert_eq!(target.level, level);
+                    let start = source.find(marker).unwrap();
+                    assert_eq!(target.marker, start..start + marker.len());
+                }
+                assert!(heading_action(&blocks[0], snapshot, direction).is_none());
+            }
+        }
+    }
+    #[test]
+    fn atx_nested_and_non_heading_blocks_emit_no_setext_action() {
+        use crate::preview_heading::Direction;
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                for direction in [Direction::Promote, Direction::Demote] {
+                    assert!(setext_action(block, Snapshot::default(), direction).is_none());
+                }
+                check(&block.children);
+            }
+        }
+        for source in [
+            "## atx\n",
+            "> title\n> ===\n",
+            "- parent\n  title\n  ===\n",
+            "plain\n",
+            "---\n",
+        ] {
             check(&super::super::preview_model::parse(source));
         }
     }

@@ -149,6 +149,32 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewHeading)
     }
 
+    pub(crate) fn adjust_preview_setext(
+        &mut self,
+        target: &crate::preview_setext::Target,
+        direction: crate::preview_heading::Direction,
+    ) -> bool {
+        if target.snapshot != self.snapshot
+            || !self.preview.get().is_some_and(|blocks| {
+                blocks.iter().any(|block| {
+                    block.source == target.block
+                        && block.kind == preview_model::Kind::Heading(target.level)
+                        && block.setext_marker.as_ref() == Some(&target.marker)
+                })
+            })
+        {
+            return false;
+        }
+        let Some(change) =
+            crate::preview_setext::plan(&self.buffer_text(), self.snapshot, target, direction)
+        else {
+            return false;
+        };
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewHeading)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -532,3 +558,7 @@ mod preview_task_tests;
 #[cfg(test)]
 #[path = "preview_heading_tests.rs"]
 mod preview_heading_tests;
+
+#[cfg(test)]
+#[path = "preview_setext_tests.rs"]
+mod preview_setext_tests;

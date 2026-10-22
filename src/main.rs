@@ -15,6 +15,7 @@ mod navigation;
 mod operations;
 mod preview_heading;
 mod preview_navigation;
+mod preview_setext;
 mod preview_task;
 mod search;
 mod source_focus;

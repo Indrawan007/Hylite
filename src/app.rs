@@ -118,6 +118,9 @@ impl Hylite {
             Message::Indent(remove) => self.indent(remove),
             Message::EditLines(action) => self.edit_lines(action),
             Message::TogglePreviewTask(target) => self.toggle_preview_task(target),
+            Message::AdjustPreviewSetext(target, direction) => {
+                self.adjust_preview_setext(target, direction)
+            }
             Message::AdjustPreviewHeading(target, direction) => {
                 self.adjust_preview_heading(target, direction)
             }

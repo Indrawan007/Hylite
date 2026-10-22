@@ -675,3 +675,43 @@ fn setext_and_nested_headings_have_no_editable_marker_even_with_atx_looking_text
         check(&parse(source));
     }
 }
+
+#[test]
+fn root_setext_metadata_has_exact_underline_runs_for_both_levels_and_multiline_bodies() {
+    for marker in ["=", "==", "=====", "-", "--", "-----"] {
+        for indent in 0..=3 {
+            let source = format!(
+                "café🙂 **raw**  \ncontinued\n{}{marker}  \t\n",
+                " ".repeat(indent)
+            );
+            let blocks = parse(&source);
+            let level = if marker.starts_with('=') { 1 } else { 2 };
+            assert_eq!(blocks[0].kind, Kind::Heading(level));
+            let start = source.find(marker).unwrap();
+            assert_eq!(blocks[0].setext_marker, Some(start..start + marker.len()));
+            assert!(blocks[0].heading_marker.is_none());
+            validate(&blocks, &source, 0..source.len());
+        }
+    }
+}
+
+#[test]
+fn atx_nested_code_html_rules_and_malformed_setext_do_not_gain_underline_targets() {
+    fn check(blocks: &[Block]) {
+        for block in blocks {
+            assert!(block.setext_marker.is_none());
+            check(&block.children);
+        }
+    }
+    for source in [
+        "## atx\n",
+        "> title\n> ===\n",
+        "- parent\n  title\n  ===\n",
+        "```md\ntitle\n===\n```\n",
+        "<div>\ntitle\n===\n</div>\n",
+        "---\n",
+        "title\n= =\n",
+    ] {
+        check(&parse(source));
+    }
+}

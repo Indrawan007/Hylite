@@ -597,6 +597,49 @@ def exercise_preview_heading(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
+def exercise_preview_setext(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("café🙂 **raw** &amp;  \ncontinued `code`\n   =====  \t\n\n"
+              "- [X] untouched\n\n```md\nliteral\n=====\n```\n\t").encode("utf-8")
+    demoted = source.replace(b"=====", b"-----", 1)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Setext fixture: multiline raw Unicode body, underline indent and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")  # Preview -> Split, automatic Source focus.
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")  # Split -> Source.
+        desktop.key("ctrl+shift+m")  # Source -> Preview.
+
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    inspect("Preview Setext H+ changes only the underline run", demoted)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Preview Setext Undo restores exact raw heading and underline", source)
+    back_to_preview()
+    desktop.key("ctrl+shift+z")
+    desktop.screenshot(artifacts / "setext-preview.png")
+    inspect("Preview Setext Redo preserves body, marker count and whitespace", demoted)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1092", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.type_ascii("X")
+    sentinel = source.replace(b"=====  \t", b"=====X  \t", 1)
+    desktop.expect_copy("Split Setext H- restores keyboard focus at underline end", sentinel, refocus=False)
+    desktop.screenshot(artifacts / "setext-split.png")
+    desktop.key("ctrl+z")  # Native Source typing only.
+    desktop.key("ctrl+z")  # Split Setext heading only.
+    desktop.expect_copy("Setext underline change and native Source typing remain separate transactions", demoted, refocus=False)
+    desktop.key("ctrl+z")  # Preview Setext heading.
+    desktop.key("ctrl+z")  # Source paste.
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Setext edits Undo to exact clean welcome without extra history", welcome, refocus=False)
+    desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -717,6 +760,7 @@ def main():
                 exercise_task_toggle(desktop, artifacts)
                 exercise_preview_task_history(desktop, artifacts)
                 exercise_preview_heading(desktop, artifacts)
+                exercise_preview_setext(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -736,7 +780,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

@@ -110,6 +110,25 @@ impl Hylite {
         }
     }
 
+    pub(super) fn adjust_preview_setext(
+        &mut self,
+        target: crate::preview_setext::Target,
+        direction: crate::preview_heading::Direction,
+    ) -> Task<Message> {
+        if self.mode == EditMode::Source || !self.navigation_allowed() {
+            return Task::none();
+        }
+        if self.document.adjust_preview_setext(&target, direction) {
+            self.status_message = "Setext underline level adjusted in Source".into();
+            self.edited();
+            self.restore_input_focus()
+        } else {
+            self.status_message =
+                "Setext target is stale, unsupported or at its level limit; document kept".into();
+            Task::none()
+        }
+    }
+
     pub(super) fn insert_newline(&mut self) -> Task<Message> {
         if !self.source_edit_allowed() {
             return Task::none();
