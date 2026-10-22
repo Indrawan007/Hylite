@@ -11,7 +11,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
 - Sidebar dokumen aktif; status bar posisi kursor, jumlah baris, dan word count.
-- Iterasi Source 4a–4j: undo/redo terbatas dengan pengelompokan ketikan/hapusan sederhana, Find/Replace literal, Go to Line, inline markup, heading/list/quote, link/code block, continuation list sederhana, serta indent/unindent, duplikasi, hapus dan pindah baris. Suite Cargo/Iced headless sudah lulus; perilaku desktop masih perlu diuji.
+- Iterasi Source 4a–4j: undo/redo terbatas dengan pengelompokan ketikan/hapusan sederhana, Find/Replace literal, Go to Line, inline markup, heading/list/quote, link/code block, continuation list sederhana, serta indent/unindent, duplikasi, hapus dan pindah baris. Suite Cargo/Iced dan smoke GUI X11 virtual sudah lulus; desktop Wayland/Hyprland masih perlu diuji.
 - Syntax highlighting Markdown dasar, read-only, dengan palet terang/gelap; berlaku pada Source, Split, dan Zen.
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
@@ -61,7 +61,7 @@ cargo build --locked --all-targets --all-features
 cargo test --locked --all-targets --all-features
 ```
 
-Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux menggunakan Rust stable. Unit test konfigurasi, state aplikasi, dan operasi file tidak membuka jendela/dialog native dan tidak menulis ke konfigurasi pengguna. Pengujian filesystem memakai direktori sementara. Checklist pengujian desktop tersedia di [docs/testing-stage2.md](docs/testing-stage2.md), [docs/testing-stage3.md](docs/testing-stage3.md), dan [docs/testing-stage4.md](docs/testing-stage4.md).
+Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux menggunakan Rust stable. Unit test konfigurasi, state aplikasi, dan operasi file tidak membuka jendela/dialog native dan tidak menulis ke konfigurasi pengguna. Pengujian filesystem memakai direktori sementara. Step GUI terpisah membuka aplikasi nyata pada Xvfb privat, menguji clipboard/keyboard/undo, dan mengunggah screenshot sebagai artifact; lihat [runner GUI X11](docs/testing-gui-x11.md). Checklist pengujian desktop tersedia di [docs/testing-stage2.md](docs/testing-stage2.md), [docs/testing-stage3.md](docs/testing-stage3.md), dan [docs/testing-stage4.md](docs/testing-stage4.md).
 
 `Cargo.lock` disimpan ke Git agar versi dependensi konsisten. Gunakan `--locked` untuk build/lint/test biasa. Pembaruan dependensi dilakukan secara eksplisit melalui `cargo update`, ditinjau, lalu diuji ulang.
 
@@ -70,9 +70,10 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 - Format seluruh sumber sudah diperiksa dengan rustfmt 1.8.0 / Rust 1.88.0.
 - `Cargo.lock` dihasilkan oleh Cargo 1.88.0 menggunakan data indeks crates.io resmi melalui GitHub; bukan lockfile buatan tangan.
 - **150 test inti Source** (history, pencarian, transformasi inline/block, lexer syntax, continuation list, navigasi baris/kolom, operasi baris, tracker operasi) lolos dengan rustc melalui `./scripts/test-source-core.sh`, tanpa dependensi Cargo. Harness memakai modul produksi langsung; ini bukan pengujian integrasi Iced atau seluruh suite aplikasi.
-- **Build native debug, Clippy `-D warnings`, dan 312 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39707517350](https://github.com/Indrawan007/Hylite/actions/runs/39707517350), commit `373e055`. Sebanyak 150 tes core di atas juga termasuk dalam 312 tes Cargo, bukan tambahan 150 tes unik.
-- Tiga tes helper diagnostik CI lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk cakupan, perbaikan hasil CI, dan batas bukti.
-- Pengujian jendela, portal file dialog, dan IPC membutuhkan sesi desktop nyata; unit test tidak menggantikan pengujian tersebut.
+- **Build native debug, Clippy `-D warnings`, dan 312 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39710774126](https://github.com/Indrawan007/Hylite/actions/runs/39710774126), commit `ee73f2b`. Sebanyak 150 tes core di atas juga termasuk dalam 312 tes Cargo, bukan tambahan 150 tes unik.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus** pada aplikasi sebenarnya: copy baseline, paste Unicode/tab/LF akhir, undo/redo dan title dirty/clean, serta ketikan keyboard satu burst undo. Ada 11 pemeriksaan byte-exact/clipboard yang berhasil; bukan 11 unit test Rust tambahan. [Bukti dan batas GUI](docs/testing-gui-x11.md).
+- **9 tes Python helper** (3 reporter + 6 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat, cakupan, dan batas bukti.
+- Wayland/Hyprland, portal file dialog, IPC, IME/RTL, fokus/viewport dan renderer GPU tetap membutuhkan sesi desktop target. Smoke X11 dan unit test tidak menggantikan pengujian tersebut.
 
 ## Konfigurasi
 
@@ -187,7 +188,7 @@ Delete Lines bukan Cut: clipboard tidak disentuh. Baris nonfinal dihapus bersama
 
 Setiap aksi efektif menjadi **satu transaksi undo**, terpisah dari ketikan/hapusan di sekitarnya; Find di-refresh dan guard prompt/Open/Preview tetap berlaku. Save/ekspor biasa mengizinkan edit. Undo mengembalikan teks/caret, **bukan anchor seleksi**. Ini operasi raw Source, termasuk di code fence: tidak menjaga struktur AST atau keseimbangan Markdown. Scan/copy/rekonstruksi masih O(ukuran dokumen), dengan budget history yang sama.
 
-Jalur New/Open mengisi buffer dengan Paste yang dilindungi sebelum tracking history, bukan `with_text`, agar baris kosong terakhir tidak terbuang oleh initializer Iced 0.13. Proteksi satu spasi sementara lalu Backspace juga menjaga tab di akhir string yang dipangkas Paste mentah cosmic-text 0.12.1. Jalur yang sama digunakan untuk paste pengguna dan rekonstruksi caret; aksi internal tidak menjadi entri undo terpisah. Tidak membuat revisi/dirty/history saat load, dan caret awal tetap di awal dokumen. Regresi loader/EOF/tab/undo dan integrasi operasi lulus di suite Cargo; GUI tetap belum diuji.
+Jalur New/Open mengisi buffer dengan Paste yang dilindungi sebelum tracking history, bukan `with_text`, agar baris kosong terakhir tidak terbuang oleh initializer Iced 0.13. Proteksi satu spasi sementara lalu Backspace juga menjaga tab di akhir string yang dipangkas Paste mentah cosmic-text 0.12.1. Jalur yang sama digunakan untuk paste pengguna dan rekonstruksi caret; aksi internal tidak menjadi entri undo terpisah. Tidak membuat revisi/dirty/history saat load, dan caret awal tetap di awal dokumen. Regresi loader/EOF/tab/undo dan integrasi operasi lulus di suite Cargo. Paste tab/LF dan undo/redo juga lulus pada smoke GUI X11; operasi baris melalui GUI dan desktop Wayland/Hyprland tetap belum diuji.
 
 ### Pindahkan baris/blok (4i)
 
@@ -215,7 +216,7 @@ Enter tanpa modifier pada Source/Split/Zen melanjutkan list sederhana dengan **0
 
 **Shift+Enter** memakai Enter native tanpa continuation. Seleksi aktif, indentasi ≥4 spasi/tab, quoted list, caret di dalam prefix, nomor nonempty yang melampaui 9 digit, thematic rule, atau baris >16 KiB juga memakai fallback native. Tidak ada auto-indent paragraf umum, penghitungan ulang sibling, outdent bertingkat, atau parsing struktur list penuh. Sebagian nested list berindentasi pendek cocok secara leksikal, tetapi bukan dukungan nested-list struktural.
 
-Guard fence ringan bersifat konservatif dan dapat menolak continuation lebih lama pada konteks ambigu. Kandidat yang lolos juga diperiksa dengan rentang code block dari parser Markdown yang sudah dipakai aplikasi, sehingga container/fence kompleks tidak bergantung pada warna syntax. Pemeriksaan parser dilakukan pada kandidat Enter, bukan setiap ketikan; tetap O(ukuran dokumen), bukan parser incremental. Integrasi parser dan widget ini masih memerlukan suite Cargo/desktop lengkap.
+Guard fence ringan bersifat konservatif dan dapat menolak continuation lebih lama pada konteks ambigu. Kandidat yang lolos juga diperiksa dengan rentang code block dari parser Markdown yang sudah dipakai aplikasi, sehingga container/fence kompleks tidak bergantung pada warna syntax. Pemeriksaan parser dilakukan pada kandidat Enter, bukan setiap ketikan; tetap O(ukuran dokumen), bukan parser incremental. Tes integrasi parser/model/controller sudah lulus di suite Cargo; perilaku Enter melalui desktop target tetap perlu diuji.
 
 Untuk menonaktifkan lalu restart (default `true`, termasuk config lama tanpa field ini):
 
@@ -274,7 +275,7 @@ Permission mode file lama dipertahankan, sedangkan file baru menggunakan mode pr
 
 ## Batasan penting
 
-- Fitur Tahap 2–3 dan iterasi 4a–4j sudah diimplementasikan; build debug dan suite Cargo lulus di CI Linux. Pengujian GUI, portal, Arch/Hyprland, build release dan packaging belum dilakukan. Tetap gunakan salinan dokumen percobaan.
+- Fitur Tahap 2–3 dan iterasi 4a–4j sudah diimplementasikan; build debug dan suite Cargo lulus di CI Linux. Smoke GUI X11 virtual lulus, tetapi pengujian portal, Arch/Hyprland, IME/RTL, GPU, build release dan packaging belum dilakukan. Tetap gunakan salinan dokumen percobaan.
 - Belum ada autosave, recovery crash, workspace, tab dokumen, atau WYSIWYG. Konfirmasi tidak dapat melindungi tulisan dari force-kill atau crash.
 - Belum ada deteksi konflik terhadap perubahan dari proses/aplikasi lain; atomic rename bukan mekanisme penguncian lintas proses dan tidak menghilangkan race filesystem.
 - Ekspor **tidak menyaring raw HTML**, termasuk script. Jangan membuka hasil ekspor dari Markdown tidak tepercaya di browser tanpa pemeriksaan/sanitasi.

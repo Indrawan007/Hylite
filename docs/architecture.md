@@ -1,6 +1,6 @@
 # Arsitektur setelah iterasi Source 4a–4j
 
-Build debug, Clippy dan **312 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Status ini bukan kelulusan GUI/Arch/Hyprland.
+Build debug, Clippy dan **312 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
 
 ## Batas tanggung jawab
 

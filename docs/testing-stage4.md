@@ -8,8 +8,8 @@
 - Harness tidak mengimpor Iced, tidak membuka dialog, dan tidak menyentuh konfigurasi pengguna.
 - Format sumber, pemeriksaan whitespace diff, dan metadata Cargo tanpa dependensi diperiksa terpisah. Ketiganya bukan type-check aplikasi.
 - Clippy 1.88 pada harness inti juga lolos dengan `-D warnings`; ini tidak memeriksa modul aplikasi/Iced.
-- **Build debug, Clippy `-D warnings` dan suite Cargo: 312 passed, 0 failed** pada CI Ubuntu 24.04 / Rust stable, `--locked --all-targets --all-features`. Lihat [bukti native](verification-native.md). Sebanyak 150 tes harness juga termasuk dalam 312 tes Cargo, bukan tambahan tes unik. Tiga tes helper CI juga lulus.
-- Tidak ada hasil GUI/Arch/Hyprland yang dinyatakan lulus. Hambatan unduhan dependensi lokal sebelumnya diatasi untuk gate ini dengan menjalankan native CI, bukan dengan menganggap harness sebagai pengganti Cargo.
+- **Build debug, Clippy `-D warnings` dan suite Cargo: 312 passed, 0 failed** pada CI Ubuntu 24.04 / Rust stable, `--locked --all-targets --all-features`. Lihat [bukti native](verification-native.md). Sebanyak 150 tes harness juga termasuk dalam 312 tes Cargo, bukan tambahan tes unik. Sembilan tes Python helper CI/GUI juga lulus.
+- [Smoke GUI X11 virtual](testing-gui-x11.md) lulus pada aplikasi sebenarnya untuk clipboard UTF-8/tab/LF akhir, undo/redo dan burst keyboard. Tidak ada hasil desktop Wayland/Arch/Hyprland yang dinyatakan lulus. Hambatan unduhan dependensi lokal sebelumnya diatasi untuk gate ini dengan menjalankan native CI, bukan dengan menganggap harness sebagai pengganti Cargo.
 
 Jalankan ulang inti tanpa unduhan crate (cukup Bash dan rustc):
 

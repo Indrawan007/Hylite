@@ -20,7 +20,12 @@ Runner Ubuntu 24.04; toolchain Rust stable melalui workflow, bukan pin versi com
 angka tersebut bukan 462 tes Rust unik. Suite Cargo mengompilasi dan menguji kode
 aplikasi dengan dependensi asli Iced, parser Markdown, konfigurasi dan filesystem.
 Tes filesystem memakai direktori sementara; tes controller tidak menjalankan task
-dialog/window yang dikembalikan. Tidak ada jendela atau sesi Wayland yang diuji.
+dialog/window yang dikembalikan. Tidak ada jendela atau sesi Wayland yang diuji **dalam run headless awal ini**.
+
+Update runtime berikutnya: [CI run 39710774126](https://github.com/Indrawan007/Hylite/actions/runs/39710774126)
+pada `ee73f2b` juga lulus, termasuk **smoke GUI aplikasi sebenarnya** melalui
+X11/Xvfb + tiny-skia dan 9 tes Python helper. Lihat [bukti GUI terpisah](testing-gui-x11.md);
+pengujian desktop Wayland/Arch/Hyprland tetap belum dilakukan.
 
 ## Perbaikan yang dipicu CI
 
