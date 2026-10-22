@@ -188,7 +188,7 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                 label,
                 text: payload,
             } => code_panel((*label).into(), payload, colors),
-            Kind::Table(table) => table::render(table, colors),
+            Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
             Kind::Rule => horizontal_rule(1).into(),
         };
     let element = if let Some(action) = source_action(block, snapshot) {
@@ -217,12 +217,9 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
 }
 
 fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
-    block.source_navigable().then(|| {
-        Message::RevealPreview(Target {
-            snapshot,
-            range: block.source.clone(),
-        })
-    })
+    block
+        .source_navigable()
+        .then(|| Message::RevealPreview(Target::block(snapshot, block.source.clone())))
 }
 
 fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {

@@ -55,20 +55,38 @@ impl Document {
     }
 
     /// A queued UI action is accepted only for a current, actually rendered
-    /// leaf block. Never parse a cold model just to honor an arbitrary range.
+    /// leaf block or indexed table cell. Never parse a cold model just to honor an arbitrary range.
     pub(crate) fn preview_source_offset(
         &self,
         target: &crate::preview_navigation::Target,
     ) -> Option<usize> {
+        use crate::preview_navigation::Origin;
+        if target.snapshot != self.snapshot {
+            return None;
+        }
         let blocks = self.preview.get()?;
         let offset = target.offset(self.snapshot, &self.buffer_text())?;
-        fn contains(blocks: &[Block], range: &Range<usize>) -> bool {
+        fn contains(blocks: &[Block], target: &crate::preview_navigation::Target) -> bool {
             blocks.iter().any(|block| {
-                (block.source_navigable() && &block.source == range)
-                    || contains(&block.children, range)
+                let matches = match &target.origin {
+                    Origin::Block => block.source_navigable() && block.source == target.range,
+                    Origin::TableCell { table, row, column } => {
+                        if let preview_model::Kind::Table(value) = &block.kind {
+                            &block.source == table
+                                && value
+                                    .rows
+                                    .get(*row)
+                                    .and_then(|value| value.cells.get(*column))
+                                    .is_some_and(|cell| cell.source == target.range)
+                        } else {
+                            false
+                        }
+                    }
+                };
+                matches || contains(&block.children, target)
             })
         }
-        contains(blocks, &target.range).then_some(offset)
+        contains(blocks, target).then_some(offset)
     }
 
     fn advance_revision(&mut self) {

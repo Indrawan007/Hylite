@@ -34,8 +34,12 @@ impl Hylite {
         self.search.clear_current();
         self.go_to.close();
         self.mode = EditMode::Split;
+        let origin = match target.origin {
+            crate::preview_navigation::Origin::Block => "block",
+            crate::preview_navigation::Origin::TableCell { .. } => "table cell",
+        };
         self.status_message =
-            format!("Source block at byte {offset} (provenance start, not glyph mapping)");
+            format!("Source {origin} at byte {offset} (provenance start, not glyph mapping)");
         self.restore_input_focus()
     }
 

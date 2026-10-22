@@ -435,6 +435,35 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for the lifecycle probe.
 
 
+
+def exercise_cell_reveal(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("# Cell source café🙂\n\n"
+              "|Name|Count|\n|---|---:|\n|café🙂|**3**|\n|short|\n\n"
+              "```rs\n\tcode  \n```\n\t").encode("utf-8")
+    edited = source.replace(b"|**3**|", b"|X**3**|")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Cell fixture: exact UTF-8 Source, raw strong markup and terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "cell-preview.png")
+    # Default 1200x800 client: first body row, second column. Left click must
+    # remain read-only; only the deliberate right click should navigate.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "316", "click", "1")
+    time.sleep(0.25)
+    desktop.type_ascii("LEAK")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "316", "click", "3")
+    time.sleep(0.25)
+    desktop.type_ascii("X")
+    desktop.expect_copy("Right-click cell opens Split at raw cell start, not styled 3 or a byte/scalar mixup", edited, refocus=False)
+    desktop.screenshot(artifacts / "cell-split.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Cell sentinel undo restores exact source including trailing whitespace", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Cell navigation adds no document undo entry", welcome, refocus=False)
+    desktop.key("ctrl+shift+m")  # Split -> Source.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -551,6 +580,7 @@ def main():
                 exercise_tables(desktop, artifacts)
                 exercise_preview_cache(desktop, artifacts)
                 exercise_preview_reveal(desktop, artifacts)
+                exercise_cell_reveal(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -570,7 +600,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block-source reveal, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

@@ -1281,10 +1281,10 @@ fn mode_focus_restoration_keeps_queries_until_preview_and_never_changes_content(
 }
 
 fn preview_target(app: &Hylite, index: usize) -> crate::preview_navigation::Target {
-    crate::preview_navigation::Target {
-        snapshot: app.document.snapshot(),
-        range: app.document.preview_blocks()[index].source.clone(),
-    }
+    crate::preview_navigation::Target::block(
+        app.document.snapshot(),
+        app.document.preview_blocks()[index].source.clone(),
+    )
 }
 
 #[test]
@@ -1446,5 +1446,90 @@ fn queued_preview_targets_cannot_navigate_after_edits_or_document_replacement() 
             )
         );
         assert_eq!(app.mode, EditMode::Preview);
+    }
+}
+
+fn table_cell_target(app: &Hylite) -> crate::preview_navigation::Target {
+    let block = &app.document.preview_blocks()[1];
+    let crate::document::preview_model::Kind::Table(table) = &block.kind else {
+        panic!("table")
+    };
+    crate::preview_navigation::Target::cell(
+        app.document.snapshot(),
+        block.source.clone(),
+        1,
+        1,
+        table.rows[1].cells[1].source.clone(),
+    )
+}
+
+#[test]
+fn cell_reveal_opens_split_at_raw_markup_and_retains_source_cache_and_redo() {
+    let mut app = app();
+    let source = "# é🙂\n\n|Name|Count|\n|---|---:|\n|café🙂|**3**|\n\nterminal\n\t";
+    app.document = Document::new(source);
+    edit(&mut app);
+    assert!(app.document.undo());
+    app.mode = EditMode::Split;
+    let target = table_cell_target(&app);
+    assert_eq!(target.range.start, source.find("**3**").unwrap());
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("Name".into()));
+    // A queued cell gesture also has defined semantics if Preview is selected.
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let before = app.document.snapshot();
+    let cached = app.document.preview_blocks().as_ptr();
+    let _ = app.update(Message::RevealPreview(target));
+    assert_eq!(app.mode, EditMode::Split);
+    assert_eq!(app.document.caret_offset(), source.find("**3**").unwrap());
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.preview_blocks().as_ptr(), cached);
+    assert!(app.document.can_redo() && !app.document.is_dirty());
+    assert!(!app.search.open && !app.go_to.open);
+    assert_eq!(app.search.query, "Name");
+    assert!(app.status_message.contains("Source table cell"));
+}
+
+#[test]
+fn cell_reveal_uses_existing_prompt_open_mode_and_save_export_guards() {
+    for case in 0..5 {
+        let mut app = app();
+        app.document = Document::new("# head\n\na|b\n-|-\nc|d\n");
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let target = table_cell_target(&app);
+        assert!(app.document.set_caret(3));
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        let kind = match case {
+            2 => Some(OperationKind::Open),
+            3 => Some(OperationKind::Save),
+            4 => Some(OperationKind::Export),
+            _ => None,
+        };
+        if let Some(kind) = kind {
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let before = app.document.snapshot();
+        let operation = app.operations.active();
+        let _ = app.update(Message::RevealPreview(target));
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.operations.active(), operation);
+        if case < 3 {
+            assert_ne!(app.mode, EditMode::Split);
+            assert_eq!(app.document.caret_offset(), 3);
+        } else {
+            assert_eq!(app.mode, EditMode::Split);
+            assert!(app.status_message.contains("Source table cell"));
+        }
+        assert!(!app.document.is_dirty() && !app.document.can_undo());
     }
 }

@@ -155,6 +155,24 @@ class SmokeHelperTests(unittest.TestCase):
         desktop.command.assert_called_once_with("xdotool", "mousemove", "--window", "42", "600", "151", "click", "1")
         self.assertEqual(desktop.screenshot.call_count, 2)
 
+    def test_cell_probe_requires_right_click_and_raw_markup_offset_without_source_click(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_cell_reveal(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        self.assertIn("|café🙂|**3**|".encode("utf-8"), source)
+        self.assertTrue(source.endswith(b"\n\t"))
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:3]], [source, source.replace(b"|**3**|", b"|X**3**|"), source])
+        self.assertEqual(len(copies), 4)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "490", "316", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "490", "316", "click", "3"),
+        ])
+        self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["LEAK", "X"])
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]
