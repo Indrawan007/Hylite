@@ -67,10 +67,12 @@ fn styled_font(style: &Style, heading: bool) -> Font {
     }
 }
 
-fn styled_span(run: Run, heading: bool, colors: Colors) -> text::Span<'static> {
+fn styled_span(run: Run, heading: bool, colors: Colors) -> text::Span<'static, Message> {
     debug_assert!(run.source.start <= run.source.end);
     let is_link = run.style.link.is_some();
     let font = styled_font(&run.style, heading);
+    // Iced Rich uses its Link generic as the widget Message type. Keep it
+    // compatible with the app, but never set a Span::link action.
     let mut span = text::Span::new(run.text)
         .font(font)
         .color(if is_link { colors.accent } else { colors.text })
@@ -105,7 +107,7 @@ fn render_block(block: Block, colors: Colors) -> Element<'static, Message> {
                 Kind::Heading(5) => 18,
                 _ => 16,
             };
-            let spans: Vec<text::Span<'static>> = block
+            let spans: Vec<text::Span<'static, Message>> = block
                 .runs
                 .into_iter()
                 .map(|run| styled_span(run, heading, colors))
@@ -248,7 +250,7 @@ mod tests {
             );
             assert!(span.underline && span.strikethrough);
             assert_eq!(span.color, Some(theme.palette().primary));
-            assert_eq!(span.link, None); // Merely styled: no URL launch message.
+            assert!(span.link.is_none()); // Merely styled: no URL launch message.
             assert_ne!(colors.surface, theme.palette().background);
         }
     }
