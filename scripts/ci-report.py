@@ -6,7 +6,9 @@ reach api.github.com but cannot download the redirected Actions log archive.
 The shell wrapper, not this reporter, preserves the command's exit status.
 """
 import pathlib
+import re
 import sys
+import uuid
 
 
 def escape(message):
@@ -14,16 +16,24 @@ def escape(message):
 
 
 def report(log, status):
-    # Do not allow a log line to inject a second workflow command.
-    for line in log.splitlines():
-        print("log: " + line if line.startswith("::") else line)
+    # The runner can recognize workflow commands inside a line, not only at
+    # its start. Suspend parsing while replaying arbitrary compiler/test output.
+    token = uuid.uuid4().hex
+    print(f"::stop-commands::{token}")
+    print(log, end="" if log.endswith("\n") else "\n")
+    print(f"::{token}::")
     if status:
-        tail = "\n".join(log.splitlines()[-600:])[-24000:]
+        clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+        diagnostic = re.search(r"^(?:error(?:\[|:)|failures:)", clean, re.MULTILINE)
+        tail = clean[diagnostic.start():] if diagnostic else "\n".join(clean.splitlines()[-600:])
+        if len(tail) > 24000:
+            tail = tail[:11950] + "\n... middle of diagnostics omitted; see full job log ...\n" + tail[-11950:]
         chunks = [tail[i : i + 6000] for i in range(0, len(tail), 6000)] or ["No command output"]
         for index, chunk in enumerate(chunks, 1):
             print(f"::error title=Command failed - tail {index} of {len(chunks)}::{escape(chunk)}")
     else:
-        tail = "\n".join(log.splitlines()[-25:])[-6000:] or "Command succeeded without output"
+        clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", log)
+        tail = "\n".join(clean.splitlines()[-25:])[-6000:] or "Command succeeded without output"
         print(f"::notice title=Command succeeded::{escape(tail)}")
 
 

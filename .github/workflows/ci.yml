@@ -36,6 +36,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - name: Test CI diagnostic helper
+        run: python3 -m unittest discover -s scripts -p 'test_ci_report.py'
       - name: Check formatting
         run: |
           cargo fmt --all -- --check

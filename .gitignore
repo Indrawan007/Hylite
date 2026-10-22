@@ -3,3 +3,6 @@
 *.swo
 *~
 .env
+
+# CI helper bytecode
+__pycache__/
