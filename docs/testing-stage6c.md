@@ -42,7 +42,7 @@ menggunakan jalur 6b. Native typing/formatting umum Preview tetap ditolak.
 
 ## Tes
 
-25 tes Rust baru (expected total Cargo 486, belum bukti sampai CI):
+25 tes Rust baru (total Cargo 486, lulus pada CI di bawah):
 
 - 7 planner core: one-hash raw byte preservation, semua level/bounds/round-trip,
   empty/EOF/indent/tab, unsupported/container/Setext, malformed UTF-8/ranges,
@@ -72,9 +72,15 @@ retry startup, refocus workaround, atau gate/expected bytes yang diperlonggar.
 
 ## Status eksekusi
 
-Lokal: **187 strict core** dan **23 Python** lulus; format/diff diperiksa.
-Native Cargo/Clippy/build dan GUI belum dinyatakan lulus sampai CI diamati.
-Expected GUI total 109 (95 clipboard, 12 title, 2 exit native normal).
+[CI 39739554830](https://github.com/Indrawan007/Hylite/actions/runs/39739554830)
+**success**, commit `8e641dde74255eddcd2340979c4857cc4ce29a5b`. Job
+`119693199908`, 2026-10-22 07:18:16–07:23:05 UTC: **486 Cargo**, **187 strict core**
+(subset Cargo), **23 Python**, **109 GUI** (95 clipboard, 12 title, 2 exit native
+normal), format/build debug/Clippy `-D warnings` lulus. GUI step berlangsung
+07:20:30–07:23:00 UTC, tetap dalam budget 180 detik tanpa relaksasi gate.
+Artifact API `12408084904`, `gui-x11-smoke`, 1.267.337 bytes, belum expired saat
+diperiksa; screenshot belum direview visual. Ini bukti runtime X11/tiny-skia,
+bukan verifikasi glyph/pixel atau desktop target. [Detail GUI](testing-gui-x11.md).
 
 Catatan lama: percobaan awal 6b `39736591093` startup kedua exit 101, akar belum
 diketahui. Dua run berikutnya (`39737235985`, `39737900733`) lulus lengkap. Tidak
@@ -88,5 +94,5 @@ ada diagnosis/perbaikan akar failure itu yang diklaim oleh Stage 6c.
 
 Tidak ada Setext conversion, nested heading editing, direct text editing,
 editable AST, glyph/caret reverse map atau synchronized scroll. Full parse dan
-rekonstruksi buffer tetap O(n); tidak ada benchmark speed/RAM. Tidak mengubah
-parser/dependensi/lockfile/file worker atau lifecycle assertions.
+rekonstruksi buffer tetap O(n); tidak ada benchmark speed/RAM. Menambah metadata proyeksi heading, tanpa mengubah grammar/options parser,
+dependensi/lockfile/file worker atau lifecycle assertions.

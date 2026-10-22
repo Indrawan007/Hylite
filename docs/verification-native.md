@@ -132,6 +132,22 @@ di atas lulus semua lifecycle termasuk startup kedua. Pantau jika failure yang
 sama berulang; belum ada diagnosis Winit/X11/resource yang diklaim.
 [Kontrak dan batas Stage 6b](testing-stage6b.md).
 
+Update heading prototype Stage 6c:
+[CI run 39739554830](https://github.com/Indrawan007/Hylite/actions/runs/39739554830),
+commit `8e641dde74255eddcd2340979c4857cc4ce29a5b`, **success**. Job
+`119693199908`, 2026-10-22 07:18:16–07:23:05 UTC: **486 Cargo**, **187 strict core**
+(subset Cargo), **23 Python**, **109 GUI X11** (95 clipboard, 12 title, 2 exit
+alami 0), format/build debug/Clippy strict. Tambahan 25 Rust: planner7/history1/
+model2/Document8/adapter2/controller5. GUI menambah 8 clipboard check: Preview
+H−/H+, Undo/Redo, raw byte preservation, Split Source focus pada marker end dan
+transaksi typing/heading terpisah; tidak ada refocus click Source. Artifact API
+`12408084904`, `gui-x11-smoke`, 1.267.337 bytes, belum expired saat diperiksa;
+screenshot belum direview visual. Cakupan Preview history sekarang checkbox dan
+heading-level edge tervalidasi di puncak, bukan history umum. Tidak mengubah
+lockfile/dependensi/grammar dan options parser/file worker, timeout 180 detik
+atau gate lama.
+[Kontrak dan batas Stage 6c](testing-stage6c.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -170,7 +186,7 @@ sama berulang; belum ada diagnosis Winit/X11/resource yang diklaim.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
-Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history task terbatas tersedia;
-hasil dan batas terbaru ada di [catatan Stage 6b](testing-stage6b.md).
+Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c level heading
+terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6c](testing-stage6c.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

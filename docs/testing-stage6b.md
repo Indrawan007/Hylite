@@ -1,5 +1,9 @@
 # Stage 6b — Undo/Redo task langsung di Preview
 
+**Catatan historis:** cakupan task-only di bawah berlaku pada 6b.
+[Successor 6c](testing-stage6c.md) menambah heading-level edge tervalidasi,
+tanpa membuka history Source umum.
+
 Melanjutkan [checkbox task 6a](testing-stage6a.md). Ini bukan Undo seluruh dokumen
 di Preview atau WYSIWYG umum. **Preview hanya dapat menyeberangi transisi task
 tervalidasi yang tepat berada di puncak stack history.**

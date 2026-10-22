@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 461 pada Stage 6b). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 486 pada Stage 6c). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -339,3 +339,34 @@ diketahui dan tidak diklaim diperbaiki oleh reporter. Rincian di
 [verifikasi native](verification-native.md) dan [Stage 6b](testing-stage6b.md).
 Keyboard compositor, query-task focus runtime, aksesibilitas dan
 Wayland/Hyprland tetap perlu desktop target.
+
+## Tambahan runner Stage 6c: level heading root ATX
+
+[CI 39739554830](https://github.com/Indrawan007/Hylite/actions/runs/39739554830),
+commit `8e641dd`: **109 GUI** (95 clipboard, 12 title, 2 exit normal), **486 Cargo**,
+**187 core mandiri** (subset Cargo), **23 Python**. Tambahan 8 Copy checks:
+
+1. Source fixture exact: `##` + tab + Unicode/raw inline/entity/closing hashes,
+   task kapital X lain, fenced heading literal dan terminal tab.
+2. Preview H+: hanya satu opening hash ditambah.
+3. Preview Ctrl+Z: raw heading semula, tanpa normalize body.
+4. Preview Ctrl+Y: satu hash kembali ditambah.
+5. Preview H−: raw heading semula lagi, closing hashes/whitespace utuh.
+6. Split H+ lalu ketik X: Source menerima keyboard pada marker end, bukan query
+   atau display text. X merusak separator heading secara sengaja untuk probe.
+7. Source Undo X, Undo heading: kembali fixture; dua transaksi harus terpisah.
+8. Undo dua heading Preview lalu Source paste: welcome exact dan clean, tidak
+   ada history tambahan dari render/navigasi.
+
+Semua Copy `refocus=False`. Tiga klik hanya kontrol heading produk, bukan Source
+atau workaround fokus. Bar provenance lama mempertahankan tinggi; klik source
+navigation lama masih diuji pada suite yang sama. `heading-preview.png` dan
+`heading-split.png` bukan pixel oracle dan belum direview visual. Mock Python
+mengunci 8 expected bytes/urutan/shortcut/klik tanpa parser produk.
+
+Job `119693199908` success; step GUI 07:20:30–07:23:00 UTC pada 22 Oktober 2026.
+Budget global 180 detik dan lifecycle exit alami 0 tetap. Tidak ada runtime hook,
+retry startup, expected-byte relaxation atau perubahan Source refocus gate.
+Setext/nested disabled state, query-focus heading runtime, keyboard accessibility,
+HiDPI dan desktop Arch/Hyprland/Wayland belum diverifikasi di jendela nyata.
+[Kontrak dan checklist Stage 6c](testing-stage6c.md).
