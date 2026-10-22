@@ -6,7 +6,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 
 ## Fitur yang sudah diimplementasikan
 
-- Editor Source, preview native terstruktur (Stage 5a–5e), dan Split view; blok preview tetap tidak editable kecuali checkbox task dan kontrol level heading root ATX/Setext.
+- Editor Source, preview native terstruktur (Stage 5a–5e), dan Split view; teks preview tetap tidak editable; pengecualian terbatas adalah checkbox task, level heading root ATX/Setext, alignment dan whole body row tabel root melalui kontrol tervalidasi.
 - Cache model preview lazy per revisi konten; renderer meminjam teks model, sementara edit/undo/redo membuang model lama. Ini belum incremental parsing atau benchmark speedup.
 - Tombol **Show block source** pada leaf preview membuka Split dan memfokuskan awal rentang provenance Source; target stale ditolak. Ini bukan glyph/selection mapping.
 - **Klik kanan sel tabel → Source**: target harus cocok dengan tabel/baris/kolom/revisi saat ini; sel padding tanpa rentang sumber tidak mempunyai action. Klik kiri tetap read-only.
