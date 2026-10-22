@@ -1093,3 +1093,44 @@ fn moving_lines_during_save_refreshes_find_and_keeps_the_saved_checkpoint_reacha
         assert!(!app.document.can_undo());
     }
 }
+
+#[test]
+fn title_identifies_pending_confirmation_and_cancel_clears_it() {
+    for (action, suffix) in [
+        (PendingAction::New, "[confirm New]"),
+        (PendingAction::Open, "[confirm Open]"),
+        (
+            PendingAction::Close(window::Id::unique()),
+            "[confirm Close]",
+        ),
+    ] {
+        let mut app = app();
+        edit(&mut app);
+        app.zen_mode = true;
+        let before = app.document.snapshot();
+        let text = app.document.buffer_text();
+        let _ = app.request_action(action);
+        assert!(app.title().contains(suffix));
+        assert!(app.title().contains(" • [zen]"));
+        let _ = app.update(Message::CancelPendingAction);
+        assert!(!app.title().contains("[confirm "));
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), text);
+    }
+}
+
+#[test]
+fn confirmation_actions_without_prompt_do_not_save_or_discard() {
+    let mut app = app();
+    edit(&mut app);
+    let before = app.document.snapshot();
+    let text = app.document.buffer_text();
+    for message in [Message::ConfirmSave, Message::ConfirmDiscard] {
+        let _ = app.update(message);
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), text);
+        assert!(app.document.is_dirty());
+        assert!(app.pending_action.is_none());
+        assert!(app.operations.active().is_none());
+    }
+}

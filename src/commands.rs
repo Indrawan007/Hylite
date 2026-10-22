@@ -69,6 +69,18 @@ pub enum Message {
 /// App shortcuts are separate from the source editor's editing bindings.
 /// AltGr (often Ctrl+Alt) must not accidentally launch a file operation.
 pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Message> {
+    // Contextual confirmation actions: the controller ignores these without
+    // a pending prompt and while a file operation is active. Exact bare Alt
+    // deliberately excludes AltGr (Ctrl+Alt), Shift and compositor modifiers.
+    if modifiers == keyboard::Modifiers::ALT {
+        return match key {
+            keyboard::Key::Character(ref c) if c == "s" || c == "S" => Some(Message::ConfirmSave),
+            keyboard::Key::Character(ref c) if c == "d" || c == "D" => {
+                Some(Message::ConfirmDiscard)
+            }
+            _ => None,
+        };
+    }
     if modifiers.alt() || modifiers.logo() {
         return None;
     }
@@ -101,6 +113,32 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confirmation_keys_require_exact_bare_alt_not_altgr() {
+        for key in ["d", "D", "s", "S"] {
+            let command = shortcut(
+                keyboard::Key::Character(key.into()),
+                keyboard::Modifiers::ALT,
+            );
+            if key.eq_ignore_ascii_case("d") {
+                assert!(matches!(command, Some(Message::ConfirmDiscard)));
+            } else {
+                assert!(matches!(command, Some(Message::ConfirmSave)));
+            }
+            for extra in [
+                keyboard::Modifiers::CTRL,
+                keyboard::Modifiers::SHIFT,
+                keyboard::Modifiers::LOGO,
+            ] {
+                assert!(shortcut(
+                    keyboard::Key::Character(key.into()),
+                    keyboard::Modifiers::ALT | extra,
+                )
+                .is_none());
+            }
+        }
+    }
 
     #[test]
     fn save_and_save_as_are_distinct_even_with_uppercase_keys() {

@@ -29,6 +29,7 @@ pub fn view(
                     button("Cancel").on_press_maybe(ready.then_some(Message::CancelPendingAction)),
                 ]
                 .spacing(12),
+                text("Alt+S: Save & Continue · Alt+D: Discard & Continue · Esc: Cancel").size(12),
             ]
             .spacing(20),
         )

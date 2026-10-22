@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location("gui_smoke", Path(__file__).with_name("gui-smoke-x11.py"))
 gui = importlib.util.module_from_spec(SPEC)
@@ -99,6 +99,57 @@ class SmokeHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UTF-8"):
             desktop.type_ascii("café")
         self.assertEqual(len(commands), 1)
+
+    def xlib_probe(self, protocols):
+        connection = Mock()
+        connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]
+        window = connection.create_resource_object.return_value
+        window.get_wm_protocols.return_value = protocols
+        xlib = SimpleNamespace(
+            X=SimpleNamespace(CurrentTime=0),
+            display=SimpleNamespace(Display=Mock(return_value=connection)),
+            protocol=SimpleNamespace(event=SimpleNamespace(ClientMessage=Mock(return_value="client-event"))),
+        )
+        desktop = gui.Desktop(None, {"DISPLAY": ":123"}, None)
+        desktop.window = "42"
+        return desktop, connection, window, xlib
+
+    def test_native_close_sends_protocol_not_destroy_or_kill(self):
+        desktop, connection, window, xlib = self.xlib_probe([17])
+        with patch.dict("sys.modules", {"Xlib": xlib}):
+            desktop.request_close()
+        xlib.display.Display.assert_called_once_with(":123")
+        connection.create_resource_object.assert_called_once_with("window", 42)
+        xlib.protocol.event.ClientMessage.assert_called_once_with(
+            window=42, client_type=19, data=(32, [17, 0, 0, 0, 0]))
+        window.send_event.assert_called_once_with("client-event", event_mask=0, propagate=False)
+        connection.sync.assert_called_once()
+        connection.close.assert_called_once()
+
+    def test_missing_delete_protocol_fails_without_forcing_close(self):
+        desktop, connection, window, xlib = self.xlib_probe([])
+        with patch.dict("sys.modules", {"Xlib": xlib}):
+            with self.assertRaisesRegex(RuntimeError, "WM_DELETE_WINDOW"):
+                desktop.request_close()
+        window.send_event.assert_not_called()
+        connection.close.assert_called_once()
+
+    def test_native_exit_requires_zero_not_signal_or_timeout(self):
+        for code in [-15, 1, None]:
+            desktop = gui.Desktop(SimpleNamespace(wait=Mock(return_value=code)), {}, None)
+            with self.assertRaises(AssertionError):
+                desktop.expect_native_exit("must not pass")
+            self.assertEqual(desktop.native_exits, 0)
+            self.assertEqual(desktop.passed, [])
+        desktop = gui.Desktop(SimpleNamespace(wait=Mock(side_effect=gui.subprocess.TimeoutExpired("app", 12))), {}, None)
+        with self.assertRaises(gui.subprocess.TimeoutExpired):
+            desktop.expect_native_exit("must time out")
+        self.assertEqual(desktop.passed, [])
+        desktop = gui.Desktop(SimpleNamespace(wait=Mock(return_value=0)), {}, None)
+        with patch("sys.stdout", new_callable=io.StringIO):
+            desktop.expect_native_exit("natural close")
+        self.assertEqual(desktop.native_exits, 1)
+        self.assertEqual(desktop.passed, ["natural close"])
 
     def test_missing_copy_or_whitespace_loss_cannot_false_pass(self):
         for actual in (None, b"text", b"text\n", b"text\n\t\n"):

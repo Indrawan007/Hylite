@@ -3,7 +3,7 @@
 
 No application test hooks: observe window title and clipboard through X11, send
 real keyboard/mouse input, and compare exact UTF-8 bytes. This is not Wayland,
-portal, pixel-layout, IME or window-close verification.
+portal, pixel-layout, IME or Wayland window-close verification.
 """
 import argparse
 import json
@@ -41,6 +41,7 @@ class Desktop:
         self.window = None
         self.owners = []
         self.passed = []
+        self.native_exits = 0
 
     def command(self, *args, timeout=3, **kwargs):
         return subprocess.run(args, env=self.env, check=True, timeout=timeout,
@@ -55,6 +56,10 @@ class Desktop:
                 return
             time.sleep(0.1)
         raise TimeoutError(description)
+
+    def passed_check(self, description):
+        self.passed.append(description)
+        print(f"PASS: {description}", flush=True)
 
     def find_window(self):
         def find():
@@ -139,8 +144,7 @@ class Desktop:
             self.wait(description, copied)
         except TimeoutError as error:
             raise AssertionError(f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r}") from error
-        self.passed.append(description)
-        print(f"PASS: {description}", flush=True)
+        self.passed_check(description)
 
     def paste_from_clean(self, data):
         self.title_is_dirty(False)
@@ -151,12 +155,58 @@ class Desktop:
         # Only then may expect_copy replace the external clipboard owner.
         self.title_is_dirty(True)
 
+    def confirmation(self, action):
+        def matches():
+            title = self.command("xdotool", "getwindowname", self.window).decode("utf-8")
+            if action is None:
+                return "[confirm " not in title
+            return f"[confirm {action}]" in title
+        self.wait(f"Confirmation title = {action}", matches)
+        self.passed_check(f"Confirmation title: {action or 'closed'}")
+
+    def request_close(self):
+        # WM_DELETE_WINDOW is the same client protocol a window manager uses.
+        # Do NOT use xdotool windowclose: it calls XDestroyWindow directly,
+        # bypassing the application's unsaved-changes guard.
+        from Xlib import X, display, protocol
+        connection = display.Display(self.env["DISPLAY"])
+        try:
+            window = connection.create_resource_object("window", int(self.window))
+            delete = connection.intern_atom("WM_DELETE_WINDOW")
+            if delete not in (window.get_wm_protocols() or []):
+                raise RuntimeError("Application does not advertise WM_DELETE_WINDOW")
+            message = protocol.event.ClientMessage(
+                window=int(self.window), client_type=connection.intern_atom("WM_PROTOCOLS"),
+                data=(32, [delete, X.CurrentTime, 0, 0, 0]),
+            )
+            window.send_event(message, event_mask=0, propagate=False)
+            connection.sync()
+        finally:
+            connection.close()
+
+    def expect_native_exit(self, description):
+        code = self.app.wait(timeout=12)
+        if code != 0:
+            raise AssertionError(f"{description}: expected natural exit 0, got {code}")
+        self.native_exits += 1
+        self.passed_check(description)
+
+    def restart_after_native_exit(self, binary):
+        if self.app.poll() != 0:
+            raise RuntimeError("Restart requires a previously observed successful native exit")
+        self.cleanup()
+        self.owners = []
+        self.window = None
+        self.app = subprocess.Popen([str(binary)], env=self.env, stdout=self.log, stderr=self.log)
+        self.find_window()
+
     def screenshot(self, path):
         if self.window:
             self.command("import", "-silent", "-limit", "thread", "1", "-window", self.window, str(path), timeout=15)
 
     def cleanup(self):
-        # Deliberate process cleanup, NOT a successful native close-window test.
+        # Fallback resource cleanup, never counted as a successful native exit.
+        # Lifecycle checks must observe exit 0 BEFORE this can terminate a child.
         for process in [self.app, *self.owners]:
             if process.poll() is None:
                 process.terminate()
@@ -263,6 +313,62 @@ def exercise_navigation(desktop, artifacts):
     desktop.expect_copy("Find: all panel navigation leaves document undo history intact", welcome, refocus=False)
 
 
+def exercise_lifecycle(desktop, artifacts, binary):
+    source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Lifecycle: dirty fixture", source, refocus=False)
+    desktop.key("ctrl+End")
+    desktop.key("ctrl+n")
+    desktop.confirmation("New")
+    desktop.screenshot(artifacts / "confirmation-new.png")
+    desktop.type_ascii("LEAK")
+    for key in ["ctrl+z", "ctrl+shift+z", "ctrl+g", "ctrl+f", "ctrl+o", "ctrl+alt+d"]:
+        desktop.key(key)
+    desktop.confirmation("New")
+    desktop.key("Escape")
+    desktop.confirmation(None)
+    desktop.type_ascii("X")
+    desktop.expect_copy("New Cancel: blocked edits did not leak, caret and keyboard focus restored", source + b"X", refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("New Cancel: undo restores the original dirty document", source, refocus=False)
+
+    desktop.key("ctrl+n")
+    desktop.confirmation("New")
+    desktop.key("alt+d")
+    desktop.confirmation(None)
+    desktop.title_is_dirty(False)
+    desktop.type_ascii("Fresh")
+    desktop.expect_copy("New Discard: empty clean document receives fresh keyboard input", b"Fresh", refocus=False)
+    # Contextual confirmation keys do not save/discard outside a prompt.
+    desktop.key("alt+d")
+    desktop.key("alt+s")
+    desktop.expect_copy("Confirmation keys outside a prompt preserve the document", b"Fresh", refocus=False)
+
+    desktop.key("ctrl+End")
+    desktop.request_close()
+    desktop.confirmation("Close")
+    desktop.screenshot(artifacts / "confirmation-close.png")
+    desktop.type_ascii("LEAK")
+    desktop.key("Escape")
+    desktop.confirmation(None)
+    desktop.type_ascii("Z")
+    desktop.expect_copy("Native Close Cancel: document, caret and focus survive", b"FreshZ", refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Native Close Cancel: undo preserves unsaved text", b"Fresh", refocus=False)
+    desktop.request_close()
+    desktop.confirmation("Close")
+    desktop.key("alt+d")
+    desktop.expect_native_exit("Native dirty Close Discard exits normally without force-kill")
+
+    # A second clean launch independently covers close without a confirmation.
+    desktop.restart_after_native_exit(binary)
+    desktop.title_is_dirty(False)
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    desktop.expect_copy("Clean close: fresh process has original clean document", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Native clean Close exits normally without force-kill")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
@@ -294,6 +400,7 @@ def main():
                 desktop = Desktop(app, env, log)
                 exercise(desktop, artifacts)
                 exercise_navigation(desktop, artifacts)
+                exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
             except Exception as error:
@@ -311,7 +418,8 @@ def main():
                 (artifacts / "summary.json").write_text(json.dumps({
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
-                    "scope": "Source clipboard, typing, undo/redo and keyboard navigation focus; no portal, Wayland or visual assertions",
+                    "native_exits": desktop.native_exits if desktop else 0,
+                    "scope": "Source clipboard, navigation focus, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; no file portal, Wayland or visual assertions",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

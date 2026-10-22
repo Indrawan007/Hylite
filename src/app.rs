@@ -83,7 +83,13 @@ impl Hylite {
 
         let dirty = if self.document.is_dirty() { " •" } else { "" };
         let zen = if self.zen_mode { " [zen]" } else { "" };
-        format!("{}{}{} — Hylite", filename, dirty, zen)
+        let confirmation = match self.pending_action {
+            Some(PendingAction::New) => " [confirm New]",
+            Some(PendingAction::Open) => " [confirm Open]",
+            Some(PendingAction::Close(_)) => " [confirm Close]",
+            None => "",
+        };
+        format!("{filename}{dirty}{zen}{confirmation} — Hylite")
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
