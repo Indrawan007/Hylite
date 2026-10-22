@@ -866,3 +866,52 @@ fn line_move_splits_adjacent_typing_groups_into_atomic_steps() {
         assert_eq!(document.buffer_text(), expected);
     }
 }
+
+#[test]
+fn initialization_preserves_trailing_tabs_and_tabs_before_empty_lines() {
+    for source in ["\t", "a\t", "a\t\t", "é✨\t\n\t", "\t\n\n", "a\t\n\t\n"] {
+        let document = Document::new(source);
+        assert_eq!(document.buffer_text(), source, "{source:?}");
+        assert_eq!(document.caret_offset(), 0);
+        assert_eq!(document.snapshot(), Snapshot::default());
+        assert!(!document.is_dirty());
+        assert!(!document.can_undo());
+    }
+}
+
+#[test]
+fn caret_reconstruction_preserves_tabs_at_every_utf8_split() {
+    for source in ["\t", "a\tb\t", "é\t✨\n\t", "before\n\t\n", "\t\t"] {
+        for caret in (0..=source.len()).filter(|offset| source.is_char_boundary(*offset)) {
+            let content = content_at(source, caret)
+                .unwrap_or_else(|| panic!("failed reconstruction: {source:?} at {caret}"));
+            assert_eq!(buffer_text(&content), source);
+            let prefix = &source[..caret];
+            assert_eq!(
+                content.cursor_position(),
+                (
+                    prefix.bytes().filter(|byte| *byte == b'\n').count(),
+                    prefix.rsplit('\n').next().unwrap().len(),
+                )
+            );
+        }
+    }
+}
+
+#[test]
+fn native_paste_with_final_tabs_is_one_atomic_edit_including_selection_replacement() {
+    let mut document = Document::new("before café after");
+    document.apply(Action::SelectAll);
+    let pasted = "é\t\n\t";
+    document.apply(Action::Edit(Edit::Paste(Arc::new(pasted.into()))));
+    assert_eq!(document.buffer_text(), pasted);
+    assert_eq!(document.caret_offset(), pasted.len());
+    assert_eq!(document.snapshot().revision, 1);
+    assert!(document.undo());
+    assert_eq!(document.buffer_text(), "before café after");
+    assert!(!document.is_dirty());
+    assert!(!document.can_undo());
+    assert!(document.redo());
+    assert_eq!(document.buffer_text(), pasted);
+    assert_eq!(document.caret_offset(), pasted.len());
+}

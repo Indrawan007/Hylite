@@ -23,11 +23,11 @@ pub struct Document {
 
 impl Document {
     pub fn new(text: &str) -> Self {
-        // with_text drops the terminal empty line in Iced 0.13. Load through
-        // the same public Paste path used by caret reconstruction instead,
-        // before history/revision tracking exists. Keep the initial caret at 0.
+        // with_text drops the terminal empty line in Iced 0.13. Use the
+        // protected Paste path before tracking history; raw Paste also drops
+        // a trailing control scalar (including tab) in cosmic-text 0.12.1.
         let mut content = text_editor::Content::new();
-        content.perform(Action::Edit(Edit::Paste(Arc::new(text.to_owned()))));
+        paste_exact(&mut content, text);
         content.perform(Action::Move(Motion::DocumentStart));
         Self {
             content,
@@ -167,7 +167,10 @@ impl Document {
             self.break_undo_group();
         }
         let before = self.record();
-        self.content.perform(action);
+        match action {
+            Action::Edit(Edit::Paste(text)) => paste_exact(&mut self.content, &text),
+            action => self.content.perform(action),
+        }
         let after = self.buffer_text();
         if after != before.text {
             self.record_edit(before, &after, kind, now);
@@ -352,6 +355,19 @@ fn buffer_text(content: &text_editor::Content) -> String {
         .join("\n")
 }
 
+/// cosmic-text 0.12.1 insert_at strips a final control character from each
+/// pasted segment, not just LF. Protect the final segment with one ASCII space,
+/// then remove ONLY that space using native single-scalar Backspace. Intermediate
+/// segments already end in LF, so tabs immediately before LF are retained.
+/// These internal actions happen outside Document history as one user edit.
+fn paste_exact(content: &mut text_editor::Content, text: &str) {
+    let mut protected = String::with_capacity(text.len().saturating_add(1));
+    protected.push_str(text);
+    protected.push(' ');
+    content.perform(Action::Edit(Edit::Paste(Arc::new(protected))));
+    content.perform(Action::Edit(Edit::Backspace));
+}
+
 /// Position a caret using paste-before-suffix, not repeated Left/Right motions.
 /// Uses logical UTF-8 offsets instead of visual grapheme/RTL cursor motions.
 /// Paste retains a real trailing empty line (with_text alone drops it). Verify
@@ -361,13 +377,9 @@ fn content_at(text: &str, caret: usize) -> Option<text_editor::Content> {
         return None;
     }
     let mut content = text_editor::Content::new();
-    content.perform(Action::Edit(Edit::Paste(Arc::new(
-        text[caret..].to_owned(),
-    ))));
+    paste_exact(&mut content, &text[caret..]);
     content.perform(Action::Move(Motion::DocumentStart));
-    content.perform(Action::Edit(Edit::Paste(Arc::new(
-        text[..caret].to_owned(),
-    ))));
+    paste_exact(&mut content, &text[..caret]);
     let prefix = &text[..caret];
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count();
     let column = prefix.rsplit('\n').next().unwrap_or("").len();
