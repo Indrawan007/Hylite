@@ -80,6 +80,26 @@ class SmokeHelperTests(unittest.TestCase):
             desktop.expect_copy("delayed", b"text\n\t")
         self.assertEqual(keys, ["ctrl+a", "ctrl+c"])
 
+    def test_keyboard_only_copy_never_clicks_or_refocuses(self):
+        desktop = self.copy_probe(b"text\n\t")
+        commands = []
+        desktop.command = lambda *args: commands.append(args)
+        with patch("sys.stdout", new_callable=io.StringIO):
+            desktop.expect_copy("keyboard-only", b"text\n\t", refocus=False)
+        self.assertEqual(commands, [])
+        self.assertEqual(desktop.passed, ["keyboard-only"])
+
+    def test_keyboard_text_is_ascii_and_does_not_fake_unicode_typing(self):
+        desktop = gui.Desktop(None, {}, None)
+        commands = []
+        desktop.command = lambda *args: commands.append(args)
+        with patch.object(gui.time, "sleep"):
+            desktop.type_ascii("2:6")
+        self.assertEqual(commands, [("xdotool", "type", "--clearmodifiers", "--delay", "30", "2:6")])
+        with self.assertRaisesRegex(ValueError, "UTF-8"):
+            desktop.type_ascii("café")
+        self.assertEqual(len(commands), 1)
+
     def test_missing_copy_or_whitespace_loss_cannot_false_pass(self):
         for actual in (None, b"text", b"text\n", b"text\n\t\n"):
             with self.subTest(actual=actual):

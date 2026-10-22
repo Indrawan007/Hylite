@@ -79,6 +79,12 @@ class Desktop:
         # still require a fresh clipboard response and exact expected bytes.
         time.sleep(0.25)
 
+    def type_ascii(self, text):
+        if not text.isascii():
+            raise ValueError("Use clipboard Paste for UTF-8 fixtures, not xdotool type")
+        self.command("xdotool", "type", "--clearmodifiers", "--delay", "30", text)
+        time.sleep(0.25)
+
     def title_is_dirty(self, expected):
         def matches():
             title = self.command("xdotool", "getwindowname", self.window).decode("utf-8")
@@ -110,7 +116,7 @@ class Desktop:
         except TimeoutError as error:
             raise TimeoutError(f"Clipboard ownership: owner status={owner.poll()}, expected {data[:300]!r}, got {observed[:300] if observed is not None else None!r}") from error
 
-    def expect_copy(self, description, expected):
+    def expect_copy(self, description, expected, *, refocus=True):
         # Changing ownership BEFORE Ctrl+C prevents a false pass from simply
         # reading the bytes we staged for Ctrl+V. Never strip whitespace or LF.
         marker = f"hylite-copy-not-acknowledged-{uuid.uuid4()}".encode("ascii")
@@ -118,7 +124,8 @@ class Desktop:
         # Dispatch Copy ONCE, then only observe. Repeated Copy in the poll
         # could leave another asynchronous clipboard write queued after success,
         # stealing ownership from the next Paste fixture.
-        self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
+        if refocus:
+            self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
         self.key("ctrl+a")
         self.key("ctrl+c")
         actual = None
@@ -186,12 +193,74 @@ def exercise(desktop, artifacts):
     # Unlike clipboard insertion, this goes through individual key events and
     # typing coalescing. Copy closes the group but does not become a text edit.
     desktop.key("ctrl+End")
-    desktop.command("xdotool", "type", "--clearmodifiers", "--delay", "30", "XYZ")
+    desktop.type_ascii("XYZ")
     desktop.title_is_dirty(True)
     desktop.expect_copy("Keyboard typing at document end", welcome + b"XYZ")
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)
     desktop.expect_copy("One undo removes the keyboard typing burst", welcome)
+
+
+def exercise_navigation(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = "head\ncafé🙂世界\nsame needle\nother needle\n".encode("utf-8")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Navigation fixture: keyboard-only Source copy", source, refocus=False)
+
+    # Every copy below deliberately omits mouse/focus operations. Query copies
+    # prove the panel took keyboard focus; sentinel edits prove automatic return
+    # to Source AND exact caret position, not merely an unchanged document.
+    desktop.key("ctrl+Home")
+    desktop.key("ctrl+g")
+    desktop.expect_copy("Go to Line: query automatically focused", b"1:1", refocus=False)
+    desktop.type_ascii("2:6")
+    desktop.expect_copy("Go to Line: address field edited", b"2:6", refocus=False)
+    desktop.key("Return")
+    desktop.type_ascii("X")
+    positioned = "head\ncafé🙂X世界\nsame needle\nother needle\n".encode("utf-8")
+    desktop.expect_copy("Go to Line: Unicode scalar caret and automatic Source focus", positioned, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Go to Line: sentinel undo leaves fixture unchanged", source, refocus=False)
+
+    desktop.key("ctrl+Home")
+    desktop.key("ctrl+g")
+    desktop.expect_copy("Go to Line: reopening focuses the query", b"1:1", refocus=False)
+    desktop.type_ascii("999:1")
+    desktop.key("Return")
+    desktop.expect_copy("Go to Line: invalid submit keeps query focus", b"999:1", refocus=False)
+    desktop.key("Escape")
+    desktop.type_ascii("Z")
+    desktop.expect_copy("Go to Line: Escape returns focus and invalid address preserves caret", b"Z" + source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Go to Line: invalid navigation adds no text edit", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Go to Line: navigation adds no undo entry", welcome, refocus=False)
+
+    desktop.paste_from_clean(source)
+    cases = [
+        ("first", ["Return"], "head\ncafé🙂世界\nsame Qneedle\nother needle\n"),
+        ("next", ["Return", "F3"], "head\ncafé🙂世界\nsame needle\nother Qneedle\n"),
+        ("wrap", ["Return", "F3", "F3"], "head\ncafé🙂世界\nsame Qneedle\nother needle\n"),
+        ("backwards", ["shift+F3"], "head\ncafé🙂世界\nsame needle\nother Qneedle\n"),
+    ]
+    for name, keys, expected in cases:
+        desktop.key("ctrl+f")
+        # Ctrl+A replaces the query (not the document) after the focus task.
+        desktop.key("ctrl+a")
+        desktop.type_ascii("needle")
+        desktop.expect_copy(f"Find {name}: query automatically focused", b"needle", refocus=False)
+        for key in keys:
+            desktop.key(key)
+        desktop.key("Escape")
+        desktop.type_ascii("Q")
+        desktop.expect_copy(f"Find {name}: match caret and automatic Source focus", expected.encode("utf-8"), refocus=False)
+        desktop.key("ctrl+z")
+        desktop.expect_copy(f"Find {name}: undo restores fixture without query edits", source, refocus=False)
+    desktop.screenshot(artifacts / "navigation.png")
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Find: all panel navigation leaves document undo history intact", welcome, refocus=False)
 
 
 def main():
@@ -213,10 +282,10 @@ def main():
     error_message = None
 
     def timed_out(_signum, _frame):
-        raise TimeoutError("GUI smoke exceeded its 120 second global budget")
+        raise TimeoutError("GUI smoke exceeded its 180 second global budget")
 
     signal.signal(signal.SIGALRM, timed_out)
-    signal.alarm(120)
+    signal.alarm(180)
     with tempfile.TemporaryDirectory(prefix="hylite-gui-") as temp:
         env = isolated_environment(os.environ, Path(temp))
         with (artifacts / "application.log").open("wb") as log:
@@ -224,6 +293,7 @@ def main():
                 app = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
                 desktop = Desktop(app, env, log)
                 exercise(desktop, artifacts)
+                exercise_navigation(desktop, artifacts)
                 status = "passed"
                 print("GUI X11/tiny-skia smoke passed (not a Hyprland/Wayland test).", flush=True)
             except Exception as error:
@@ -241,7 +311,7 @@ def main():
                 (artifacts / "summary.json").write_text(json.dumps({
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
-                    "scope": "Source clipboard, typing and undo/redo; no portal, Wayland or visual assertions",
+                    "scope": "Source clipboard, typing, undo/redo and keyboard navigation focus; no portal, Wayland or visual assertions",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()
