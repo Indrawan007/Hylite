@@ -1163,3 +1163,43 @@ fn cancelling_confirmation_preserves_source_and_query_contexts() {
         assert_eq!(app.document.buffer_text(), text);
     }
 }
+
+#[test]
+fn native_preview_and_split_views_do_not_change_source_revisions_or_history() {
+    let mut app = app();
+    app.document = Document::new("# **café🙂**\n\n> - [x] child\n\n```\ncode  \n\n```\n\t");
+    edit(&mut app);
+    for dirty in [true, false] {
+        if !dirty {
+            assert!(app.document.undo());
+        }
+        let before = (
+            app.document.buffer_text(),
+            app.document.text(),
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.can_undo(),
+            app.document.can_redo(),
+            app.document.content().cursor_position(),
+            app.document.content().selection(),
+        );
+        for mode in [EditMode::Preview, EditMode::Split, EditMode::Source] {
+            let _ = app.update(Message::SwitchMode(mode));
+            let _view = app.view();
+            assert_eq!(app.document.is_dirty(), dirty);
+            assert_eq!(
+                before,
+                (
+                    app.document.buffer_text(),
+                    app.document.text(),
+                    app.document.snapshot(),
+                    app.document.render_key(),
+                    app.document.can_undo(),
+                    app.document.can_redo(),
+                    app.document.content().cursor_position(),
+                    app.document.content().selection(),
+                )
+            );
+        }
+    }
+}

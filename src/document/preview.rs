@@ -1,180 +1,263 @@
-use iced::widget::{column, container, horizontal_rule, text};
-use iced::{Element, Length, Padding};
-use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
-
+//! Native read-only renderer for the preview projection; no browser, network,
+//! filesystem reads, link launching or document mutation.
+use super::preview_model::{self, Block, Kind, Run, Style};
 use crate::commands::Message;
+use iced::widget::{column, container, horizontal_rule, rich_text, row, text, tooltip};
+use iced::{font, Border, Color, Element, Font, Length, Theme};
 
-/// Render markdown string → Iced Element (preview mode)
-pub fn render_preview<'a>(markdown: &str) -> Element<'a, Message> {
-    let parser = Parser::new_ext(markdown, Options::all());
+#[derive(Clone, Copy)]
+struct Colors {
+    text: Color,
+    accent: Color,
+    surface: Color,
+}
 
-    let mut elements: Vec<Element<'a, Message>> = Vec::new();
-    let mut buf = String::new();
-    let mut heading_level = 0u8;
-    let mut in_code_block = false;
-    let mut code_content = String::new();
-    let mut list_counter: Vec<Option<u64>> = Vec::new();
+impl Colors {
+    fn new(theme: &Theme) -> Self {
+        let palette = theme.palette();
+        let mix = |bg: f32, ink: f32| bg * 0.94 + ink * 0.06;
+        Self {
+            text: palette.text,
+            accent: palette.primary,
+            surface: Color::from_rgb(
+                mix(palette.background.r, palette.text.r),
+                mix(palette.background.g, palette.text.g),
+                mix(palette.background.b, palette.text.b),
+            ),
+        }
+    }
+}
 
-    for event in parser {
-        match event {
-            // ── Headings ──
-            Event::Start(Tag::Heading { level, .. }) => {
-                flush_text(&mut buf, &mut elements);
-                heading_level = level as u8;
-            }
-            Event::End(TagEnd::Heading(_)) => {
-                let size = match heading_level {
-                    1 => 32.0,
-                    2 => 26.0,
-                    3 => 22.0,
-                    4 => 19.0,
-                    5 => 17.0,
-                    _ => 16.0,
-                };
-                let owned = buf.trim().to_string();
-                buf.clear();
+pub fn render_preview(markdown: &str, theme: &Theme) -> Element<'static, Message> {
+    let colors = Colors::new(theme);
+    let blocks = preview_model::parse(markdown);
+    let content: Element<'static, Message> = if blocks.is_empty() {
+        text("Empty document").size(14).color(colors.text).into()
+    } else {
+        render_blocks(blocks, colors)
+    };
+    column![
+        text("Read-only preview · links are not opened · unsupported blocks show source")
+            .size(11)
+            .color(colors.text),
+        content,
+    ]
+    .spacing(12)
+    .width(Length::Fill)
+    .into()
+}
 
-                if !owned.is_empty() {
-                    elements.push(
-                        container(text(owned).size(size).color([0.70, 0.78, 1.0]))
-                            .padding(Padding {
-                                top: 14.0,
-                                right: 0.0,
-                                bottom: 6.0,
-                                left: 0.0,
-                            })
-                            .into(),
+fn styled_font(style: &Style, heading: bool) -> Font {
+    Font {
+        weight: if style.strong || heading {
+            font::Weight::Bold
+        } else {
+            font::Weight::Normal
+        },
+        style: if style.emphasis {
+            font::Style::Italic
+        } else {
+            font::Style::Normal
+        },
+        ..if style.code {
+            Font::MONOSPACE
+        } else {
+            Font::DEFAULT
+        }
+    }
+}
+
+fn styled_span(run: Run, heading: bool, colors: Colors) -> text::Span<'static> {
+    debug_assert!(run.source.start <= run.source.end);
+    let is_link = run.style.link.is_some();
+    let font = styled_font(&run.style, heading);
+    let mut span = text::Span::new(run.text)
+        .font(font)
+        .color(if is_link { colors.accent } else { colors.text })
+        .underline(is_link)
+        .strikethrough(run.style.strike);
+    if run.style.code {
+        span = span.background(colors.surface);
+    }
+    span
+}
+
+fn render_blocks(blocks: Vec<Block>, colors: Colors) -> Element<'static, Message> {
+    column(blocks.into_iter().map(|block| render_block(block, colors)))
+        .spacing(10)
+        .width(Length::Fill)
+        .into()
+}
+
+fn render_block(block: Block, colors: Colors) -> Element<'static, Message> {
+    let origin = format!(
+        "Source bytes {}..{} · not a caret map",
+        block.source.start, block.source.end
+    );
+    let element: Element<'static, Message> = match block.kind {
+        Kind::Paragraph | Kind::Heading(_) => {
+            let heading = matches!(block.kind, Kind::Heading(_));
+            let size = match block.kind {
+                Kind::Heading(1) => 32,
+                Kind::Heading(2) => 27,
+                Kind::Heading(3) => 23,
+                Kind::Heading(4) => 20,
+                Kind::Heading(5) => 18,
+                _ => 16,
+            };
+            let spans: Vec<text::Span<'static>> = block
+                .runs
+                .into_iter()
+                .map(|run| styled_span(run, heading, colors))
+                .collect();
+            rich_text(spans).size(size).width(Length::Fill).into()
+        }
+        Kind::Quote => container(render_blocks(block.children, colors))
+            .padding([8, 16])
+            .width(Length::Fill)
+            .style(move |_| container::Style {
+                background: Some(colors.surface.into()),
+                border: Border {
+                    color: colors.accent,
+                    width: 1.0,
+                    ..Border::default()
+                },
+                ..container::Style::default()
+            })
+            .into(),
+        Kind::List(start) => {
+            let items = block.children.into_iter().enumerate().map(
+                |(index, item)| -> Element<'static, Message> {
+                    let marker = start.map_or_else(
+                        || "•".into(),
+                        |start| format!("{}.", start.saturating_add(index as u64)),
                     );
-                }
-            }
-
-            // ── Code Block ──
-            Event::Start(Tag::CodeBlock(_)) => {
-                flush_text(&mut buf, &mut elements);
-                in_code_block = true;
-                code_content.clear();
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                let owned_code = code_content.trim_end().to_string();
-                code_content.clear();
-                in_code_block = false;
-
-                elements.push(
-                    container(
-                        container(
-                            text(owned_code)
-                                .size(14.0)
-                                .font(iced::Font::MONOSPACE)
-                                .color([0.70, 0.85, 0.72]),
-                        )
-                        .padding(14)
-                        .width(Length::Fill)
-                        .style(|_theme| container::Style {
-                            background: Some(iced::Color::from_rgb(0.12, 0.12, 0.16).into()),
-                            border: iced::Border {
-                                radius: 6.0.into(),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        }),
-                    )
-                    .padding([6, 0])
-                    .into(),
-                );
-            }
-
-            // ── Blockquote ──
-            Event::Start(Tag::BlockQuote(_)) => {
-                flush_text(&mut buf, &mut elements);
-                buf.push_str("❝ ");
-            }
-            Event::End(TagEnd::BlockQuote(_)) => {
-                flush_text(&mut buf, &mut elements);
-            }
-
-            // ── Paragraph ──
-            Event::Start(Tag::Paragraph) => flush_text(&mut buf, &mut elements),
-            Event::End(TagEnd::Paragraph) => flush_text(&mut buf, &mut elements),
-
-            // ── Lists ──
-            Event::Start(Tag::List(start)) => {
-                flush_text(&mut buf, &mut elements);
-                list_counter.push(start);
-            }
-            Event::End(TagEnd::List(_)) => {
-                flush_text(&mut buf, &mut elements);
-                list_counter.pop();
-            }
-            Event::Start(Tag::Item) => {
-                let indent = "    ".repeat(list_counter.len().saturating_sub(1));
-                match list_counter.last_mut() {
-                    Some(Some(n)) => {
-                        buf.push_str(&format!("{}{}. ", indent, n));
-                        *n += 1;
+                    match item.kind {
+                        Kind::Item(checked) => {
+                            let checkbox = match checked {
+                                Some(true) => "[x] ",
+                                Some(false) => "[ ] ",
+                                None => "",
+                            };
+                            row![
+                                text(format!("{marker} {checkbox}")).color(colors.text),
+                                render_blocks(item.children, colors)
+                            ]
+                            .spacing(8)
+                            .into()
+                        }
+                        _ => row![text(marker).color(colors.text), render_block(item, colors)]
+                            .spacing(8)
+                            .into(),
                     }
-                    _ => buf.push_str(&format!("{}• ", indent)),
-                }
-            }
-            Event::End(TagEnd::Item) => buf.push('\n'),
+                },
+            );
+            column(items).spacing(6).width(Length::Fill).into()
+        }
+        Kind::Item(_) => render_blocks(block.children, colors),
+        Kind::Code {
+            info,
+            text: payload,
+        } => {
+            let label = if info.is_empty() {
+                "Code".to_owned()
+            } else {
+                format!("Code · {info}")
+            };
+            code_panel(label, payload, colors)
+        }
+        Kind::Literal {
+            label,
+            text: payload,
+        } => code_panel(label.into(), payload, colors),
+        Kind::Rule => horizontal_rule(1).into(),
+    };
+    // Provenance is inspectable without pretending source byte ranges already
+    // support WYSIWYG hit testing or a reverse mapping from shaped text.
+    tooltip(
+        element,
+        container(text(origin).size(11)).padding(6),
+        tooltip::Position::FollowCursor,
+    )
+    .into()
+}
 
-            Event::TaskListMarker(done) => {
-                buf.push_str(if done { "[x] " } else { "[ ] " });
-            }
+fn code_panel(label: String, payload: String, colors: Colors) -> Element<'static, Message> {
+    container(
+        column![
+            text(label).size(11).color(colors.accent),
+            text(payload)
+                .font(Font::MONOSPACE)
+                .size(14)
+                .shaping(text::Shaping::Advanced)
+                .color(colors.text),
+        ]
+        .spacing(6),
+    )
+    .padding(12)
+    .width(Length::Fill)
+    .style(move |_| container::Style {
+        background: Some(colors.surface.into()),
+        border: Border {
+            radius: 5.0.into(),
+            ..Border::default()
+        },
+        ..container::Style::default()
+    })
+    .into()
+}
 
-            // ── Text ──
-            Event::Text(t) => {
-                if in_code_block {
-                    code_content.push_str(&t);
-                } else {
-                    buf.push_str(&t);
-                }
-            }
-            Event::Code(t) => {
-                buf.push('`');
-                buf.push_str(&t);
-                buf.push('`');
-            }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-            // ── Inline formatting (plain marker) ──
-            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => buf.push('*'),
-            Event::Start(Tag::Strikethrough) | Event::End(TagEnd::Strikethrough) => buf.push('~'),
+    #[test]
+    fn nested_inline_fonts_combine_instead_of_overwriting_each_other() {
+        let style = Style {
+            strong: true,
+            emphasis: true,
+            code: true,
+            ..Style::default()
+        };
+        let font = styled_font(&style, false);
+        assert_eq!(font.family, font::Family::Monospace);
+        assert_eq!(font.weight, font::Weight::Bold);
+        assert_eq!(font.style, font::Style::Italic);
+        assert_eq!(
+            styled_font(&Style::default(), true).weight,
+            font::Weight::Bold
+        );
+    }
 
-            Event::SoftBreak => buf.push('\n'),
-            Event::HardBreak => buf.push('\n'),
-
-            // ── Rule ──
-            Event::Rule => {
-                flush_text(&mut buf, &mut elements);
-                elements.push(container(horizontal_rule(1)).padding([10, 0]).into());
-            }
-
-            _ => {}
+    #[test]
+    fn spans_use_native_decoration_and_theme_colors_without_link_actions() {
+        for theme in [Theme::Dark, Theme::Light] {
+            let colors = Colors::new(&theme);
+            let span = styled_span(
+                Run {
+                    text: "label".into(),
+                    source: 0..5,
+                    style: Style {
+                        strike: true,
+                        link: Some("javascript:alert(1)".into()),
+                        ..Style::default()
+                    },
+                },
+                false,
+                colors,
+            );
+            assert!(span.underline && span.strikethrough);
+            assert_eq!(span.color, Some(theme.palette().primary));
+            assert_eq!(span.link, None); // Merely styled: no URL launch message.
+            assert_ne!(colors.surface, theme.palette().background);
         }
     }
 
-    flush_text(&mut buf, &mut elements);
-
-    if elements.is_empty() {
-        elements.push(
-            text("Empty document")
-                .size(14)
-                .color([0.45, 0.45, 0.55])
-                .into(),
-        );
-    }
-
-    column(elements).spacing(2).into()
-}
-
-fn flush_text<'a>(buf: &mut String, elements: &mut Vec<Element<'a, Message>>) {
-    let trimmed = buf.trim().to_string();
-    buf.clear();
-
-    if !trimmed.is_empty() {
-        elements.push(
-            container(text(trimmed).size(16.0).color([0.85, 0.86, 0.92]))
-                .padding([3, 0])
-                .into(),
-        );
+    #[test]
+    fn renderer_builds_owned_widgets_for_nested_and_unsupported_content() {
+        for theme in [Theme::Dark, Theme::Light] {
+            let source = "# **Title**\n\n> - [x] item\n>   - child\n\n```rs\na\n\n```\n\n|a|b|\n|-|-|\n|c|d|\n\n<script>inert</script>\n";
+            let _view: Element<'static, Message> = render_preview(source, &theme);
+        }
     }
 }

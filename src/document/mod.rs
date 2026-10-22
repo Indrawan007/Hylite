@@ -1,6 +1,7 @@
 mod code_context;
 pub(crate) mod history;
 mod preview;
+mod preview_model;
 mod snapshot;
 mod state;
 

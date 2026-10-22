@@ -313,6 +313,38 @@ def exercise_navigation(desktop, artifacts):
     desktop.expect_copy("Find: all panel navigation leaves document undo history intact", welcome, refocus=False)
 
 
+
+def exercise_preview(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("# Native **preview**\n\n"
+              "café🙂 *italic* ~~strike~~ `code` [inert link](https://example.invalid)\n\n"
+              "> Quote\n>\n> 3. ordered\n>    - [x] nested task\n\n"
+              "```rust\n\tlet x = 1;  \n\n```\n\n"
+              "| a | b |\n| --- | --- |\n| c | d |\n\n"
+              "<script>inert source</script>\n\n"
+              "![not fetched](https://example.invalid/image.png) $x+1$\n\t").encode("utf-8")
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Preview fixture: exact Source before mode change", source, refocus=False)
+    desktop.key("ctrl+shift+m")  # Source -> Preview; no editable text widget.
+    desktop.screenshot(artifacts / "preview-native.png")
+    desktop.type_ascii("LEAK")
+    for key in ["Return", "ctrl+b", "ctrl+z"]:
+        desktop.key(key)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "950", "650",
+                    "click", "--repeat", "8", "--delay", "70", "5")
+    desktop.screenshot(artifacts / "preview-fallbacks.png")
+    desktop.key("ctrl+shift+m")  # Preview -> Split.
+    desktop.screenshot(artifacts / "preview-split.png")
+    # Mode switching is not a focus-restoration claim: explicitly click the
+    # Source half of Split before taking a fresh, byte-exact clipboard sample.
+    desktop.expect_copy("Preview is read-only and Split retains exact Source", source)
+    desktop.key("ctrl+shift+m")  # Split -> Source.
+    desktop.expect_copy("Full preview cycle preserves terminal whitespace", source)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Preview rendering and blocked input add no undo entry", welcome, refocus=False)
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -425,6 +457,7 @@ def main():
                 desktop = Desktop(app, env, log)
                 exercise(desktop, artifacts)
                 exercise_navigation(desktop, artifacts)
+                exercise_preview(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -444,7 +477,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; no file portal, Wayland or visual assertions",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split cycle, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

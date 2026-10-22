@@ -1,6 +1,6 @@
-# Arsitektur setelah iterasi Source 4a–4j
+# Arsitektur: Source 4a–4j dan preview read-only 5a
 
-Build debug, Clippy dan **320 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
+Baseline sebelum Stage 5a: build debug, Clippy dan **320 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -27,6 +27,30 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 - **`source_focus.rs`**: operasi fokus Source idempoten melalui scope container bernama (API publik Iced), bukan `focus_next` yang dapat melepas fokus editor yang sudah fokus. Hanya menyentuh subtree Source; panel query berada di luar scope. Unit test memeriksa pengulangan, scope nested/anonim, dan scope yang tidak ada.
 - **`editor.rs`**: enum mode/tema yang bisa diserialisasi, konversi font saat startup, dan binding editing native yang hanya aktif saat editor fokus. Source dan Split menggunakan builder view source yang sama.
 - **`ui/confirmation.rs` dan `ui/notifications.rs`**: hanya presentasi serta penerbitan message; tidak menulis file atau mengubah dokumen secara langsung.
+
+## Preview native read-only (Stage 5a)
+
+`document/preview_model.rs` mengubah stream offset `pulldown-cmark 0.12.2` menjadi
+model owned: block, child blocks, inline runs dan gaya gabungan. Parser tidak
+bergantung pada Iced. Opsi extension eksplisit (strike, task, table, footnote,
+math); tidak memakai `Options::all`. Nesting block dan stack gaya inline dibatasi
+24; bagian lebih dalam tampil sebagai source literal, bukan hilang. Batas ini
+bukan budget CPU/memori total atau jaminan untuk file besar.
+
+`document/preview.rs` mengonsumsi model menjadi widget Iced, bukan HTML/WebView.
+Font strong/emphasis/code digabung, strike/underline memakai dekorasi span native,
+heading memakai ukuran per level. List/quote mempertahankan child blocks;
+code payload tidak di-trim. Warna berasal dari tema aplikasi. Tidak ada callback
+link, image loader, HTML execution, worker I/O, atau message pengubah dokumen.
+Fallback unsupported tetap terlihat sebagai source, bukan dipipihkan/dihapus.
+
+`app::view_preview` memakai **buffer_text raw**, bukan serializer yang dapat
+menambah LF. Source dan Split tetap menggunakan satu native buffer otoritatif.
+Rentang UTF-8 di model/tooltip hanya provenance; entity, escape dan soft break
+mengubah display text. Ini belum AST editable, WYSIWYG, hit-testing caret,
+selection mapping atau sinkronisasi scroll. Parsing dan widget dibangun ulang
+per view; caching/incremental parsing/virtualisasi belum diimplementasikan.
+Lihat [cakupan, batas, dan bukti pengujian](testing-stage5a.md).
 
 ## Invariant dokumen
 

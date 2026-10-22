@@ -81,5 +81,7 @@ serta close ketika save in-flight tetap belum diuji end-to-end.
   dan [Tahap 4](testing-stage4.md) pada salinan dokumen dan konfigurasi sementara.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
-Gate build/lint/tes native kini terpenuhi. **Tahap 4 belum dinyatakan selesai dan
-Tahap 5 renderer/WYSIWYG belum dimulai.** Tidak ada merge ke `main` dalam verifikasi ini.
+Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
+Stage 5a renderer read-only kini mulai diimplementasikan; hasil terbaru dan batasnya
+dipisahkan di [catatan Stage 5a](testing-stage5a.md). WYSIWYG tetap belum ada.
+Tidak ada merge ke `main` dalam verifikasi ini.

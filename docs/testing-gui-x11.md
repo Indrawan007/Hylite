@@ -179,3 +179,17 @@ IME/RTL, soft-wrap/viewport, mouse selection kompleks dan compositor shortcuts
 masih membutuhkan [checklist desktop Tahap 4](testing-stage4.md) beserta
 [Tahap 2](testing-stage2.md) dan [Tahap 3](testing-stage3.md). Tes ini tidak
 menjadikan Tahap 4 selesai atau aplikasi siap menyimpan dokumen penting.
+
+## Tambahan runner Stage 5a: Preview/Split
+
+Setelah navigasi dan sebelum lifecycle, runner memasang fixture Unicode dengan
+heading/inline/list/quote/code/table/HTML/image/math, lalu menjalankan
+Source → Preview → Split → Source lewat Ctrl+Shift+M. Ketikan, Enter, bold, dan
+Undo saat Preview tidak boleh mengubah Source. Copy baru pada Split dan Source
+harus byte-exact, termasuk terminal tab/LF; satu Undo kembali ke welcome clean.
+Pada perpindahan mode ini Copy **sengaja mengklik Source**; bukan bukti pemulihan
+fokus otomatis. Gate navigasi/lifecycle tanpa klik tetap dipertahankan.
+
+Screenshot tambahan `preview-native.png`, `preview-fallbacks.png` (setelah wheel)
+dan `preview-split.png` merekam jendela nyata, tetapi bukan assertion pixel/glyph.
+Hasil dan keterbatasan pengujian renderer ada di [Stage 5a](testing-stage5a.md).

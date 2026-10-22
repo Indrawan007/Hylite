@@ -6,7 +6,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 
 ## Fitur yang sudah diimplementasikan
 
-- Editor Source, preview native sederhana, dan Split view.
+- Editor Source, preview read-only native terstruktur (Stage 5a), dan Split view.
 - Open, Save, Save As, dan ekspor HTML dengan CSS Catppuccin.
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
@@ -16,7 +16,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
 
-Preview belum mendukung seluruh struktur Markdown. Ekspor HTML menggunakan renderer `pulldown-cmark` dan cakupannya lebih lengkap daripada preview native.
+Preview Stage 5a memakai model block/inline dan rich text Iced: heading, bold/italic/strike, inline code, tautan bergaya read-only, nested list/task/quote, code block, dan rule. Warna mengikuti tema. Tabel/HTML/footnote/math tampil sebagai sumber inert; gambar tidak dimuat dan tautan tidak dibuka. Ini **belum WYSIWYG** atau source↔caret mapping. [Cakupan dan pengujian renderer](docs/testing-stage5a.md). Ekspor HTML tetap independen dan lebih lengkap daripada preview native.
 
 ## Build di Arch Linux
 
@@ -67,11 +67,13 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 ### Status verifikasi — 22 Oktober 2026
 
+Implementasi Stage 5a menambahkan gate renderer dan siklus Preview/Split; hasil terbaru dicatat di [Stage 5a](docs/testing-stage5a.md). Angka baseline berikut adalah bukti historis sebelum perubahan renderer.
+
 - Format seluruh sumber sudah diperiksa dengan rustfmt 1.8.0 / Rust 1.88.0.
 - `Cargo.lock` dihasilkan oleh Cargo 1.88.0 menggunakan data indeks crates.io resmi melalui GitHub; bukan lockfile buatan tangan.
 - **150 test inti Source** (history, pencarian, transformasi inline/block, lexer syntax, continuation list, navigasi baris/kolom, operasi baris, tracker operasi) lolos dengan rustc melalui `./scripts/test-source-core.sh`, tanpa dependensi Cargo. Harness memakai modul produksi langsung; ini bukan pengujian integrasi Iced atau seluruh suite aplikasi.
-- **Build native debug, Clippy `-D warnings`, dan 320 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39713905090](https://github.com/Indrawan007/Hylite/actions/runs/39713905090), commit `d03197b`. Sebanyak 150 tes core di atas juga termasuk dalam 320 tes Cargo, bukan tambahan 150 tes unik.
-- **Smoke GUI X11/Xvfb + tiny-skia lulus**: 63 pemeriksaan (49 clipboard, 12 title konfirmasi, 2 exit native normal). Selain navigasi Go to Line/Find, alur New/Cancel/Discard dan close dirty/clean telah diuji. Cancel memulihkan fokus Source atau query tanpa klik. Close memakai WM_DELETE_WINDOW, bukan force-kill. [Bukti GUI](docs/testing-gui-x11.md) dan [lifecycle](docs/testing-lifecycle-x11.md).
+- **Baseline sebelum Stage 5a: build native debug, Clippy `-D warnings`, dan 320 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39713905090](https://github.com/Indrawan007/Hylite/actions/runs/39713905090), commit `d03197b`. Sebanyak 150 tes core di atas juga termasuk dalam 320 tes Cargo, bukan tambahan 150 tes unik.
+- **Baseline sebelum Stage 5a: smoke GUI X11/Xvfb + tiny-skia lulus**: 63 pemeriksaan (49 clipboard, 12 title konfirmasi, 2 exit native normal). Selain navigasi Go to Line/Find, alur New/Cancel/Discard dan close dirty/clean telah diuji. Cancel memulihkan fokus Source atau query tanpa klik. Close memakai WM_DELETE_WINDOW, bukan force-kill. [Bukti GUI](docs/testing-gui-x11.md) dan [lifecycle](docs/testing-lifecycle-x11.md).
 - **14 tes Python helper** (3 reporter + 11 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat, cakupan, dan batas bukti.
 - Wayland/Hyprland, portal file dialog, IPC, IME/RTL, fokus pada desktop target/viewport dan renderer GPU tetap membutuhkan sesi desktop target. Smoke X11 dan unit test tidak menggantikan pengujian tersebut.
 
