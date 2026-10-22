@@ -1,6 +1,29 @@
 # Verifikasi build dan tes native — 22 Oktober 2026
 
-## Stage 6f terbaru — alignment kolom tabel root
+## Stage 6g terbaru — whole raw body row tabel root
+
+[CI 39787971305](https://github.com/Indrawan007/Hylite/actions/runs/39787971305),
+`3590d56d6e5933d85b7ad74e868b5fc562a97ee0`, job `119856055204` **success** pada
+22 Oktober 2026, 13:34:07–13:41:52 UTC. Native debug build, format, strict Clippy,
+**581 Cargo**, **218 strict core** (subset Cargo), **31 Python**, **116 regresi +
+9 task-batch + 9 table-alignment + 9 table-rows GUI** lulus. Keempat suite GUI
+private Xvfb terpisah, alarm180s/step5min masing-masing, job45min tetap. Total143
+checks = 126 clipboard + 12 title + 5 exit alami.
+
+Row step 13:41:33–13:41:46 UTC membuktikan raw Duplicate/Delete, scoped history,
+Split Source focus/caret tanpa refocus dan natural Close. Header/delimiter/raw
+inline/UTF-8/escaped pipe/ragged row/suffix/terminal tab dipertahankan. Cap lama
+128 row/512 sel dan snapshot/root provenance diperiksa di planner/model/controller.
+Semua 12 body phase regresi dan body batch/alignment tetap sama secara AST dengan
+Stage 6f, tanpa perubahan oracle/koordinat/deadline gate lama. Artifact
+`12431131246`, 1.742.544 bytes belum expired saat diperiksa; screenshot belum
+direview visual. [Kontrak dan batas Stage 6g](testing-stage6g.md).
+
+Bukan WYSIWYG umum, arbitrary cell editing, pixel/glyph proof atau verifikasi
+Arch/Hyprland/Wayland/portal/GPU/IME/RTL; EOF tanpa LF/non-pipe row konservatif
+belum memperoleh row actions.
+
+## Stage 6f — alignment kolom tabel root
 
 [CI 39784983010](https://github.com/Indrawan007/Hylite/actions/runs/39784983010),
 `894227f3d863a396bc2f05a8fccbb5d1a8571fd5`, job `119845680831` **success** pada
@@ -249,6 +272,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task dan 6f alignment kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6f](testing-stage6f.md).
+6e batch task, 6f alignment kolom dan 6g duplikasi/hapus raw body row root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6g](testing-stage6g.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

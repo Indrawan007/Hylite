@@ -464,3 +464,34 @@ GUI**. Alignment step 13:20:20–13:20:34 UTC, 22 Oktober 2026. Total 134 checks
 berukuran 1.668.936 bytes belum expired saat diperiksa, screenshot belum direview
 visual. Query-focus runtime/alignment glyph/keyboard menu/HiDPI/accessibility dan
 Arch/Hyprland/Wayland/portal/GPU tetap belum diverifikasi.
+
+## Tambahan runner Stage 6g: raw body row dalam suite privat keempat
+
+`--suite table-rows` menambah invokasi private Xvfb/app/XDG/env/clipboard baru,
+bukan mengurangi atau memindah 116 regresi, 9 batch atau 9 alignment checks lama.
+Keempat suite tetap alarm180s/step5min, budget job45min. Table picker yang sama
+kini `Table actions…`; opsi alignment tetap pertama, ukuran dan bar height lama
+utuh, sehingga gate alignment dijalankan tanpa perubahan koordinat/bytes/refocus.
+
+Row suite memiliki 8 exact Copy + 1 clean client Close exit alami. Preview Row 1
+Duplicate menyalin whole raw LF line (UTF-8/inline/escaped pipe/entity/indent),
+Undo/Redo memulihkan source persis. Split Row 2 Delete kemudian sentinel X tanpa
+Source refocus membuktikan caret pada awal physical line berikutnya. Dua Source
+Undo memisahkan native typing vs Delete; Undo Duplicate/paste kembali welcome
+clean. Header/delimiter/ragged row/suffix/terminal tab dipertahankan. Empat klik
+hanya kontrol produk, semua Copy `refocus=False`, tanpa runtime hook/retry.
+
+Dua Python helper mengunci literal expected lines independen, shortcut/klik/
+no-refocus/exit dan exclusive suite dispatch; private DISPLAY guard diperluas ke
+empat suite. Artefak `table-rows/rows-preview.png` / `rows-split.png` bukan pixel
+oracle. [Kontrak, hasil aktual dan batas Stage 6g](testing-stage6g.md). Tidak
+mengklaim row query-focus runtime, keyboard/menu scroll atau desktop Wayland.
+
+[CI 39787971305](https://github.com/Indrawan007/Hylite/actions/runs/39787971305)
+pada `3590d56` **success**: 581 Cargo / 218 core (subset) / 31 Python /
+**116+9+9+9 GUI**. Row step 13:41:33–13:41:46 UTC, 22 Oktober 2026. Total143
+checks pada empat suite (126 clipboard, 12 title, 5 exit alami), bukan deadline
+lebih besar. Artifact `12431131246` berukuran 1.742.544 bytes, belum expired saat
+diperiksa; screenshot belum direview visual. Query-focus runtime, menu scroll/
+keyboard, glyph/HiDPI/accessibility dan Arch/Hyprland/Wayland/portal/GPU belum
+diverifikasi. EOF tanpa LF/non-pipe body row tetap tidak editable lewat row menu.
