@@ -27,6 +27,14 @@ pada `ee73f2b` juga lulus, termasuk **smoke GUI aplikasi sebenarnya** melalui
 X11/Xvfb + tiny-skia dan 9 tes Python helper. Lihat [bukti GUI terpisah](testing-gui-x11.md);
 pengujian desktop Wayland/Arch/Hyprland tetap belum dilakukan.
 
+Update navigasi/fokus: [CI run 39711916704](https://github.com/Indrawan007/Hylite/actions/runs/39711916704),
+commit `72835cb`, lulus **315 tes Cargo**, 11 tes Python helper dan 34 pemeriksaan
+GUI X11 (23 di antaranya tanpa refocus mouse). Tiga tes Cargo tambahan menguji
+operasi fokus Source: idempoten, scope tidak menyentuh widget lain, dan scope
+hilang adalah no-op. Smoke tanpa klik menemukan kehilangan fokus setelah undo;
+operasi `focus_next` diganti dengan fokus idempoten dalam subtree container
+Source. Lihat detail dan batas buktinya di [catatan GUI](testing-gui-x11.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

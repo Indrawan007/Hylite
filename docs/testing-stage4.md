@@ -8,8 +8,8 @@
 - Harness tidak mengimpor Iced, tidak membuka dialog, dan tidak menyentuh konfigurasi pengguna.
 - Format sumber, pemeriksaan whitespace diff, dan metadata Cargo tanpa dependensi diperiksa terpisah. Ketiganya bukan type-check aplikasi.
 - Clippy 1.88 pada harness inti juga lolos dengan `-D warnings`; ini tidak memeriksa modul aplikasi/Iced.
-- **Build debug, Clippy `-D warnings` dan suite Cargo: 312 passed, 0 failed** pada CI Ubuntu 24.04 / Rust stable, `--locked --all-targets --all-features`. Lihat [bukti native](verification-native.md). Sebanyak 150 tes harness juga termasuk dalam 312 tes Cargo, bukan tambahan tes unik. Sembilan tes Python helper CI/GUI juga lulus.
-- [Smoke GUI X11 virtual](testing-gui-x11.md) lulus pada aplikasi sebenarnya untuk clipboard UTF-8/tab/LF akhir, undo/redo dan burst keyboard. Tidak ada hasil desktop Wayland/Arch/Hyprland yang dinyatakan lulus. Hambatan unduhan dependensi lokal sebelumnya diatasi untuk gate ini dengan menjalankan native CI, bukan dengan menganggap harness sebagai pengganti Cargo.
+- **Build debug, Clippy `-D warnings` dan suite Cargo: 315 passed, 0 failed** pada CI Ubuntu 24.04 / Rust stable, `--locked --all-targets --all-features`. Lihat [bukti native](verification-native.md). Sebanyak 150 tes harness juga termasuk dalam 315 tes Cargo, bukan tambahan tes unik. Sebelas tes Python helper CI/GUI juga lulus.
+- [Smoke GUI X11 virtual](testing-gui-x11.md) lulus: 34 pemeriksaan, termasuk 23 pemeriksaan query/caret/fokus Go to Line dan Find tanpa klik mouse. Alur undo setelah navigasi menemukan bug `focus_next` yang melepas fokus Source; sudah diganti operasi scoped idempoten dan ditambah 3 regresi Rust. Tidak ada hasil desktop Wayland/Arch/Hyprland yang dinyatakan lulus. Hambatan unduhan dependensi lokal sebelumnya diatasi untuk gate ini dengan menjalankan native CI, bukan dengan menganggap harness sebagai pengganti Cargo.
 
 Jalankan ulang inti tanpa unduhan crate (cukup Bash dan rustc):
 
@@ -63,7 +63,7 @@ scratch=$(mktemp -d)
 XDG_CONFIG_HOME="$scratch" cargo run --locked
 ```
 
-Semua item berikut masih perlu diuji, bukan daftar hasil kelulusan:
+Semua item berikut adalah checklist manual desktop target Wayland/Hyprland, bukan daftar hasil kelulusan. Smoke X11 otomatis hanya membuktikan skenario terbatas di atas dan tidak mencentang checklist ini:
 
 ### History dan save
 
@@ -154,7 +154,7 @@ Seluruh skenario desktop ini masih **belum dijalankan**:
 - [ ] Edit buffer setelah panel terbuka: Go memakai rentang terbaru. New/Open sukses menghapus state panel; submit setelah panel tertutup tidak boleh meloncat di dokumen baru. Prompt/Open memblokir query/submit; save/ekspor biasa tidak.
 - [ ] Navigasi tidak mengubah dirty, revisi/state ID, checkpoint tersimpan, stack undo atau redo; ketikan sebelum/sesudah command menjadi burst berbeda. Save yang sedang berjalan tetap mencatat checkpoint yang sama sesudah navigasi.
 - [ ] Find dan Go to Line bergantian, termasuk F3. Navigasi berhasil membersihkan active match sehingga Replace memerlukan Next lagi, tetapi query/replacement/count Find dipertahankan. Preview menutup panel. Escape tetap memprioritaskan prompt/error sebelum panel, lalu Zen.
-- [ ] Caret benar-benar terlihat dan fokus kembali ke editor setelah submit/close, termasuk soft-wrap, scroll jauh, font alternatif, window sempit, IME dan RTL. API rekonstruksi caret/fokus ini belum dibuktikan melalui GUI; jangan menganggap test resolver sebagai jaminan viewport.
+- [ ] Caret benar-benar terlihat dan fokus kembali ke editor setelah submit/close, termasuk soft-wrap, scroll jauh, font alternatif, window sempit, IME dan RTL. Smoke X11 membuktikan caret/fokus keyboard pada fixture terbatas, bukan viewport; jangan menganggap test resolver atau hasil X11 sebagai jaminan scrolling/fokus desktop target.
 - [ ] Uji latensi dokumen sintetis. Belum ada indeks baris incremental atau gutter; scan/salin/rebuild masih O(n). Nomor baris terpisah tanpa data layout/scroll Iced tidak boleh dianggap selaras.
 
 ### Deletion coalescing (4g)

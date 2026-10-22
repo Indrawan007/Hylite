@@ -295,7 +295,7 @@ def main():
                 exercise(desktop, artifacts)
                 exercise_navigation(desktop, artifacts)
                 status = "passed"
-                print("GUI X11/tiny-skia smoke passed (not a Hyprland/Wayland test).", flush=True)
+                print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
             except Exception as error:
                 error_message = str(error)
                 if desktop:

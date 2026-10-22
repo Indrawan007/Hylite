@@ -70,10 +70,10 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 - Format seluruh sumber sudah diperiksa dengan rustfmt 1.8.0 / Rust 1.88.0.
 - `Cargo.lock` dihasilkan oleh Cargo 1.88.0 menggunakan data indeks crates.io resmi melalui GitHub; bukan lockfile buatan tangan.
 - **150 test inti Source** (history, pencarian, transformasi inline/block, lexer syntax, continuation list, navigasi baris/kolom, operasi baris, tracker operasi) lolos dengan rustc melalui `./scripts/test-source-core.sh`, tanpa dependensi Cargo. Harness memakai modul produksi langsung; ini bukan pengujian integrasi Iced atau seluruh suite aplikasi.
-- **Build native debug, Clippy `-D warnings`, dan 312 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39710774126](https://github.com/Indrawan007/Hylite/actions/runs/39710774126), commit `ee73f2b`. Sebanyak 150 tes core di atas juga termasuk dalam 312 tes Cargo, bukan tambahan 150 tes unik.
-- **Smoke GUI X11/Xvfb + tiny-skia lulus** pada aplikasi sebenarnya: copy baseline, paste Unicode/tab/LF akhir, undo/redo dan title dirty/clean, serta ketikan keyboard satu burst undo. Ada 11 pemeriksaan byte-exact/clipboard yang berhasil; bukan 11 unit test Rust tambahan. [Bukti dan batas GUI](docs/testing-gui-x11.md).
-- **9 tes Python helper** (3 reporter + 6 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat, cakupan, dan batas bukti.
-- Wayland/Hyprland, portal file dialog, IPC, IME/RTL, fokus/viewport dan renderer GPU tetap membutuhkan sesi desktop target. Smoke X11 dan unit test tidak menggantikan pengujian tersebut.
+- **Build native debug, Clippy `-D warnings`, dan 312 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39711916704](https://github.com/Indrawan007/Hylite/actions/runs/39711916704), commit `72835cb`. Sebanyak 150 tes core di atas juga termasuk dalam 315 tes Cargo, bukan tambahan 150 tes unik.
+- **Smoke GUI X11/Xvfb + tiny-skia lulus**: 34 pemeriksaan clipboard, termasuk 23 pemeriksaan navigasi/fokus tanpa klik mouse. Go to Line menguji kolom scalar Unicode, alamat invalid dan Escape; Find menguji match pertama/berikutnya/wrap/mundur. Karakter penanda membuktikan posisi caret dan fokus Source, lalu undo memeriksa query/navigasi tidak menjadi edit dokumen. [Bukti dan batas GUI](docs/testing-gui-x11.md).
+- **11 tes Python helper** (3 reporter + 8 runner GUI) lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk riwayat, cakupan, dan batas bukti.
+- Wayland/Hyprland, portal file dialog, IPC, IME/RTL, fokus pada desktop target/viewport dan renderer GPU tetap membutuhkan sesi desktop target. Smoke X11 dan unit test tidak menggantikan pengujian tersebut.
 
 ## Konfigurasi
 
@@ -208,7 +208,7 @@ Nol, tanda plus/minus, digit non-ASCII, format salah, integer overflow, alamat >
 
 Navigasi berhasil menutup panel dan meminta fokus Source; Escape/Close membatalkan panel sebelum keluar Zen. Go to Line dan Find tidak ditampilkan bersamaan; berpindah ke Preview menutup panel, sedangkan Ctrl+G dari Preview membuka Source. Navigasi tidak mengedit teks, dirty, revisi, checkpoint, atau stack undo/redo, tetapi menutup burst ketikan dan mengakhiri seleksi saat caret berhasil dipindah. Target Find aktif dibersihkan agar Replace tidak memakai hasil lama. Prompt/Open memblokir navigasi, save/ekspor biasa tidak; New/Open sukses mereset panel agar submit lama tidak berlaku pada dokumen pengganti.
 
-Offset dihitung UTF-8 lalu diterapkan lewat rekonstruksi caret yang sama dengan Find. Masih ada salinan/scan O(ukuran dokumen), bukan indeks baris incremental. Fokus, visibilitas caret, scrolling, dan perilaku IME/RTL native **belum diverifikasi di desktop**. Gutter nomor baris tetap ditunda: `Content` Iced 0.13 tidak membuka layout baris visual/scroll kepada kode aplikasi; kolom nomor terpisah tanpa data itu tidak menjamin keselarasan saat soft-wrap.
+Offset dihitung UTF-8 lalu diterapkan lewat rekonstruksi caret yang sama dengan Find. Masih ada salinan/scan O(ukuran dokumen), bukan indeks baris incremental. Caret scalar Unicode dan fokus keyboard setelah submit/Escape sudah dibuktikan pada fixture smoke GUI X11. Visibilitas caret/scrolling/IME/RTL dan perilaku desktop Wayland/Hyprland **belum diverifikasi**. Gutter nomor baris tetap ditunda: `Content` Iced 0.13 tidak membuka layout baris visual/scroll kepada kode aplikasi; kolom nomor terpisah tanpa data itu tidak menjamin keselarasan saat soft-wrap.
 
 ### Enter pada list (4e)
 
