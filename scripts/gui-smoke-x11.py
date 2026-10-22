@@ -93,22 +93,32 @@ class Desktop:
         self.owners.append(owner)
         owner.stdin.write(data)
         owner.stdin.close()
-        self.wait("Clipboard fixture ownership", lambda: self.clipboard() == data)
+        observed = None
+
+        def owned():
+            nonlocal observed
+            observed = self.clipboard()
+            return observed == data
+        try:
+            self.wait("Clipboard fixture ownership", owned)
+        except TimeoutError as error:
+            raise TimeoutError(f"Clipboard ownership: owner status={owner.poll()}, expected {data[:300]!r}, got {observed[:300] if observed is not None else None!r}") from error
 
     def expect_copy(self, description, expected):
         # Changing ownership BEFORE Ctrl+C prevents a false pass from simply
         # reading the bytes we staged for Ctrl+V. Never strip whitespace or LF.
         marker = f"hylite-copy-not-acknowledged-{uuid.uuid4()}".encode("ascii")
         self.put_clipboard(marker)
+        # Dispatch Copy ONCE, then only observe. Repeated Copy in the poll
+        # could leave another asynchronous clipboard write queued after success,
+        # stealing ownership from the next Paste fixture.
+        self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
+        self.key("ctrl+a")
+        self.key("ctrl+c")
         actual = None
 
         def copied():
             nonlocal actual
-            # The X window can be mapped before its first Iced frame. Retry a
-            # harmless focus/Select All/Copy until the app acknowledges it.
-            self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
-            self.key("ctrl+a")
-            self.key("ctrl+c")
             actual = self.clipboard()
             return actual == expected
 

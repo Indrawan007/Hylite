@@ -65,6 +65,21 @@ class SmokeHelperTests(unittest.TestCase):
             desktop.expect_copy("exact", b"text\n\t")
         self.assertEqual(desktop.passed, ["exact"])
 
+    def test_poll_does_not_queue_additional_copy_writes(self):
+        desktop = self.copy_probe(b"text\n\t")
+        keys = []
+        desktop.key = keys.append
+        reads = iter([b"not-ready", b"text\n\t"])
+        desktop.clipboard = lambda: next(reads)
+
+        def delayed(_description, condition):
+            self.assertFalse(condition())
+            self.assertTrue(condition())
+        desktop.wait = delayed
+        with patch("sys.stdout", new_callable=io.StringIO):
+            desktop.expect_copy("delayed", b"text\n\t")
+        self.assertEqual(keys, ["ctrl+a", "ctrl+c"])
+
     def test_missing_copy_or_whitespace_loss_cannot_false_pass(self):
         for actual in (None, b"text", b"text\n", b"text\n\t\n"):
             with self.subTest(actual=actual):
