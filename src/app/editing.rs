@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 impl Hylite {
     pub(crate) fn source_edit_allowed(&self) -> bool {
-        self.pending_action.is_none()
+        self.cell_draft.is_none()
+            && self.pending_action.is_none()
             && self.mode != EditMode::Preview
             && !self
                 .operations
@@ -28,7 +29,7 @@ impl Hylite {
         }
     }
 
-    fn edited(&mut self) {
+    pub(super) fn edited(&mut self) {
         self.refresh_search();
         if self.document.history_limited() {
             self.status_message =
@@ -41,7 +42,9 @@ impl Hylite {
     /// tree. Restore the logical input context instead of relying on the old
     /// widget's focus surviving. Preview never steals focus; no document mutation.
     pub(super) fn restore_input_focus(&self) -> Task<Message> {
-        if self.mode == EditMode::Preview {
+        if self.cell_draft.is_some() {
+            iced::widget::text_input::focus(crate::ui::cell_edit::input_id())
+        } else if self.mode == EditMode::Preview {
             Task::none()
         } else if self.go_to.open {
             iced::widget::text_input::focus(crate::ui::navigation::query_id())

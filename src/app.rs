@@ -1,3 +1,4 @@
+mod cell_edit;
 mod editing;
 mod file_actions;
 mod navigation;
@@ -19,6 +20,7 @@ pub struct Hylite {
     pub document: Document,
     pub search: crate::search::Search,
     pub go_to: crate::navigation::GoTo,
+    pub cell_draft: Option<crate::ui::cell_edit::Draft>,
     pub mode: EditMode,
     pub sidebar_open: bool,
     pub zen_mode: bool,
@@ -57,6 +59,7 @@ impl Hylite {
                 document: Document::new(include_str!("welcome.md")),
                 search: crate::search::Search::default(),
                 go_to: crate::navigation::GoTo::default(),
+                cell_draft: None,
                 mode,
                 sidebar_open: true,
                 zen_mode: false,
@@ -89,10 +92,32 @@ impl Hylite {
             Some(PendingAction::Close(_)) => " [confirm Close]",
             None => "",
         };
-        format!("{filename}{dirty}{zen}{confirmation} — Hylite")
+        let draft = if self.cell_draft.is_some() {
+            " [cell draft]"
+        } else {
+            ""
+        };
+        format!("{filename}{dirty}{zen}{confirmation}{draft} — Hylite")
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        if self.cell_draft.is_some() {
+            if matches!(&message, Message::ExitZenMode) {
+                return self.cancel_preview_cell();
+            }
+            if !matches!(
+                &message,
+                Message::PreviewCellChanged(_)
+                    | Message::ApplyPreviewCell
+                    | Message::CancelPreviewCell
+                    | Message::EndTypingGroup
+                    | Message::FileOpened(..)
+                    | Message::FileSaved(..)
+                    | Message::HtmlExported(..)
+            ) {
+                return Task::none();
+            }
+        }
         // UI commands/focus changes are boundaries. Async replies are not user
         // gestures: stale results must not split an in-progress typing burst.
         if !matches!(
@@ -105,6 +130,10 @@ impl Hylite {
             self.document.break_undo_group();
         }
         match message {
+            Message::OpenPreviewCell(target) => self.open_preview_cell(target),
+            Message::PreviewCellChanged(value) => self.change_preview_cell(value),
+            Message::ApplyPreviewCell => self.apply_preview_cell(),
+            Message::CancelPreviewCell => self.cancel_preview_cell(),
             Message::EndTypingGroup => Task::none(),
             Message::Edit(action) => self.edit_native(action),
             Message::InsertNewline => self.insert_newline(),
@@ -287,6 +316,8 @@ impl Hylite {
                 self.operations.active().is_none(),
                 self.file_error.as_deref().unwrap_or(&self.status_message),
             )
+        } else if let Some(draft) = &self.cell_draft {
+            crate::ui::cell_edit::view(draft)
         } else if self.zen_mode {
             self.view_zen()
         } else {

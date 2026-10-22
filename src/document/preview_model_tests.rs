@@ -798,3 +798,50 @@ fn nested_eof_and_non_pipe_body_lines_do_not_gain_row_edit_metadata() {
         check(&parse(source));
     }
 }
+
+#[test]
+fn editable_cell_payloads_are_trimmed_raw_ranges_agreeing_with_real_parser_cells() {
+    let source = "| a | b |\n|---|---|\n| café🙂 **raw** | a\\|b |\n";
+    let blocks = parse(source);
+    let Kind::Table(table) = &blocks[0].kind else {
+        panic!("table")
+    };
+    assert_eq!(
+        table
+            .editable_cells
+            .as_ref()
+            .unwrap()
+            .iter()
+            .flatten()
+            .map(|r| source.get(r.clone()).unwrap())
+            .collect::<Vec<_>>(),
+        ["a", "b", "café🙂 **raw**", "a\\|b"]
+    );
+}
+#[test]
+fn nested_ragged_extra_missing_edge_pipes_and_fallback_have_no_cell_payload_metadata() {
+    fn check(blocks: &[Block]) {
+        for block in blocks {
+            if let Kind::Table(table) = &block.kind {
+                assert!(table.editable_cells.is_none());
+            }
+            check(&block.children);
+        }
+    }
+    for source in [
+        "> |a|b|\n> |-|-|\n> |x|y|\n",
+        "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        "|a|b|\n|-|-|\n|x|\n",
+        "|a|b|\n|-|-|\n|x|y|z|\n",
+        "a|b\n-|-\nx|y\n",
+    ] {
+        check(&parse(source));
+    }
+    let wide = format!(
+        "|{}\n|{}\n|{}\n",
+        "a|".repeat(13),
+        "-|".repeat(13),
+        "x|".repeat(13)
+    );
+    check(&parse(&wide));
+}

@@ -37,6 +37,8 @@ mod preview_heading;
 #[path = "../src/preview_setext.rs"]
 mod preview_setext;
 
+#[path = "../src/preview_cell.rs"]
+mod preview_cell;
 #[path = "../src/preview_table_edit.rs"]
 mod preview_table_edit;
 #[path = "../src/preview_table_row.rs"]

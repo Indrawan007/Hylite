@@ -313,7 +313,7 @@ class SmokeHelperTests(unittest.TestCase):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
-        for suite in ["regression", "task-batch", "table-alignment", "table-rows"]:
+        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells"]:
             with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
                  patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
                  patch("sys.stderr", new_callable=io.StringIO), \
@@ -397,6 +397,41 @@ class SmokeHelperTests(unittest.TestCase):
             regression.assert_not_called()
             batch.assert_not_called()
             alignment.assert_not_called()
+
+    def test_cell_probe_checks_raw_draft_focus_apply_cancel_noop_and_invalid_input(self):
+        desktop=Mock(window="42")
+        with patch.object(gui.time,"sleep"):
+            gui.exercise_table_cells(desktop,Path("/unused-evidence"))
+        source=desktop.paste_from_clean.call_args.args[0]
+        initial="café🙂 **raw**".encode("utf-8")
+        value="new **bold** é🙂".encode("utf-8")
+        edited=source.replace(initial,value,1)
+        sentinel=edited.replace(b"| a\\|b &amp; |",b"| nextX |",1)
+        self.assertEqual(sentinel.splitlines()[2]," | new **bold** é🙂 | nextX |".encode("utf-8"))
+        copies=desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies),13)
+        self.assertEqual([call.args[1] for call in copies[1:12]],[source,initial,source,value,edited,source,edited,edited,edited,sentinel,edited])
+        self.assertEqual(copies[0].args[1],copies[-1].args[1])
+        self.assertTrue(all(call.kwargs=={"refocus":False} for call in copies))
+        self.assertEqual([call.args for call in desktop.type_ascii.call_args_list],[("discard me",),("bad|pipe",),("next",),("X",)])
+        clicks=[call.args for call in desktop.command.call_args_list]
+        self.assertEqual(len(clicks),10)
+        self.assertTrue(all(call[:3]==("xdotool","mousemove","--window") and call[-2:]==("click","1") for call in clicks))
+        self.assertEqual([call[5] for call in clicks[1::2]],["354","354","354","372","372"])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count,3)
+
+    def test_cell_dispatch_adds_a_fifth_independent_suite_without_running_old_probes(self):
+        desktop,artifacts,binary=Mock(),Path("/unused"),Path("/unused/binary")
+        with patch.object(gui,"exercise_table_cells") as cells, \
+             patch.object(gui,"exercise") as regression, \
+             patch.object(gui,"exercise_task_batch") as batch, \
+             patch.object(gui,"exercise_table_alignment") as alignment, \
+             patch.object(gui,"exercise_table_rows") as rows:
+            gui.exercise_suite(desktop,artifacts,binary,"table-cells")
+            cells.assert_called_once_with(desktop,artifacts)
+            regression.assert_not_called(); batch.assert_not_called(); alignment.assert_not_called(); rows.assert_not_called()
 
     def xlib_probe(self, protocols):
         connection = Mock()

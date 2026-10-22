@@ -875,6 +875,92 @@ def exercise_table_rows(desktop, artifacts):
     desktop.expect_native_exit("Row suite clean client Close exits naturally")
 
 
+def exercise_table_cells(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("| Name | Count |\n  | ---  | --: |\n"
+              " | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+    initial = "café🙂 **raw**".encode("utf-8")
+    value = "new **bold** é🙂".encode("utf-8")
+    edited = source.replace(initial, value, 1)
+    sentinel = edited.replace(b"| a\\|b &amp; |", b"| nextX |", 1)
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Cell suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Cell fixture: canonical root table, UTF-8/raw markup/escaped pipe/terminal tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+
+    def draft_title(expected):
+        desktop.wait(f"Cell draft title = {expected}", lambda: ("[cell draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == expected)
+
+    def open_cell(split=False, second=False):
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        time.sleep(0.25)
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080" if split else "900", "372" if second else "354", "click", "1")
+        draft_title(True)  # Alignment 6 + row actions 2 + header cells 2 precede body cells.
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    open_cell()
+    desktop.expect_copy("Cell draft receives exact raw payload and native input focus", initial, refocus=False)
+    desktop.type_ascii("discard me")
+    desktop.key("Escape")
+    draft_title(False)
+    inspect("Escape Cancel keeps every Source byte and creates no cell edit", source)
+    back_to_preview()
+    open_cell()
+    desktop.put_clipboard(value)
+    desktop.key("ctrl+a")
+    desktop.key("ctrl+v")
+    desktop.expect_copy("Unicode Markdown draft paste is consumed by draft input, not Source", value, refocus=False)
+    desktop.key("Return")
+    draft_title(False)
+    desktop.screenshot(artifacts / "cells-preview.png")
+    inspect("Explicit Apply replaces only raw cell payload preserving all outer bytes", edited)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo restores complete pre-Apply source", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    inspect("Preview Redo restores exact Unicode cell edit", edited)
+    open_cell(split=True)
+    desktop.key("Return")
+    draft_title(False)
+    desktop.expect_copy("Unchanged Apply closes draft without source normalization or history step", edited, refocus=False)
+    open_cell(split=True, second=True)
+    desktop.key("ctrl+a")
+    desktop.type_ascii("bad|pipe")
+    desktop.key("Return")
+    draft_title(True)
+    desktop.screenshot(artifacts / "cells-invalid.png")
+    desktop.key("Escape")
+    draft_title(False)
+    desktop.expect_copy("Unsafe unescaped pipe Apply is refused and Cancel keeps table structure", edited, refocus=False)
+    open_cell(split=True, second=True)
+    desktop.key("ctrl+a")
+    desktop.type_ascii("next")
+    desktop.key("Return")
+    draft_title(False)
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split Apply restores Source focus exactly after the new payload", sentinel, refocus=False)
+    desktop.screenshot(artifacts / "cells-split.png")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Cell Apply and native typing are distinct Atomic Undo transactions", edited, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Cancel/no-op/invalid drafts leave no hidden history before clean welcome", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Cell suite clean client Close exits naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -895,13 +981,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_table_alignment(desktop, artifacts)
     elif suite == "table-rows":
         exercise_table_rows(desktop, artifacts)
+    elif suite == "table-cells":
+        exercise_table_cells(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -949,7 +1037,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else "Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof")),
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else "Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof"))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

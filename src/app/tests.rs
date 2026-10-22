@@ -9,6 +9,7 @@ fn app() -> Hylite {
         document: Document::new("Original\n"),
         search: crate::search::Search::default(),
         go_to: crate::navigation::GoTo::default(),
+        cell_draft: None,
         mode: EditMode::Source,
         sidebar_open: true,
         zen_mode: false,
@@ -2525,5 +2526,240 @@ fn row_save_ack_marks_only_the_checkpoint_written_during_preview_undo() {
     let _ = app.update(Message::FileSaved(token, Ok(Some("rows.md".into()))));
     assert!(app.document.is_dirty());
     let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+}
+
+fn cell_target(app: &Hylite, row: usize, column: usize) -> crate::preview_cell::Target {
+    let block = &app.document.preview_blocks()[0];
+    let source = app.document.buffer_text();
+    let cells = crate::preview_cell::cells(&source, &block.source, 2, 2).unwrap();
+    crate::preview_cell::Target {
+        snapshot: app.document.snapshot(),
+        table: block.source.clone(),
+        row,
+        column,
+        rows: 2,
+        columns: 2,
+        payload: cells[row][column].clone(),
+    }
+}
+fn cell_app() -> Hylite {
+    let mut app = app();
+    app.document = Document::new("| a | b |\n|-|-|\n| café🙂 | raw |\n\nafter\n\t");
+    app.mode = EditMode::Preview;
+    app
+}
+#[test]
+fn cell_draft_typing_and_cancel_never_mutate_document_history_dirty_or_cache() {
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let before = (
+        app.document.snapshot(),
+        app.document.buffer_text(),
+        app.document.render_key(),
+    );
+    let _ = app.update(Message::OpenPreviewCell(t));
+    assert!(app.title().contains("[cell draft]"));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "café🙂");
+    let _ = app.update(Message::PreviewCellChanged("**new**".into()));
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.render_key()
+        )
+    );
+    assert!(!app.document.is_dirty() && !app.document.can_undo());
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.cell_draft.is_none());
+    assert!(!app.title().contains("[cell draft]"));
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.render_key()
+        )
+    );
+}
+#[test]
+fn apply_cell_is_one_preview_history_edge_and_preserves_mode_and_raw_spacing() {
+    let mut app = cell_app();
+    let source = app.document.buffer_text();
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("new **é🙂**".into()));
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(
+        app.document.buffer_text(),
+        source.replacen("café🙂", "new **é🙂**", 1)
+    );
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.is_dirty() && !app.document.can_undo());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(app.document.is_dirty());
+}
+#[test]
+fn unchanged_cell_apply_closes_without_clearing_source_redo_or_making_steps() {
+    let mut app = cell_app();
+    assert!(app.document.change(crate::text_edit::TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(app.document.undo());
+    let t = cell_target(&app, 1, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.document.can_redo());
+    assert!(!app.document.can_undo());
+}
+#[test]
+fn invalid_and_oversized_drafts_stay_open_without_applying_truncated_or_unsafe_values() {
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t));
+    for value in [
+        "a|b".to_string(),
+        "line\nbreak".into(),
+        "odd\\".into(),
+        "x".repeat(crate::preview_cell::MAX_BYTES + 1),
+    ] {
+        let _ = app.update(Message::PreviewCellChanged(value));
+        let _ = app.update(Message::ApplyPreviewCell);
+        let draft = app.cell_draft.as_ref().unwrap();
+        assert!(draft.error.is_some());
+        assert!(draft.value.len() <= crate::preview_cell::MAX_BYTES);
+        assert_eq!(app.document.snapshot(), before);
+        assert!(!app.document.can_undo());
+    }
+    let _ = app.update(Message::PreviewCellChanged("a\\|b".into()));
+    assert!(app.cell_draft.as_ref().unwrap().error.is_none());
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert!(app.document.buffer_text().contains("| a\\|b |"));
+}
+#[test]
+fn modal_cell_draft_blocks_source_history_mode_file_and_destructive_commands_until_cancel() {
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewCell(t.clone()));
+    let _ = app.update(Message::PreviewCellChanged("pending".into()));
+    for message in [
+        Message::Undo,
+        Message::Redo,
+        Message::PreviewHistory(false),
+        Message::CycleMode,
+        Message::SwitchMode(EditMode::Source),
+        Message::NewFile,
+        Message::OpenFile,
+        Message::SaveFile,
+        Message::SaveAs,
+        Message::ExportHtml,
+        Message::OpenFind(false),
+        Message::OpenGoTo,
+        Message::CloseRequested(window::Id::unique()),
+        Message::OpenPreviewCell(t),
+    ] {
+        let _ = app.update(message);
+    }
+    edit(&mut app);
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "pending");
+    assert!(app.operations.active().is_none() && app.pending_action.is_none());
+    assert!(!app.document.can_undo());
+    let _ = app.update(Message::CancelPreviewCell);
+    assert!(app.cell_draft.is_none());
+}
+#[test]
+fn stale_cell_apply_keeps_draft_and_rejects_instead_of_rebasing_after_document_change() {
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("pending".into()));
+    app.document.replace(None, "replacement\n");
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert_eq!(app.document.buffer_text(), "replacement\n");
+    let draft = app.cell_draft.as_ref().unwrap();
+    assert_eq!(draft.value, "pending");
+    assert!(draft.error.is_some());
+    let _ = app.update(Message::CancelPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert!(!app.document.is_dirty());
+}
+#[test]
+fn opening_cell_obeys_source_prompt_open_guards_but_accepts_inflight_save_export() {
+    for case in 0..5 {
+        let mut app = cell_app();
+        let t = cell_target(&app, 1, 0);
+        if case == 0 {
+            app.mode = EditMode::Source;
+        }
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case >= 2 {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        let token = app.operations.active();
+        let _ = app.update(Message::OpenPreviewCell(t));
+        assert_eq!(app.cell_draft.is_some(), case >= 3);
+        assert_eq!(app.operations.active(), token);
+        assert!(!app.document.is_dirty());
+    }
+}
+#[test]
+fn split_cell_apply_refreshes_search_and_restores_logical_query_context() {
+    let mut app = cell_app();
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenFind(false));
+    let _ = app.update(Message::FindQueryChanged("needle".into()));
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    assert!(!app.source_edit_allowed());
+    let _ = app.update(Message::PreviewCellChanged("needle".into()));
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none() && app.search.open);
+    assert_eq!(app.search.query, "needle");
+    assert_eq!(app.search.count(), 1);
+    assert_eq!(app.mode, EditMode::Split);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.search.count(), 0);
+}
+#[test]
+fn inflight_save_ack_during_draft_never_saves_unapplied_text_and_apply_remains_dirty() {
+    let mut app = cell_app();
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("pending".into()));
+    let _ = app.update(Message::FileSaved(token, Ok(Some("cell.md".into()))));
+    assert!(app.cell_draft.is_some());
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(false));
     assert!(!app.document.is_dirty());
 }

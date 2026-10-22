@@ -219,7 +219,7 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                 );
             }
         }
-        let choices = table_action_choices(block, snapshot);
+        let choices = table_picker_choices(block, snapshot);
         if !choices.is_empty() {
             actions = actions.push(
                 pick_list(
@@ -312,6 +312,7 @@ fn setext_action(
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TableActionChoice {
     Alignment(TableAlignmentChoice),
+    Cell(crate::preview_cell::Target),
     Row(
         crate::preview_table_row::Target,
         crate::preview_table_row::Action,
@@ -321,6 +322,7 @@ impl TableActionChoice {
     fn message(self) -> Message {
         match self {
             Self::Alignment(choice) => Message::AlignPreviewTable(choice.target, choice.desired),
+            Self::Cell(target) => Message::OpenPreviewCell(target),
             Self::Row(target, action) => Message::EditPreviewTableRow(target, action),
         }
     }
@@ -329,6 +331,7 @@ impl std::fmt::Display for TableActionChoice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Alignment(choice) => choice.fmt(f),
+            Self::Cell(target) => write!(f, "Cell {}:{}: Edit", target.row, target.column + 1),
             Self::Row(target, action) => write!(f, "Row {}: {action}", target.row),
         }
     }
@@ -366,6 +369,29 @@ fn table_action_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
                     },
                     action,
                 ));
+            }
+        }
+    }
+    choices
+}
+
+fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionChoice> {
+    let mut choices = table_action_choices(block, snapshot);
+    let Kind::Table(table) = &block.kind else {
+        return choices;
+    };
+    if let Some(rows) = &table.editable_cells {
+        for (row, cells) in rows.iter().enumerate() {
+            for (column, payload) in cells.iter().enumerate() {
+                choices.push(TableActionChoice::Cell(crate::preview_cell::Target {
+                    snapshot,
+                    table: block.source.clone(),
+                    row,
+                    column,
+                    rows: table.rows.len(),
+                    columns: table.alignments.len(),
+                    payload: payload.clone(),
+                }));
             }
         }
     }
@@ -731,6 +757,52 @@ mod tests {
         fn check(blocks: &[Block]) {
             for block in blocks {
                 assert!(table_action_choices(block, Snapshot::default()).is_empty());
+                check(&block.children);
+            }
+        }
+        check(&super::super::preview_model::parse(
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+        ));
+    }
+    #[test]
+    fn cell_picker_choices_follow_all_old_actions_and_stamp_exact_raw_payload_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 4,
+            revision: 9,
+            state_id: 3,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 12);
+        assert_eq!(
+            &choices[..8],
+            table_action_choices(&blocks[0], snapshot).as_slice()
+        );
+        assert_eq!(choices[8].to_string(), "Cell 0:1: Edit");
+        assert_eq!(choices[10].to_string(), "Cell 1:1: Edit");
+        let TableActionChoice::Cell(target) = &choices[10] else {
+            panic!("cell")
+        };
+        assert_eq!(target.snapshot, snapshot);
+        assert_eq!(target.row, 1);
+        assert_eq!(target.column, 0);
+        assert!(matches!(
+            choices[10].clone().message(),
+            Message::OpenPreviewCell(_)
+        ));
+    }
+    #[test]
+    fn ragged_and_nested_table_pickers_never_offer_cell_edit() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|\n");
+        assert_eq!(
+            table_picker_choices(&blocks[0], Snapshot::default()),
+            table_action_choices(&blocks[0], Snapshot::default())
+        );
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(!table_picker_choices(block, Snapshot::default())
+                    .iter()
+                    .any(|c| matches!(c, TableActionChoice::Cell(_))));
                 check(&block.children);
             }
         }

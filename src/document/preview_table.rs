@@ -30,6 +30,7 @@ pub struct Table {
     /// Canonical root delimiter tokens only; nested/fallback tables stay inert.
     pub delimiters: Option<Vec<Range<usize>>>,
     pub body_lines: Option<Vec<Range<usize>>>,
+    pub editable_cells: Option<Vec<Vec<Range<usize>>>>,
 }
 
 fn fallback(source: &str, range: Range<usize>) -> Block {
@@ -124,12 +125,22 @@ pub(super) fn parse(
                     .all(|(line, row)| line.start <= row.source.start && row.source.end <= line.end)
         })
     });
+    let editable_cells = delimiters.as_ref().and_then(|_| {
+        crate::preview_cell::cells(source, &range, columns, rows.len()).filter(|cells| {
+            cells.iter().zip(&rows).all(|(payloads, row)| {
+                payloads.iter().zip(&row.cells).all(|(payload, cell)| {
+                    cell.source.start <= payload.start && payload.end <= cell.source.end
+                })
+            })
+        })
+    });
     super::node(
         Kind::Table(Table {
             alignments,
             rows,
             delimiters,
             body_lines,
+            editable_cells,
         }),
         range,
         vec![],

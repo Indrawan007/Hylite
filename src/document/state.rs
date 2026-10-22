@@ -310,6 +310,52 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewTable)
     }
 
+    pub(crate) fn preview_cell_payload(
+        &self,
+        target: &crate::preview_cell::Target,
+    ) -> Option<String> {
+        if target.snapshot != self.snapshot
+            || !self.preview.get().is_some_and(|blocks| {
+                blocks.iter().any(|block| {
+                    if block.source != target.table {
+                        return false;
+                    }
+                    let preview_model::Kind::Table(table) = &block.kind else {
+                        return false;
+                    };
+                    table.rows.len() == target.rows
+                        && table.alignments.len() == target.columns
+                        && table
+                            .editable_cells
+                            .as_ref()
+                            .and_then(|rows| rows.get(target.row))
+                            .and_then(|row| row.get(target.column))
+                            == Some(&target.payload)
+                })
+            })
+        {
+            return None;
+        }
+        crate::preview_cell::payload(&self.buffer_text(), self.snapshot, target).map(str::to_owned)
+    }
+    pub(crate) fn edit_preview_cell(
+        &mut self,
+        target: &crate::preview_cell::Target,
+        value: &str,
+    ) -> bool {
+        if self.preview_cell_payload(target).is_none() {
+            return false;
+        }
+        let Some(change) =
+            crate::preview_cell::plan(&self.buffer_text(), self.snapshot, target, value)
+        else {
+            return false;
+        };
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewTable)
+    }
+
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
         // Drop the previous projection immediately, even while in Source mode.
@@ -709,3 +755,7 @@ mod preview_table_edit_tests;
 #[cfg(test)]
 #[path = "preview_table_row_tests.rs"]
 mod preview_table_row_tests;
+
+#[cfg(test)]
+#[path = "preview_cell_tests.rs"]
+mod preview_cell_tests;
