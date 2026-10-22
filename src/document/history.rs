@@ -16,6 +16,8 @@ pub struct Record {
 #[derive(Debug, Clone, Copy)]
 pub enum EditKind {
     Atomic,
+    /// Only the validated preview-task transaction path assigns this kind.
+    PreviewTask,
     Insert(char),
     Backspace,
     Delete,
@@ -115,9 +117,17 @@ fn deletion(before: &Record, after: &str, caret: usize, backwards: bool) -> Opti
     classify(ch)
 }
 
+// Tag the transition, not a content checkpoint: undo/redo move this tag with
+// the corresponding edge. Trimming and branch replacement remove it together
+// with the record, without a parallel stack or unbounded provenance map.
+struct Entry {
+    record: Record,
+    preview_task: bool,
+}
+
 pub struct History {
-    undo: VecDeque<Record>,
-    redo: VecDeque<Record>,
+    undo: VecDeque<Entry>,
+    redo: VecDeque<Entry>,
     max_entries: usize,
     max_bytes: usize,
     limited: bool,
@@ -168,7 +178,7 @@ impl History {
                     deletion(&before, after, caret, true).map(GroupKind::Backspace)
                 }
                 EditKind::Delete => deletion(&before, after, caret, false).map(GroupKind::Delete),
-                EditKind::Atomic => None,
+                EditKind::Atomic | EditKind::PreviewTask => None,
             }
         } else {
             None
@@ -187,11 +197,15 @@ impl History {
                 && self
                     .undo
                     .back()
-                    .is_some_and(|record| record.state_id == group.base_state)
+                    .is_some_and(|record| record.record.state_id == group.base_state)
         });
         let base_state = before.state_id;
         if merge.is_none() {
-            self.record(before);
+            if matches!(kind, EditKind::PreviewTask) {
+                self.record_entry(before, true);
+            } else {
+                self.record(before);
+            }
         } else {
             self.redo.clear();
         }
@@ -199,7 +213,7 @@ impl History {
             let base = merge.map_or(base_state, |group| group.base_state);
             self.undo
                 .back()
-                .filter(|record| record.state_id == base)
+                .filter(|record| record.record.state_id == base)
                 .map(|_| Group {
                     kind,
                     base_state: base,
@@ -216,6 +230,10 @@ impl History {
     }
 
     pub fn record(&mut self, before: Record) {
+        self.record_entry(before, false);
+    }
+
+    fn record_entry(&mut self, before: Record, preview_task: bool) {
         self.break_group();
         self.redo.clear();
         if before.text.len() > self.max_bytes || self.max_entries == 0 {
@@ -223,16 +241,29 @@ impl History {
             self.limited = true;
             return;
         }
-        self.undo.push_back(before);
+        self.undo.push_back(Entry {
+            record: before,
+            preview_task,
+        });
         self.trim();
     }
 
     pub fn peek_undo(&self) -> Option<&Record> {
-        self.undo.back()
+        self.undo.back().map(|entry| &entry.record)
     }
     pub fn peek_redo(&self) -> Option<&Record> {
-        self.redo.back()
+        self.redo.back().map(|entry| &entry.record)
     }
+    /// The top edge only: never scan past a Source transaction.
+    pub fn preview_task_available(&self, redo: bool) -> bool {
+        let entry = if redo {
+            self.redo.back()
+        } else {
+            self.undo.back()
+        };
+        entry.is_some_and(|entry| entry.preview_task)
+    }
+
     pub fn limited(&self) -> bool {
         self.limited
     }
@@ -241,26 +272,32 @@ impl History {
         self.break_group();
         let target = self.undo.pop_back()?;
         if current.text.len() <= self.max_bytes {
-            self.redo.push_back(current);
+            self.redo.push_back(Entry {
+                record: current,
+                preview_task: target.preview_task,
+            });
         } else {
             self.redo.clear();
             self.limited = true;
         }
         self.trim();
-        Some(target)
+        Some(target.record)
     }
 
     pub fn redo(&mut self, current: Record) -> Option<Record> {
         self.break_group();
         let target = self.redo.pop_back()?;
         if current.text.len() <= self.max_bytes {
-            self.undo.push_back(current);
+            self.undo.push_back(Entry {
+                record: current,
+                preview_task: target.preview_task,
+            });
         } else {
             self.undo.clear();
             self.limited = true;
         }
         self.trim();
-        Some(target)
+        Some(target.record)
     }
 
     fn trim(&mut self) {
@@ -269,7 +306,7 @@ impl History {
                 .undo
                 .iter()
                 .chain(&self.redo)
-                .map(|entry| entry.text.len())
+                .map(|entry| entry.record.text.len())
                 .sum::<usize>()
                 > self.max_bytes
         {
@@ -355,3 +392,7 @@ mod deletion_tests;
 #[cfg(test)]
 #[path = "workflow_tests.rs"]
 mod workflow_tests;
+
+#[cfg(test)]
+#[path = "preview_history_tests.rs"]
+mod preview_history_tests;

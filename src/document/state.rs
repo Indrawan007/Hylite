@@ -118,7 +118,9 @@ impl Document {
         else {
             return false;
         };
-        self.change(change)
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewTask)
     }
 
     fn advance_revision(&mut self) {
@@ -335,6 +337,10 @@ impl Document {
     }
 
     fn commit(&mut self, before: Record, change: TextChange) -> bool {
+        self.commit_kind(before, change, EditKind::Atomic)
+    }
+
+    fn commit_kind(&mut self, before: Record, change: TextChange, kind: EditKind) -> bool {
         if !text_edit::valid_range(&before.text, &change.range)
             || change.caret > change.replacement.len()
             || !change.replacement.is_char_boundary(change.caret)
@@ -351,7 +357,7 @@ impl Document {
             return false;
         };
         self.replace_content(content);
-        self.record_edit(before, &after, EditKind::Atomic, Instant::now());
+        self.record_edit(before, &after, kind, Instant::now());
         true
     }
 
@@ -398,6 +404,14 @@ impl Document {
 
     pub fn insert_code_block(&mut self) -> bool {
         self.transform_selection(block_edit::code_block)
+    }
+
+    pub(crate) fn preview_history_available(&self, redo: bool) -> bool {
+        self.history.preview_task_available(redo)
+    }
+
+    pub(crate) fn restore_preview_history(&mut self, redo: bool) -> bool {
+        self.preview_history_available(redo) && self.restore_history(redo)
     }
 
     pub fn undo(&mut self) -> bool {

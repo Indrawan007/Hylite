@@ -179,3 +179,131 @@ fn save_of_an_older_checkpoint_does_not_clean_a_later_preview_toggle() {
     assert!(document.undo());
     assert!(!document.is_dirty());
 }
+
+#[test]
+fn preview_history_traverses_task_edges_but_stops_at_the_source_fixture_boundary() {
+    let mut document = Document::new("original\n");
+    assert!(document.change(TextChange {
+        range: 0..9,
+        replacement: "- [ ] todo\n\t".into(),
+        caret: 0
+    }));
+    let target = targets(&document).remove(0);
+    assert!(document.toggle_preview_task(&target));
+    assert!(document.preview_history_available(false));
+    assert!(document.preview.get().is_none());
+    assert!(document.restore_preview_history(false)); // No cache warm required for history.
+    assert_eq!(document.buffer_text(), "- [ ] todo\n\t");
+    assert!(!document.preview_history_available(false));
+    let before = (
+        document.snapshot(),
+        document.buffer_text(),
+        document.render_key(),
+    );
+    assert!(!document.restore_preview_history(false));
+    assert_eq!(
+        before,
+        (
+            document.snapshot(),
+            document.buffer_text(),
+            document.render_key()
+        )
+    );
+    assert!(document.restore_preview_history(true));
+    assert_eq!(document.buffer_text(), "- [x] todo\n\t");
+}
+
+#[test]
+fn source_edits_hide_older_task_edges_without_removing_their_identity() {
+    let mut document = Document::new("- [ ] todo\n");
+    assert!(document.toggle_preview_task(&targets(&document).remove(0)));
+    document.apply(Action::Edit(Edit::Insert('q')));
+    assert!(!document.preview_history_available(false));
+    assert!(!document.restore_preview_history(false));
+    assert!(document.undo()); // Ordinary Source Undo exposes the older task.
+    assert!(document.preview_history_available(false));
+    assert!(document.restore_preview_history(false));
+    assert!(document.restore_preview_history(true));
+    assert!(!document.preview_history_available(true)); // Source redo is next.
+    assert!(!document.restore_preview_history(true));
+    assert!(document.redo());
+    assert!(document.buffer_text().contains("q"));
+}
+
+#[test]
+fn a_source_change_with_an_identical_one_byte_diff_is_not_a_preview_task_edge() {
+    let mut document = Document::new("- [ ] todo\n");
+    assert!(document.change(TextChange {
+        range: 3..4,
+        replacement: "x".into(),
+        caret: 1
+    }));
+    document.preview_blocks();
+    document.apply(Action::SelectAll);
+    let before = (
+        document.snapshot(),
+        document.content().selection(),
+        document.render_key(),
+    );
+    assert!(!document.preview_history_available(false));
+    assert!(!document.restore_preview_history(false));
+    assert_eq!(
+        before,
+        (
+            document.snapshot(),
+            document.content().selection(),
+            document.render_key()
+        )
+    );
+}
+
+#[test]
+fn task_history_getters_navigation_and_save_metadata_do_not_consume_the_edge() {
+    let mut document = Document::new("- [X] done\n");
+    assert!(document.toggle_preview_task(&targets(&document).remove(0)));
+    let snapshot = document.snapshot();
+    let cached = document.preview_blocks().as_ptr();
+    for _ in 0..3 {
+        assert!(document.preview_history_available(false));
+    }
+    assert!(document.set_caret(0));
+    let saved = document.save_snapshot();
+    assert!(document.mark_saved(saved, "task.md".into()));
+    assert_eq!(document.snapshot(), snapshot);
+    assert_eq!(document.preview_blocks().as_ptr(), cached);
+    assert!(!document.is_dirty());
+    assert!(document.restore_preview_history(false));
+    assert_eq!(document.buffer_text(), "- [X] done\n");
+    assert!(document.is_dirty());
+    assert!(document.restore_preview_history(true));
+    assert!(!document.is_dirty());
+}
+
+#[test]
+fn source_branch_and_document_replacement_cannot_retain_a_task_redo_capability() {
+    let mut document = Document::new("- [ ] todo\n");
+    assert!(document.toggle_preview_task(&targets(&document).remove(0)));
+    assert!(document.restore_preview_history(false));
+    assert!(document.preview_history_available(true));
+    document.apply(Action::Edit(Edit::Insert('q')));
+    assert!(!document.preview_history_available(true));
+    document.replace(None, "- [ ] todo\n");
+    assert!(
+        !document.preview_history_available(false) && !document.preview_history_available(true)
+    );
+    assert!(!document.restore_preview_history(false) && !document.restore_preview_history(true));
+}
+
+#[test]
+fn task_click_targets_are_stale_even_after_preview_history_returns_to_identical_bytes() {
+    let mut document = Document::new("- [ ] todo\n");
+    assert!(document.toggle_preview_task(&targets(&document).remove(0)));
+    let checked = targets(&document).remove(0);
+    assert!(document.restore_preview_history(false));
+    assert!(document.restore_preview_history(true));
+    document.preview_blocks();
+    let before = document.snapshot();
+    assert!(!document.toggle_preview_task(&checked));
+    assert_eq!(document.snapshot(), before);
+    assert_eq!(document.buffer_text(), "- [x] todo\n");
+}

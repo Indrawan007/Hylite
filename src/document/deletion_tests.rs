@@ -431,7 +431,7 @@ fn deletion_groups_respect_byte_entry_and_missing_base_limits() {
         h.undo
             .iter()
             .chain(&h.redo)
-            .map(|r| r.text.len())
+            .map(|entry| entry.record.text.len())
             .sum::<usize>()
             <= 4
     );

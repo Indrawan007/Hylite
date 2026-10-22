@@ -118,6 +118,31 @@ impl Hylite {
         self.edit_native(Action::Edit(Edit::Paste(Arc::new(spaces))))
     }
 
+    pub(crate) fn preview_history_allowed(&self, redo: bool) -> bool {
+        self.mode == EditMode::Preview
+            && self.navigation_allowed()
+            && !self.search.open
+            && !self.go_to.open
+            && self.document.preview_history_available(redo)
+    }
+
+    pub(super) fn preview_undo_redo(&mut self, redo: bool) -> Task<Message> {
+        if !self.preview_history_allowed(redo) {
+            return Task::none();
+        }
+        if self.document.restore_preview_history(redo) {
+            self.status_message = if redo {
+                "Redo preview task"
+            } else {
+                "Undo preview task"
+            }
+            .into();
+            self.edited();
+        }
+        // Preview has no Source editor to focus; never switch mode or steal a query.
+        Task::none()
+    }
+
     pub(super) fn undo_redo(&mut self, redo: bool) -> Task<Message> {
         if !self.source_edit_allowed() {
             return Task::none();

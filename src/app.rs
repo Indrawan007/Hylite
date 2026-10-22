@@ -110,6 +110,7 @@ impl Hylite {
             Message::InsertNewline => self.insert_newline(),
             Message::Undo => self.undo_redo(false),
             Message::Redo => self.undo_redo(true),
+            Message::PreviewHistory(redo) => self.preview_undo_redo(redo),
             Message::FormatInline(style) => self.format_inline(style),
             Message::FormatBlock(style) => self.format_block(style),
             Message::InsertLink => self.insert_link(),
@@ -426,7 +427,7 @@ impl Hylite {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let editing_events = event::listen_with(|event, _status, _window| {
+        let editing_events = event::listen_with(|event, status, _window| {
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
@@ -435,6 +436,11 @@ impl Hylite {
                 return None;
             };
 
+            if let Some(message) =
+                crate::commands::preview_history_shortcut(&key, modifiers, status)
+            {
+                return Some(message);
+            }
             crate::commands::shortcut(key, modifiers)
         });
         Subscription::batch([

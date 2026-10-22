@@ -193,6 +193,29 @@ class SmokeHelperTests(unittest.TestCase):
         ])
         self.assertEqual(desktop.screenshot.call_count, 2)
 
+    def test_preview_history_probe_covers_shortcuts_toolbar_and_source_boundary_without_source_click(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_preview_task_history(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        checked = source.replace(b"- [ ]", b"- [x]", 1)
+        self.assertTrue(source.endswith(b"\n\t"))
+        self.assertIn("café🙂".encode("utf-8"), source)
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual([call.args[1] for call in copies[:8]], [source, source, checked, source, checked, source, checked, source])
+        self.assertEqual(len(copies), 9)
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "40", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "95", "62", "click", "1"),
+        ])
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertIn("ctrl+shift+z", keys)
+        self.assertIn("ctrl+y", keys)
+        self.assertEqual(keys.count("ctrl+z"), 6)
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
     def xlib_probe(self, protocols):
         connection = Mock()
         connection.intern_atom.side_effect = lambda name: {"WM_DELETE_WINDOW": 17, "WM_PROTOCOLS": 19}[name]

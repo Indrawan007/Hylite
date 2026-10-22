@@ -24,6 +24,7 @@ pub enum Message {
     InsertNewline,
     Undo,
     Redo,
+    PreviewHistory(bool),
     FormatInline(InlineStyle),
     FormatBlock(BlockStyle),
     InsertLink,
@@ -108,6 +109,29 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
         keyboard::Key::Named(keyboard::key::Named::F3) if !ctrl => Some(Message::FindNext(shift)),
         keyboard::Key::Named(keyboard::key::Named::F11) => Some(Message::ToggleZenMode),
         keyboard::Key::Named(keyboard::key::Named::Escape) => Some(Message::ExitZenMode),
+        _ => None,
+    }
+}
+
+/// Separate from global app shortcuts and Source key bindings. Subscription
+/// considers these only for uncaptured events; controller still requires Preview.
+pub fn preview_history_shortcut(
+    key: &keyboard::Key,
+    modifiers: keyboard::Modifiers,
+    status: iced::event::Status,
+) -> Option<Message> {
+    if status != iced::event::Status::Ignored {
+        return None;
+    }
+    if modifiers != keyboard::Modifiers::CTRL
+        && modifiers != (keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT)
+    {
+        return None;
+    }
+    let shift = modifiers.shift();
+    match key.as_ref() {
+        keyboard::Key::Character("z" | "Z") => Some(Message::PreviewHistory(shift)),
+        keyboard::Key::Character("y" | "Y") if !shift => Some(Message::PreviewHistory(true)),
         _ => None,
     }
 }
@@ -223,6 +247,65 @@ mod tests {
             ] {
                 assert!(shortcut(keyboard::Key::Character(key.into()), modifiers).is_none());
             }
+        }
+    }
+    #[test]
+    fn uncaptured_preview_history_keys_support_exact_ctrl_z_shift_z_and_y() {
+        let ctrl = keyboard::Modifiers::CTRL;
+        for (key, modifiers, redo) in [
+            ("z", ctrl, false),
+            ("Z", ctrl, false),
+            ("z", ctrl | keyboard::Modifiers::SHIFT, true),
+            ("Z", ctrl | keyboard::Modifiers::SHIFT, true),
+            ("y", ctrl, true),
+            ("Y", ctrl, true),
+        ] {
+            assert!(
+                matches!(preview_history_shortcut(&keyboard::Key::Character(key.into()), modifiers, iced::event::Status::Ignored), Some(Message::PreviewHistory(value)) if value == redo)
+            );
+        }
+    }
+
+    #[test]
+    fn preview_history_does_not_take_altgr_logo_bare_keys_or_shift_y() {
+        let ctrl = keyboard::Modifiers::CTRL;
+        for modifiers in [
+            keyboard::Modifiers::empty(),
+            keyboard::Modifiers::SHIFT,
+            ctrl | keyboard::Modifiers::ALT,
+            ctrl | keyboard::Modifiers::LOGO,
+        ] {
+            for key in ["z", "y"] {
+                assert!(preview_history_shortcut(
+                    &keyboard::Key::Character(key.into()),
+                    modifiers,
+                    iced::event::Status::Ignored
+                )
+                .is_none());
+            }
+        }
+        assert!(preview_history_shortcut(
+            &keyboard::Key::Character("y".into()),
+            ctrl | keyboard::Modifiers::SHIFT,
+            iced::event::Status::Ignored
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn captured_source_or_query_history_keys_never_generate_a_second_command() {
+        for key in ["z", "Z", "y", "Y"] {
+            assert!(preview_history_shortcut(
+                &keyboard::Key::Character(key.into()),
+                keyboard::Modifiers::CTRL,
+                iced::event::Status::Captured
+            )
+            .is_none());
+            assert!(shortcut(
+                keyboard::Key::Character(key.into()),
+                keyboard::Modifiers::CTRL
+            )
+            .is_none());
         }
     }
 }

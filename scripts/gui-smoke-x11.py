@@ -497,6 +497,57 @@ def exercise_task_toggle(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
+
+def exercise_preview_task_history(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("- [ ] café🙂 task\n- [X] keep case\n\n"
+              "```md\n- [ ] code literal\n```\n\nterminal\n\t").encode("utf-8")
+    checked = source.replace(b"- [ ]", b"- [x]", 1)
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")  # Split -> Source.
+        desktop.key("ctrl+shift+m")  # Source -> Preview; no Source refocus click.
+    def inspect(label, expected):
+        desktop.key("ctrl+shift+m")  # Preview -> Split.
+        desktop.expect_copy(label, expected, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Preview history fixture: exact raw Source before task edit", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.key("ctrl+z")  # Source paste is not eligible for Preview history.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "153", "click", "1")
+    time.sleep(0.25)
+    desktop.key("ctrl+z")
+    inspect("Preview Ctrl+Z undoes only the checkbox transaction", source)
+    back_to_preview()
+    desktop.key("ctrl+shift+z")
+    inspect("Preview Ctrl+Shift+Z redoes checkbox without touching raw body", checked)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Preview repeated Undo returns exact fixture", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    inspect("Preview Ctrl+Y redoes the task transition", checked)
+    back_to_preview()
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "40", "62", "click", "1")
+    time.sleep(0.25)
+    inspect("Preview toolbar Undo follows task-only history guard", source)
+    back_to_preview()
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "95", "62", "click", "1")
+    time.sleep(0.25)
+    inspect("Preview toolbar Redo follows the same task-only guard", checked)
+    back_to_preview()
+    desktop.screenshot(artifacts / "task-history-preview.png")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")  # Must stop at the Source paste, not erase fixture.
+    desktop.type_ascii("LEAK")
+    desktop.key("ctrl+shift+b")
+    inspect("Preview history stops at Source boundary and other editing remains blocked", source)
+    desktop.key("ctrl+z")  # Source Undo is captured and must execute exactly once.
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Source Undo still restores clean welcome after Preview task history", welcome, refocus=False)
+    desktop.screenshot(artifacts / "task-history-source.png")
+    desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -615,6 +666,7 @@ def main():
                 exercise_preview_reveal(desktop, artifacts)
                 exercise_cell_reveal(desktop, artifacts)
                 exercise_task_toggle(desktop, artifacts)
+                exercise_preview_task_history(desktop, artifacts)
                 exercise_lifecycle(desktop, artifacts, binary)
                 status = "passed"
                 print(f"GUI X11/tiny-skia smoke passed: {len(desktop.passed)} checks (not a Hyprland/Wayland test).", flush=True)
@@ -634,7 +686,7 @@ def main():
                     "status": status, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
+                    "scope": "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland",
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

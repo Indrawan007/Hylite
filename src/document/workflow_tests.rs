@@ -539,13 +539,13 @@ fn generated_tight_budget_histories_keep_valid_immediate_checkpoints() {
                         .undo
                         .iter()
                         .chain(&rig.history.redo)
-                        .map(|record| record.text.len())
+                        .map(|entry| entry.record.text.len())
                         .sum::<usize>()
                         <= max_bytes
                 );
                 assert!(rig.current.text.is_char_boundary(rig.current.caret));
-                for record in rig.history.undo.iter().chain(&rig.history.redo) {
-                    assert!(record.text.is_char_boundary(record.caret));
+                for entry in rig.history.undo.iter().chain(&rig.history.redo) {
+                    assert!(entry.record.text.is_char_boundary(entry.record.caret));
                 }
                 if let Some(group) = rig.history.group {
                     assert_eq!(rig.history.peek_undo().unwrap().state_id, group.base_state);

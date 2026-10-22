@@ -278,7 +278,7 @@ fn budgets_cover_coalesced_groups_and_oversized_post_edit_states() {
         h.undo
             .iter()
             .chain(&h.redo)
-            .map(|record| record.text.len())
+            .map(|entry| entry.record.text.len())
             .sum::<usize>()
             <= 2
     );

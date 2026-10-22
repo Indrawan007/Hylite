@@ -1,14 +1,28 @@
-//! Source editing actions; disabled buttons mirror the controller guard.
+//! Source actions and task-only Preview history; button/controller guards agree.
 
 use crate::app::Hylite;
 use crate::block_edit::BlockStyle;
 use crate::commands::Message;
+use crate::editor::EditMode;
 use crate::text_edit::InlineStyle;
 use iced::widget::{button, container, row, scrollable, text};
 use iced::{Element, Length};
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
     let editable = app.source_edit_allowed();
+    let history_action = |redo| {
+        if app.mode == EditMode::Preview {
+            app.preview_history_allowed(redo)
+                .then_some(Message::PreviewHistory(redo))
+        } else {
+            let available = if redo {
+                app.document.can_redo()
+            } else {
+                app.document.can_undo()
+            };
+            (editable && available).then_some(if redo { Message::Redo } else { Message::Undo })
+        }
+    };
     let blocks: Element<'_, Message> = if editable {
         iced::widget::pick_list(BlockStyle::ALL, None::<BlockStyle>, Message::FormatBlock)
             .placeholder("Blocks…")
@@ -17,10 +31,8 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         button("Blocks…").into()
     };
     let actions = row![
-        button("Undo")
-            .on_press_maybe((editable && app.document.can_undo()).then_some(Message::Undo)),
-        button("Redo")
-            .on_press_maybe((editable && app.document.can_redo()).then_some(Message::Redo)),
+        button("Undo").on_press_maybe(history_action(false)),
+        button("Redo").on_press_maybe(history_action(true)),
         button("Find").on_press(Message::OpenFind(false)),
         button("Go to Line").on_press_maybe(app.navigation_allowed().then_some(Message::OpenGoTo)),
         button("Replace").on_press(Message::OpenFind(true)),
@@ -45,7 +57,12 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         button("Move Down").on_press_maybe(
             editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown))
         ),
-        text("Bold: Ctrl+Shift+B · Ctrl+B: sidebar").size(11),
+        text(if app.mode == EditMode::Preview {
+            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: task history only"
+        } else {
+            "Bold: Ctrl+Shift+B · Ctrl+B: sidebar"
+        })
+        .size(11),
     ]
     .spacing(8)
     .padding([6, 12]);

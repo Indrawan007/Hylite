@@ -1677,3 +1677,139 @@ fn save_reply_for_a_pre_toggle_snapshot_keeps_the_new_task_state_dirty() {
     assert_eq!(app.document.buffer_text(), "- [x] todo\n");
     assert_eq!(app.document.path(), Some(Path::new("tasks.md")));
 }
+
+fn app_with_task_history() -> Hylite {
+    let mut app = app();
+    app.document = Document::new("- [ ] café🙂\n\t");
+    app.mode = EditMode::Preview;
+    let target = preview_task_target(&app, false);
+    let _ = app.update(Message::TogglePreviewTask(target));
+    app
+}
+
+#[test]
+fn preview_history_restores_task_source_and_cache_without_switching_mode() {
+    let mut app = app_with_task_history();
+    assert!(app.preview_history_allowed(false));
+    let revision = app.document.snapshot().revision;
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(app.document.buffer_text(), "- [ ] café🙂\n\t");
+    assert_eq!(app.document.snapshot().revision, revision + 1);
+    assert!(!app.document.is_dirty());
+    assert!(!app.preview_history_allowed(false) && app.preview_history_allowed(true));
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+    assert!(app.document.is_dirty());
+    assert_eq!(app.mode, EditMode::Preview);
+}
+
+#[test]
+fn preview_history_ignores_source_history_even_when_source_can_undo() {
+    let mut app = app();
+    edit(&mut app);
+    app.mode = EditMode::Preview;
+    assert!(app.document.can_undo());
+    let before = (
+        app.document.snapshot(),
+        app.document.buffer_text(),
+        app.document.render_key(),
+    );
+    assert!(!app.preview_history_allowed(false));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.render_key()
+        )
+    );
+    assert!(app.document.can_undo());
+}
+
+#[test]
+fn preview_history_guard_rejects_other_modes_prompts_open_and_query_contexts() {
+    for case in 0..6 {
+        let mut app = app_with_task_history();
+        match case {
+            0 => app.mode = EditMode::Source,
+            1 => app.mode = EditMode::Split,
+            2 => app.pending_action = Some(PendingAction::New),
+            3 => {
+                assert!(app
+                    .operations
+                    .start(OperationKind::Open, app.document.snapshot())
+                    .is_some());
+            }
+            4 => app.search.open = true,
+            _ => app.go_to.open = true,
+        }
+        let before = (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.render_key(),
+            app.mode,
+        );
+        assert!(!app.preview_history_allowed(false));
+        let _ = app.update(Message::PreviewHistory(false));
+        assert_eq!(
+            before,
+            (
+                app.document.snapshot(),
+                app.document.buffer_text(),
+                app.document.render_key(),
+                app.mode
+            )
+        );
+    }
+}
+
+#[test]
+fn preview_history_allows_save_export_without_consuming_tokens_or_cleaning_wrong_checkpoint() {
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = app_with_task_history();
+        let token = app.operations.start(kind, app.document.snapshot()).unwrap();
+        let operation = app.operations.active();
+        let _ = app.update(Message::PreviewHistory(false));
+        assert_eq!(app.document.buffer_text(), "- [ ] café🙂\n\t");
+        assert_eq!(app.operations.active(), operation);
+        if kind == OperationKind::Save {
+            let _ = app.update(Message::FileSaved(token, Ok(Some("tasks.md".into()))));
+            assert!(app.document.is_dirty()); // File contains the checked checkpoint.
+        }
+        let _ = app.update(Message::PreviewHistory(true));
+        assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+        if kind == OperationKind::Save {
+            assert!(!app.document.is_dirty());
+        }
+    }
+}
+
+#[test]
+fn source_undo_and_preview_shortcut_messages_cannot_double_apply_in_source_mode() {
+    let mut app = app_with_task_history();
+    let _ = app.update(Message::SwitchMode(EditMode::Source));
+    let _ = app.update(Message::Undo);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.snapshot(), before);
+    assert_eq!(app.document.buffer_text(), "- [ ] café🙂\n\t");
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn preview_redo_is_disabled_after_a_new_source_branch_or_new_document() {
+    let mut app = app_with_task_history();
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(app.preview_history_allowed(true));
+    let _ = app.update(Message::SwitchMode(EditMode::Source));
+    edit(&mut app);
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    assert!(!app.preview_history_allowed(true));
+    let before = app.document.snapshot();
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(app.document.snapshot(), before);
+    app.document.replace(None, "- [ ] new\n");
+    assert!(!app.preview_history_allowed(false) && !app.preview_history_allowed(true));
+}
