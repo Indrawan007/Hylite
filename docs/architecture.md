@@ -1,5 +1,7 @@
 # Arsitektur setelah iterasi Source 4a–4j
 
+Build debug, Clippy dan **312 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Status ini bukan kelulusan GUI/Arch/Hyprland.
+
 ## Batas tanggung jawab
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
@@ -36,7 +38,7 @@
 
 Buffer aktif tetap `text_editor::Content`; history menyimpan snapshot teks penuh, bukan buffer aktif kedua atau AST. Budget gabungan 200 record / 8 MiB **panjang teks yang ditahan**, tidak termasuk overhead native, kapasitas allocator, metadata, atau salinan sementara. Trim membuang front stack; record terlalu besar tidak disimpan, sehingga undo/redo bisa hilang. Grouping insert dan deletion single-scalar tersedia; penggabungan deletion multi-scalar dan optimasi file besar belum ada.
 
-Iced 0.13 tidak menyediakan setter caret/anchor seleksi publik. Rekonstruksi menggunakan Paste suffix → DocumentStart → Paste prefix, lalu memeriksa kesamaan teks raw dan posisi line/byte sebelum swap. Ini menghindari asumsi gerak visual Right = satu byte/grapheme dan mempertahankan empty line di akhir. Implementasi native ini **belum diuji melalui Cargo/desktop**. History memulihkan caret, bukan seleksi. Transformasi source boleh mengakhiri seleksi; tidak ada akses private-layout widget.
+Iced 0.13 tidak menyediakan setter caret/anchor seleksi publik. Rekonstruksi menggunakan Paste suffix → DocumentStart → Paste prefix, lalu memeriksa kesamaan teks raw dan posisi line/byte sebelum swap. Ini menghindari asumsi gerak visual Right = satu byte/grapheme dan mempertahankan empty line di akhir. Implementasi ini sudah diuji melalui Cargo headless, belum melalui desktop. Setiap Paste memakai `paste_exact`: menambah satu spasi sementara lalu Backspace untuk melindungi tab akhir dari `insert_at` cosmic-text 0.12.1. Aksi internal tidak melewati history Document satu per satu. History memulihkan caret, bukan seleksi. Transformasi source boleh mengakhiri seleksi; tidak ada akses private-layout widget.
 
 `Content::text()` mempertahankan konvensi serializer LF aplikasi sebelumnya; history/search memakai `lines().join("\n")` agar tidak mengedit newline sintetis serializer. Kolom status/Tab dihitung berdasarkan Unicode scalar; bukan ukuran visual grapheme atau lebar tab/CJK. Word count memakai `split_whitespace`, bukan analisis linguistik/AST.
 
@@ -70,9 +72,9 @@ Delete memakai range blok+LF berikutnya jika ada; jika blok berada di EOF tanpa 
 
 `Message::EditLines(Action)` diarahkan ke controller `transform_source` → `Document::edit_lines` → `transform_selection`/commit. Source-local Ctrl+Shift+D/K berbeda dari Ctrl+K link dan tidak mengambil input query/AltGr/logo. Toolbar memakai guard yang sama. Setiap aksi efektif atomic dan memisahkan typing/deletion group, refresh Find, fresh revision/state ID, serta checkpoint save lama tetap dapat dicapai selama budget history menyimpannya. No-op tidak membuang redo atau membuat dirty/revisi; seperti formatter lain, selection dapat dikolapskan dan caret dipulihkan, bukan anchor.
 
-`Document::new` juga diperbaiki agar inisialisasi tidak membuang terminal empty line: buffer kosong → Paste seluruh source → DocumentStart, sebelum state/history tracking dimulai. `replace` memakai initializer yang sama. Ini API publik yang sama dengan rekonstruksi caret, tanpa private-layout access. Tidak memakai `with_text(source)` yang kehilangan empty line terakhir. Tes load/replace/caret/clean/history ditulis, tetapi integrasi ini belum dijalankan melalui Cargo/desktop. Tetap tidak mengklaim preservasi line ending CRLF verbatim; model source memakai baris LF.
+`Document::new` juga diperbaiki agar inisialisasi tidak membuang terminal empty line: buffer kosong → Paste terproteksi seluruh source → DocumentStart, sebelum state/history tracking dimulai. `replace` memakai initializer yang sama. Ini API publik yang sama dengan rekonstruksi caret, tanpa private-layout access. Tidak memakai `with_text(source)` yang kehilangan empty line terakhir. Tes load/replace/caret/clean/history dan regresi tab akhir sudah lulus melalui Cargo, bukan desktop. Tetap tidak mengklaim preservasi line ending CRLF verbatim; model source memakai baris LF.
 
-Harness menjalankan 15 regresi operasi/rentang/EOF/matriks UTF-8. Tes Document/controller/binding masih belum dijalankan. Operasi dan rekonstruksi masih menyalin/scan O(n); tidak ada delta history, indeks baris incremental, atau jaminan latensi/RAM baru.
+Harness menjalankan 15 regresi operasi/rentang/EOF/matriks UTF-8. Tes Document/controller/binding sudah lulus dalam suite Cargo. Operasi dan rekonstruksi masih menyalin/scan O(n); tidak ada delta history, indeks baris incremental, atau jaminan latensi/RAM baru.
 
 ## Move Lines (4i)
 
@@ -84,7 +86,7 @@ Kebijakan LF bersifat konservatif: terminal empty line sesudah LF terakhir adala
 
 Source binding menangkap hanya focused bare `Modifiers::ALT` + ArrowUp/ArrowDown sebelum fallback native; Ctrl+Alt, Shift+Alt, logo, key lain dan query widget tidak ditangkap sebagai Move Lines. Global shortcut tetap menolak Alt. Toolbar memakai `EditLines` dan guard controller yang sama. Status, commit atomic/revisi/state ID, refresh Find dan batas history memakai jalur 4h, tanpa message/dependensi/config baru.
 
-14 regresi core baru memeriksa swap/kolom, selection end-zero, EOF/sentinel/blank, no-op identik, round-trip caret Unicode, dan model referensi Vec-line permutation untuk seluruh rentang UTF-8 valid pada fixture. Matriks ini juga menguji panjang/LF/style/prefix/suffix tetap sama. Tes model/controller/binding sudah ditulis tetapi belum dijalankan; tidak ada hasil GUI/IME/RTL/compositor/fokus/viewport yang dinyatakan lulus.
+14 regresi core baru memeriksa swap/kolom, selection end-zero, EOF/sentinel/blank, no-op identik, round-trip caret Unicode, dan model referensi Vec-line permutation untuk seluruh rentang UTF-8 valid pada fixture. Matriks ini juga menguji panjang/LF/style/prefix/suffix tetap sama. Tes model/controller/binding sudah lulus dalam suite Cargo; tidak ada hasil GUI/IME/RTL/compositor/fokus/viewport yang dinyatakan lulus.
 
 ## Go to Line (4f)
 
@@ -102,19 +104,19 @@ Binding lokal menangkap hanya Enter tanpa modifier pada editor focused, lalu men
 
 `continuation::enter(text, caret)` menghasilkan `TextChange` murni atau menolak ke native Enter. Cakupan: list unquoted dengan 0–3 spasi awal, bullet/nomor/task sederhana, separator dan zero padding dipertahankan, nomor maksimum 9 digit, checkbox baru unchecked. Midline split mempertahankan suffix; empty item ASCII-blank melepas prefix di tempat tanpa LF baru dan mempertahankan indentasi. NBSP bukan blank yang boleh dibuang. Caret/rentang divalidasi UTF-8; baris >16 KiB tidak diteruskan otomatis. Tidak ada renumber sibling, general paragraph auto-indent, atau pengelolaan nested-list/outdent struktural.
 
-Scanner fence ringan mengenali bentuk umum root/quote/list (termasuk marker list berulang); closer tidak boleh melepas marker list dari payload. Ini bukan parser container lengkap, sehingga false suppression konservatif masih mungkin. Sebelum commit kandidat yang lolos, `document/code_context` memakai `pulldown_cmark::Parser` yang sudah menjadi dependensi untuk memeriksa rentang code block, termasuk container, indented code, dan EOF fence tak tertutup. Cek terakhir ini mencegah lexical false closer mengizinkan edit otomatis di dalam code. Tidak memakai atau bergantung pada state highlighter. Parser transient saja, tidak ada AST dokumen persisten atau incremental. Tes konteks parser ditulis tetapi belum dijalankan karena dependensi Cargo belum tersedia.
+Scanner fence ringan mengenali bentuk umum root/quote/list (termasuk marker list berulang); closer tidak boleh melepas marker list dari payload. Ini bukan parser container lengkap, sehingga false suppression konservatif masih mungkin. Sebelum commit kandidat yang lolos, `document/code_context` memakai `pulldown_cmark::Parser` yang sudah menjadi dependensi untuk memeriksa rentang code block, termasuk container, indented code, dan EOF fence tak tertutup. Cek terakhir ini mencegah lexical false closer mengizinkan edit otomatis di dalam code. Tidak memakai atau bergantung pada state highlighter. Parser transient saja, tidak ada AST dokumen persisten atau incremental. Tes konteks parser sudah lulus dalam suite Cargo.
 
 `Document::insert_newline` menutup typing group dan memakai commit/rekonstruksi terverifikasi yang sama, satu record/revisi untuk satu aksi efektif. Opt-out, selection, unsupported context, code block, atau rekonstruksi gagal memakai `Edit::Enter` native, bukan menelan input. Undo/redo dan dirty tetap mengikuti checkpoint state ID; capture save tidak berubah. Snapshot, scan konteks, dan parse kandidat masih O(ukuran dokumen); batas baris bukan jaminan latensi/RAM seluruh aksi.
 
 ## Deletion coalescing (4g)
 
-`Document::apply_at` memberi label kandidat `EditKind::Backspace` / `Delete` hanya bila tidak ada seleksi sebelum aksi native dijalankan. Selection replacement tetap `Atomic`, termasuk seleksi yang kebetulan hanya satu scalar. Perilaku `Content::perform` tidak diubah; tidak ada rekonstruksi hapusan, slicing atas asumsi grapheme, atau shortcut baru. Native action efektif tetap mengalokasikan revisi/state ID baru lewat jalur yang sama.
+`Document::apply_at` memberi label kandidat `EditKind::Backspace` / `Delete` hanya bila tidak ada seleksi sebelum aksi native dijalankan. Selection replacement tetap `Atomic`, termasuk seleksi yang kebetulan hanya satu scalar. Perilaku Backspace/Delete pada `Content::perform` tidak diubah; tidak ada rekonstruksi hapusan, slicing atas asumsi grapheme, atau shortcut baru. Native action efektif tetap mengalokasikan revisi/state ID baru lewat jalur yang sama.
 
 `History::deletion` memeriksa selisih panjang yang positif, batas UTF-8, range tepat di kiri/kanan caret lama, caret hasil, prefix/suffix identik, dan tepat satu scalar yang dihapus. Label tombol tidak cukup. Aksi multi-scalar/word/grapheme, perubahan nonlokal, caret yang berbeda, control/newline/tab dan ASCII punctuation selain underscore menolak coalescing dan dicatat atomic. Scalar Unicode yang lolos bukan klaim grapheme-aware; keputusan jumlah karakter yang dihapus tetap milik engine native.
 
 `GroupKind` membedakan Insert/Backspace/Delete serta kelas Text/Whitespace, sehingga perubahan arah dan insert↔delete tidak merge. Validasi base record, kontinuitas state/caret, clock monotonik, idle <750 ms, durasi <5 s, cap 64 scalar, dan batas history lama dipakai bersama. Base terlalu besar atau terpangkas tidak boleh menghasilkan grup tanpa checkpoint. Metadata hanya bertambah jenis grup, bukan salinan teks tambahan. Budget gabungan tetap 200 record/8 MiB byte teks, bukan batas RAM/latensi seluruh editor.
 
-Barrier navigation/selection/UI/window/save/undo/redo dari 4d berlaku pula untuk deletion. No-op di BOF/EOF menutup grup tanpa revisi/entry/redo loss. Capture save sebelum worker tetap memisahkan checkpoint yang dihapus sebelum/sesudah save, selama history budget menahannya. Guard controller dan refresh Find tidak berubah. Harness menjalankan 16 regresi deletion inti dengan waktu eksplisit; tes integrasi native/controller ditulis tetapi belum dijalankan.
+Barrier navigation/selection/UI/window/save/undo/redo dari 4d berlaku pula untuk deletion. No-op di BOF/EOF menutup grup tanpa revisi/entry/redo loss. Capture save sebelum worker tetap memisahkan checkpoint yang dihapus sebelum/sesudah save, selama history budget menahannya. Guard controller dan refresh Find tidak berubah. Harness menjalankan 16 regresi deletion inti dengan waktu eksplisit; tes integrasi native/controller sudah lulus dalam suite Cargo.
 
 ## Typing coalescing (4d)
 
@@ -136,7 +138,7 @@ Iced memberi logical line secara berurutan, lalu memanggil `change_line` ketika 
 
 `Document::render_key()` = `(document_id, buffer_generation)` terpisah dari `Snapshot`. Native edit/navigasi memakai invalidasi baris Iced. Penggantian `Content` oleh caret reconstruction/format/undo/redo menaikkan generation; New/Open menaikkan document ID. Settings highlighter mencakup key tersebut, enabled, dan mode palet terang/gelap. Perubahan settings mereset lexer; getter/render tidak menaikkan revisi, dirty, atau history. Save acknowledgment tidak mengganti render key. Ini mencegah reuse state fence/atribut lama setelah buffer baru yang kebetulan memiliki checkpoint atau teks sama.
 
-Lexer mendukung subset Markdown single-line dan fence tingkat atas; bukan CommonMark parser/embedded-language highlighter. Spans memakai byte UTF-8 valid, tidak tumpang tindih, dan hanya berisi warna. Inline lookahead memakai budget bersama 4 × byte baris; baris >16 KiB tidak menghasilkan warna, tetapi tetap memproses transisi fence. Input tidak dipotong. Tidak ada rekursi parser/backtracking tak terbatas. Budget dan cache ini bukan batas memori total/latensi desktop; integrasi native masih belum dijalankan penuh.
+Lexer mendukung subset Markdown single-line dan fence tingkat atas; bukan CommonMark parser/embedded-language highlighter. Spans memakai byte UTF-8 valid, tidak tumpang tindih, dan hanya berisi warna. Inline lookahead memakai budget bersama 4 × byte baris; baris >16 KiB tidak menghasilkan warna, tetapi tetap memproses transisi fence. Input tidak dipotong. Tidak ada rekursi parser/backtracking tak terbatas. Budget dan cache ini bukan batas memori total/latensi desktop; adapter/konfigurasi sudah diuji dalam suite Cargo, tetapi pipeline render desktop belum dijalankan.
 
 ## Invariant operasi
 

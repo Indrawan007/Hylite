@@ -1,6 +1,6 @@
 # Checklist Tahap 3 — model dan konfigurasi
 
-**Status desktop: belum dijalankan.** Tiga test tracker operasi telah lolos secara terisolasi dengan rustc terhadap modul produksi `operations.rs` dan `document/snapshot.rs`. Build/Clippy/seluruh suite Cargo masih terhalang unduhan dependensi; kelulusan tracker tidak membuktikan kelulusan aplikasi lengkap.
+**Status desktop: belum dijalankan.** Build debug, Clippy dan suite Cargo (312 tes, termasuk tracker operasi/config/controller) sudah lulus di CI Ubuntu 24.04 / Rust stable. Lihat [catatan verifikasi native](verification-native.md). Kelulusan headless tidak membuktikan perilaku desktop.
 
 ## Pemeriksaan otomatis pada lingkungan lengkap
 

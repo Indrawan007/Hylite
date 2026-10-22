@@ -11,7 +11,7 @@ Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**,
 - Konfirmasi perubahan belum disimpan sebelum New, Open, dan penutupan jendela.
 - Penyimpanan atomik dan pelacakan revisi dokumen untuk hasil operasi asinkron.
 - Sidebar dokumen aktif; status bar posisi kursor, jumlah baris, dan word count.
-- Iterasi Source 4a–4j: undo/redo terbatas dengan pengelompokan ketikan/hapusan sederhana, Find/Replace literal, Go to Line, inline markup, heading/list/quote, link/code block, continuation list sederhana, serta indent/unindent, duplikasi, hapus dan pindah baris. Integrasi Iced belum terverifikasi penuh.
+- Iterasi Source 4a–4j: undo/redo terbatas dengan pengelompokan ketikan/hapusan sederhana, Find/Replace literal, Go to Line, inline markup, heading/list/quote, link/code block, continuation list sederhana, serta indent/unindent, duplikasi, hapus dan pindah baris. Suite Cargo/Iced headless sudah lulus; perilaku desktop masih perlu diuji.
 - Syntax highlighting Markdown dasar, read-only, dengan palet terang/gelap; berlaku pada Source, Split, dan Zen.
 - Zen mode; pada Hyprland juga mengirim perintah toggle maximize.
 - Konfigurasi TOML parsial, validasi dengan peringatan, font/wrapping/Tab yang diterapkan pada Source dan Split, serta pilihan tema bawaan Iced.
@@ -65,12 +65,13 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 `Cargo.lock` disimpan ke Git agar versi dependensi konsisten. Gunakan `--locked` untuk build/lint/test biasa. Pembaruan dependensi dilakukan secara eksplisit melalui `cargo update`, ditinjau, lalu diuji ulang.
 
-### Status verifikasi awal
+### Status verifikasi — 22 Oktober 2026
 
 - Format seluruh sumber sudah diperiksa dengan rustfmt 1.8.0 / Rust 1.88.0.
 - `Cargo.lock` dihasilkan oleh Cargo 1.88.0 menggunakan data indeks crates.io resmi melalui GitHub; bukan lockfile buatan tangan.
 - **150 test inti Source** (history, pencarian, transformasi inline/block, lexer syntax, continuation list, navigasi baris/kolom, operasi baris, tracker operasi) lolos dengan rustc melalui `./scripts/test-source-core.sh`, tanpa dependensi Cargo. Harness memakai modul produksi langsung; ini bukan pengujian integrasi Iced atau seluruh suite aplikasi.
-- Build, Clippy, dan seluruh suite unit test melalui Cargo **belum terverifikasi**: lingkungan penyuntingan tidak dapat mengunduh paket dari distribusi crates.io. CI telah disiapkan, tetapi hasilnya harus diperiksa setelah workflow benar-benar dijalankan.
+- **Build native debug, Clippy `-D warnings`, dan 312 tes Cargo lulus** pada Ubuntu 24.04 / Rust stable, dengan `--locked --all-targets --all-features`. Bukti: [CI run 39707517350](https://github.com/Indrawan007/Hylite/actions/runs/39707517350), commit `373e055`. Sebanyak 150 tes core di atas juga termasuk dalam 312 tes Cargo, bukan tambahan 150 tes unik.
+- Tiga tes helper diagnostik CI lulus. Lihat [catatan verifikasi native](docs/verification-native.md) untuk cakupan, perbaikan hasil CI, dan batas bukti.
 - Pengujian jendela, portal file dialog, dan IPC membutuhkan sesi desktop nyata; unit test tidak menggantikan pengujian tersebut.
 
 ## Konfigurasi
@@ -168,7 +169,7 @@ Iterasi ini tidak menambah fitur UI atau mengubah perilaku runtime. Empat regres
 
 **16 kombinasi budget × 512 langkah = 8.192 langkah tambahan** memeriksa batas gabungan entri/byte, caret UTF-8 dan base grup yang masih tersedia. Dua tes lain memeriksa checkpoint save lintas transaksi dan 192 variasi delta kandidat yang tidak valid/no-op. Tidak ada dependency, sleep, file data hasil generate, atau akses konfigurasi pengguna baru; seed dan clock tes tetap agar kegagalan bisa direproduksi.
 
-Ini **test rig core, bukan `Document` atau controller Iced**. Oracle memeriksa history/scalar state; untuk transaksi formatter, planner produksi memberi transaksi yang diterapkan ke kedua representasi (semantik planner diuji terpisah). Budget test memeriksa invariant, bukan oracle kebijakan trim independen. Snapshot/revisi dalam rig hanyalah input pengujian cache. Lulusnya workflow tidak membuktikan caret/selection/viewport native, guard aplikasi, parser code context, serialisasi/save ke disk, atau GUI/Hyprland. Build dan suite integrasi lengkap tetap wajib sebelum Tahap 4 dinyatakan selesai.
+Ini **test rig core, bukan `Document` atau controller Iced**. Oracle memeriksa history/scalar state; untuk transaksi formatter, planner produksi memberi transaksi yang diterapkan ke kedua representasi (semantik planner diuji terpisah). Budget test memeriksa invariant, bukan oracle kebijakan trim independen. Snapshot/revisi dalam rig hanyalah input pengujian cache. Lulusnya workflow tidak membuktikan caret/selection/viewport native, guard aplikasi, parser code context, serialisasi/save ke disk, atau GUI/Hyprland. Build dan suite Cargo terpisah kini sudah lulus (lihat status verifikasi); pengujian desktop dan pekerjaan Source yang tersisa tetap diperlukan sebelum Tahap 4 dinyatakan selesai.
 
 Jalankan hanya empat regresi workflow (seluruh harness tetap dikompilasi):
 
@@ -186,7 +187,7 @@ Delete Lines bukan Cut: clipboard tidak disentuh. Baris nonfinal dihapus bersama
 
 Setiap aksi efektif menjadi **satu transaksi undo**, terpisah dari ketikan/hapusan di sekitarnya; Find di-refresh dan guard prompt/Open/Preview tetap berlaku. Save/ekspor biasa mengizinkan edit. Undo mengembalikan teks/caret, **bukan anchor seleksi**. Ini operasi raw Source, termasuk di code fence: tidak menjaga struktur AST atau keseimbangan Markdown. Scan/copy/rekonstruksi masih O(ukuran dokumen), dengan budget history yang sama.
 
-Jalur New/Open kini mengisi buffer dengan Paste native sebelum tracking history, bukan `with_text`, agar baris kosong terakhir tidak terbuang oleh initializer Iced 0.13. Tidak membuat revisi/dirty/history dan caret awal tetap di awal dokumen. Regresi loader/EOF dan integrasi operasi ini sudah ditulis tetapi **belum dijalankan melalui suite native/GUI**.
+Jalur New/Open mengisi buffer dengan Paste yang dilindungi sebelum tracking history, bukan `with_text`, agar baris kosong terakhir tidak terbuang oleh initializer Iced 0.13. Proteksi satu spasi sementara lalu Backspace juga menjaga tab di akhir string yang dipangkas Paste mentah cosmic-text 0.12.1. Jalur yang sama digunakan untuk paste pengguna dan rekonstruksi caret; aksi internal tidak menjadi entri undo terpisah. Tidak membuat revisi/dirty/history saat load, dan caret awal tetap di awal dokumen. Regresi loader/EOF/tab/undo dan integrasi operasi lulus di suite Cargo; GUI tetap belum diuji.
 
 ### Pindahkan baris/blok (4i)
 
@@ -196,7 +197,7 @@ Baris/blok dipindahkan literal, urutan di dalam blok tidak berubah, tidak ada re
 
 Keberadaan LF terminal, jumlah LF, dan seluruh isi baris dipertahankan. Baris kosong final setelah LF terakhir tidak menjadi target/baris yang bisa dipindah. Blank line lain tetap bisa dipindah, kecuali pertukaran di EOF dokumen tanpa LF yang akan mengubah status LF akhir; kasus itu ditolak. Batas atas/bawah dan pertukaran identik juga no-op: caret/checkpoint/revisi/redo tidak berubah (anchor seleksi tetap bisa dikolapskan, sama seperti formatter lain).
 
-Setiap perpindahan efektif satu transaksi undo, terpisah dari grup ketikan/hapusan. Guard prompt/Open/Preview, refresh Find, checkpoint save dan budget history tetap sama dengan 4h. Undo memulihkan teks/caret, bukan seleksi. Ini memakai baris logis, bukan soft-wrap visual; scan/copy/rekonstruksi masih O(ukuran dokumen). Tes core mencakup permutasi baris independen serta round-trip caret Unicode; binding, fokus/viewport native dan perilaku desktop **belum diverifikasi**.
+Setiap perpindahan efektif satu transaksi undo, terpisah dari grup ketikan/hapusan. Guard prompt/Open/Preview, refresh Find, checkpoint save dan budget history tetap sama dengan 4h. Undo memulihkan teks/caret, bukan seleksi. Ini memakai baris logis, bukan soft-wrap visual; scan/copy/rekonstruksi masih O(ukuran dokumen). Tes core mencakup permutasi baris independen serta round-trip caret Unicode; regresi model/controller/binding lulus di Cargo. Fokus/viewport dan perilaku compositor desktop **belum diverifikasi**.
 
 ### Go to Line (4f)
 
@@ -273,7 +274,7 @@ Permission mode file lama dipertahankan, sedangkan file baru menggunakan mode pr
 
 ## Batasan penting
 
-- Fitur Tahap 2–3 dan iterasi 4a–4j sudah diimplementasikan tetapi build, seluruh suite test, dan perilaku desktop belum terverifikasi di lingkungan ini. Tetap gunakan salinan dokumen percobaan.
+- Fitur Tahap 2–3 dan iterasi 4a–4j sudah diimplementasikan; build debug dan suite Cargo lulus di CI Linux. Pengujian GUI, portal, Arch/Hyprland, build release dan packaging belum dilakukan. Tetap gunakan salinan dokumen percobaan.
 - Belum ada autosave, recovery crash, workspace, tab dokumen, atau WYSIWYG. Konfirmasi tidak dapat melindungi tulisan dari force-kill atau crash.
 - Belum ada deteksi konflik terhadap perubahan dari proses/aplikasi lain; atomic rename bukan mekanisme penguncian lintas proses dan tidak menghilangkan race filesystem.
 - Ekspor **tidak menyaring raw HTML**, termasuk script. Jangan membuka hasil ekspor dari Markdown tidak tepercaya di browser tanpa pemeriksaan/sanitasi.
