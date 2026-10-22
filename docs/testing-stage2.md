@@ -2,6 +2,8 @@
 
 **Status:** belum dijalankan pada sesi Arch + Hyprland. Checklist ini bukan laporan kelulusan. Gunakan dokumen percobaan dalam direktori sementara, bukan dokumen penting.
 
+Bukti otomatis terpisah: [smoke lifecycle X11](testing-lifecycle-x11.md) sudah lulus untuk New/Cancel/Discard, pemulihan fokus input serta native close dirty/clean. Ini tidak mencentang checklist manual Arch/Hyprland di bawah. Save & Continue/Save As/Open melalui portal dan penulisan ke disk dari GUI masih belum diuji end-to-end.
+
 ## Sebelum memulai
 
 Pada lingkungan dengan toolchain dan akses crates.io penuh:

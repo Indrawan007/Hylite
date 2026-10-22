@@ -1,6 +1,6 @@
 # Checklist Tahap 3 — model dan konfigurasi
 
-**Status desktop: belum dijalankan.** Build debug, Clippy dan suite Cargo (312 tes, termasuk tracker operasi/config/controller) sudah lulus di CI Ubuntu 24.04 / Rust stable. Lihat [catatan verifikasi native](verification-native.md). Kelulusan headless tidak membuktikan perilaku desktop.
+**Status desktop: belum dijalankan.** Build debug, Clippy dan suite Cargo (320 tes, termasuk tracker operasi/config/controller) sudah lulus di CI Ubuntu 24.04 / Rust stable. Lihat [catatan verifikasi native](verification-native.md). Kelulusan headless tidak membuktikan perilaku desktop.
 
 ## Pemeriksaan otomatis pada lingkungan lengkap
 

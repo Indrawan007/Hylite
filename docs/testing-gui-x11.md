@@ -22,6 +22,12 @@ Smoke awal tidak mengubah logika editor Rust. Perluasan navigasi kemudian
 menemukan bug fokus yang memang memerlukan perbaikan aplikasi (lihat di bawah),
 bukan klik penyelamat atau pelonggaran ekspektasi teks.
 
+Update lifecycle: [CI run 39713905090](https://github.com/Indrawan007/Hylite/actions/runs/39713905090)
+pada `d03197b` juga lulus **320 tes Cargo**, **14 tes Python helper** dan **63
+pemeriksaan GUI**. Angka 34 di atas adalah cakupan navigasi awal; suite sekarang
+menambahkan New/Cancel/Discard, pemulihan fokus query, dan dua native exit.
+Lihat [hasil dan batas lifecycle](testing-lifecycle-x11.md) untuk rincian.
+
 ## Cakupan
 
 Runner `scripts/test-gui-x11.sh` membuka **aplikasi Hylite sebenarnya**, bukan test
@@ -105,7 +111,7 @@ Build aplikasi terlebih dahulu. Pada Ubuntu, dependensi smoke tambahan:
 
 ```sh
 sudo apt-get install --no-install-recommends -y \
-  xvfb xauth xdotool xclip imagemagick fonts-dejavu-core libxkbcommon-x11-0
+  xvfb xauth xdotool xclip imagemagick fonts-dejavu-core libxkbcommon-x11-0 python3-xlib
 cargo build --locked
 ./scripts/test-gui-x11.sh
 ```
@@ -128,17 +134,21 @@ Runner hanya menulis konfigurasi/cache/data/state/runtime ke direktori sementara
 melepas environment Wayland/Hyprland/D-Bus untuk child, dan tidak mengirim IPC
 ke sesi desktop. Clipboard yang disentuh milik Xvfb privat, bukan sesi pengguna.
 Proses aplikasi/clipboard owner dihentikan dan direktori sementara dibersihkan
-saat selesai atau gagal. Cleanup proses **bukan** verifikasi close-window native.
+saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite lifecycle harus mengamati exit alami 0 lebih dulu, lalu menjalankan proses kedua untuk clean close.
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan 315 tes Cargo. Output ringkas
+Workflow menjalankan smoke sesudah build dan 320 tes Cargo. Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
 - `application.log`: stdout/stderr aplikasi; pesan verbose clipboard owner dibuang agar tidak menenggelamkan error;
 - `tabs.png` / `empty-lines.png` / `navigation.png`: tangkapan jendela dengan fixture terpilih (bukan assertion posisi caret visual);
+- `confirmation-new.png` / `confirmation-close.png`: tampilan konfirmasi lifecycle;
 - `failure.png`: tangkapan best-effort jika window tersedia saat gagal.
+
+`summary.json` juga mencatat `native_exits`; pada suite lifecycle sukses nilainya
+2 (dirty close dengan Discard dan clean close), keduanya tanpa force-kill.
 
 Artifact memakai direktori segar di `RUNNER_TEMP` (bukan target cache) dan
 retensi 7 hari. Tidak ada dokumen pribadi atau dump environment dalam fixture.
@@ -146,10 +156,11 @@ Kegagalan aplikasi, clipboard, screenshot, timeout atau komparasi menggagalkan
 step; tidak ada `continue-on-error`. Anggaran global 180 detik, serta batas
 per-command/wait dan timeout step CI 5 menit.
 
-Delapan unit test helper menguji isolasi environment, child exit, timeout,
+Sebelas unit test helper menguji isolasi environment, child exit, timeout,
 komparasi byte-exact, pencegahan false-positive clipboard, polling tanpa write
-Copy tambahan, mode tanpa refocus dan ASCII-only typing. Bersama tiga tes
-reporter CI, ada **11 tes Python**; unit test helper ini **bukan** bukti runtime GUI.
+Copy tambahan, mode tanpa refocus, ASCII-only typing, protokol WM_DELETE_WINDOW,
+dan exit alami vs signal/timeout. Bersama tiga tes reporter CI, ada **14 tes
+Python**; unit test helper ini **bukan** bukti runtime GUI.
 
 ## Batas bukti
 
@@ -162,7 +173,8 @@ logical pada skenario Go to Line/Find/undo di atas sudah terbukti di X11.
 Ini bukan jaminan fokus semua command, kondisi balapan UI, toolbar, Split/Zen,
 atau fokus/viewport desktop target Wayland/Hyprland.
 
-Wayland/Hyprland, akselerasi GPU, portal file, D-Bus, close/save dari dialog,
+Wayland/Hyprland, akselerasi GPU, portal file/D-Bus, Save & Continue dan file chooser,
+close saat save in-flight,
 IME/RTL, soft-wrap/viewport, mouse selection kompleks dan compositor shortcuts
 masih membutuhkan [checklist desktop Tahap 4](testing-stage4.md) beserta
 [Tahap 2](testing-stage2.md) dan [Tahap 3](testing-stage3.md). Tes ini tidak

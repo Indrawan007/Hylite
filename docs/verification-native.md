@@ -35,6 +35,15 @@ hilang adalah no-op. Smoke tanpa klik menemukan kehilangan fokus setelah undo;
 operasi `focus_next` diganti dengan fokus idempoten dalam subtree container
 Source. Lihat detail dan batas buktinya di [catatan GUI](testing-gui-x11.md).
 
+Update lifecycle: [CI run 39713905090](https://github.com/Indrawan007/Hylite/actions/runs/39713905090),
+commit `d03197b`, lulus **320 tes Cargo**, **14 tes Python helper**, serta **63
+pemeriksaan GUI/lifecycle**. Lima regresi Rust tambahan mencakup shortcut
+konfirmasi, title pending, no-op tanpa prompt, konteks Cancel dan pencegahan
+Alt accelerator jatuh ke penyisipan karakter. Native close dirty + Discard dan
+clean close benar-benar menghasilkan exit 0 sebelum fallback cleanup, bukan
+SIGTERM. Lihat [bukti dan batas lifecycle](testing-lifecycle-x11.md). Portal file
+serta close ketika save in-flight tetap belum diuji end-to-end.
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang
@@ -61,8 +70,9 @@ Source. Lihat detail dan batas buktinya di [catatan GUI](testing-gui-x11.md).
 - Ini build debug dan tes headless Ubuntu, **bukan** kelulusan desktop Arch Linux +
   Hyprland, bukan build release/AUR/packaging, dan bukan jaminan kesiapan produksi.
 - Callback hasil file/controller, pemetaan binding dan model native diuji langsung;
-  dialog portal, D-Bus, close-window, keyboard compositor dan save end-to-end dari
-  jendela nyata belum diuji. Tes file sementara bukan simulasi power-loss/recovery.
+  dialog portal, D-Bus, keyboard compositor dan save end-to-end dari
+  jendela nyata belum diuji. Native client close X11 kini diuji pada suite lifecycle,
+  bukan WM/compositor close atau close saat save berjalan. Tes file sementara bukan simulasi power-loss/recovery.
 - Fokus, selection/IME/RTL, shaping/soft-wrap, syntax rendering, scrolling/caret
   viewport dan shortcut yang mungkin diambil Hyprland masih membutuhkan desktop.
 - Batas algoritme Source, history snapshot O(n), LF canonical, selection collapse,

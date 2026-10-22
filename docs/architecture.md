@@ -1,6 +1,8 @@
 # Arsitektur setelah iterasi Source 4a–4j
 
-Build debug, Clippy dan **315 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
+Build debug, Clippy dan **320 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable; lihat [bukti dan batas verifikasi](verification-native.md). Smoke GUI terpisah pada X11/Xvfb + tiny-skia juga lulus; lihat [cakupannya](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland.
+
+Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
 ## Batas tanggung jawab
 
