@@ -122,7 +122,8 @@ class SmokeHelperTests(unittest.TestCase):
             self.assertEqual(call.args[1], fixture)
         self.assertEqual(desktop.expect_copy.call_count, 4)
         self.assertEqual(desktop.screenshot.call_count, 3)
-        self.assertEqual(desktop.command.call_args.args[-1], "7")
+        desktop.command.assert_called_once_with("xdotool", "mousemove", "--window", "42", "900", "300",
+                                                "click", "--repeat", "6", "--delay", "70", "7")
         self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 3)
 
     def test_cache_probe_checks_warm_split_edits_undo_redo_without_refocusing(self):

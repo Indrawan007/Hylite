@@ -1,6 +1,6 @@
-# Arsitektur: Source 4a–4j dan preview read-only 5a–5c
+# Arsitektur: Source 4a–4j dan preview read-only 5a–5d
 
-Stage 5c: build debug, Clippy dan **374 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. Sebanyak **17 helper Python dan 76 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
+Stage 5d: build debug, Clippy dan **396 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **18 helper Python dan 80 pemeriksaan GUI X11/Xvfb + tiny-skia** juga lulus; lihat [navigasi provenance](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
 Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Discard dan native close dirty/clean. Setelah view konfirmasi penuh dihapus, `restore_input_focus` memilih query Go to Line/Find yang masih terbuka atau operasi scoped Source; New juga mengembalikan fokus input. Title menyertakan aksi konfirmasi agar status terlihat di window manager. Akselerator Alt+S/Alt+D dikirim ke controller (hanya efektif saat pending/ready), disaring dari fallback Source, dan tidak memakai Ctrl+Alt/AltGr sebagai app command. Tidak ada perubahan serializer/save worker karena penambahan lifecycle ini.
 
@@ -10,6 +10,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
 - **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
+- **`preview_navigation.rs`**: target snapshot+range dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`line_edit.rs`**: transaksi raw Source untuk Duplicate/Delete/Move Lines; rentang baris bersama dengan formatter dan indent.
 - **`commands.rs`**: enum message dan aksi yang ditunda, serta pemetaan shortcut aplikasi. Binding editing native berada di `editor.rs` agar shortcut tidak menelan input biasa/AltGr.
 - **`document/state.rs`**: memiliki satu buffer `text_editor::Content`, path aktif, ID dokumen, revisi operasi monotonik, checkpoint konten, checkpoint terakhir disimpan, dan bounded history. Edit efektif melalui `apply`/`change`; penggantian dokumen melalui `replace`; hasil save melalui `mark_saved`.
@@ -41,12 +42,12 @@ bukan budget CPU/memori total atau jaminan untuk file besar.
 Font strong/emphasis/code digabung, strike/underline memakai dekorasi span native,
 heading memakai ukuran per level. List/quote mempertahankan child blocks;
 code payload tidak di-trim. Warna berasal dari tema aplikasi. Tidak ada callback
-link, image loader, HTML execution, worker I/O, atau message pengubah dokumen.
+link, image loader, HTML execution, worker I/O, atau message pengubah teks Source. Tombol provenance 5d hanya menerbitkan permintaan navigasi tervalidasi.
 Fallback unsupported tetap terlihat sebagai source, bukan dipipihkan/dihapus.
 
 `app::view_preview` mengambil proyeksi dari Document yang pada cache miss memakai
 **buffer_text raw**, bukan serializer yang dapat menambah LF. Source dan Split tetap menggunakan satu native buffer otoritatif.
-Rentang UTF-8 di model/tooltip hanya provenance; entity, escape dan soft break
+Rentang UTF-8 di model/tooltip merupakan provenance; entity, escape dan soft break
 mengubah display text. Ini belum AST editable, WYSIWYG, hit-testing caret,
 selection mapping atau sinkronisasi scroll. Mulai 5c, parsing hanya pada cache
 miss dan renderer meminjam payload model. Widget tetap dibangun per view; belum
@@ -102,6 +103,31 @@ no-op, query Go to Line/Find bila masih terbuka, selain itu scoped Source.
 Probe keyboard-only menemukan kehilangan fokus Split → Source dan perbaikan
 menggunakan operasi idempoten yang sama, bukan klik fallback atau `focus_next`.
 Getter/cache serta task fokus tidak menaikkan snapshot atau dirty/history.
+
+## Navigasi provenance ke Source (Stage 5d)
+
+Renderer menerima snapshot konten saat membangun view. Hanya leaf non-empty
+menampilkan **Show block source**, menerbitkan `RevealPreview(Target)` yang
+berisi snapshot penuh dan range. Quote/list/item memakai target anak; tabel
+menggunakan satu target whole-block, bukan sel. Range paragraph sintetis tight
+list bisa mulai pada run, bukan prefix/marker container.
+
+`Target::offset` menolak snapshot stale serta range kosong/invalid/non-UTF-8.
+`Document::preview_source_offset` juga menuntut cache warm dan exact membership
+pada leaf model saat ini; range sembarang yang in-bounds tidak cukup. Tidak ada
+parse untuk message cold, offset rebasing atau perkiraan berdasarkan glyph.
+Edit/undo/redo/replace menggugurkan target lama; caret/save metadata tidak.
+
+Controller memakai guard navigasi (konfirmasi/Open), menolak mode Source dan
+mengizinkan Save/Export tanpa mengonsumsi operasinya. Setelah `set_caret` sukses,
+panel query ditutup, current Find dibersihkan, mode menjadi Split dan task scoped
+Source dijalankan. Byte source, checkpoint/revisi/dirty/undo/redo tidak berubah;
+selection dikolapskan, typing group ditutup dan render key bisa berganti.
+Lookup model serta rekonstruksi buffer masih O(n). Tidak ada AST editing,
+glyph hit testing, source↔selection mapping, reverse navigation atau scroll sync.
+GUI membuktikan klik first-heading dan keyboard caret/fokus awal blok; viewport
+blok jauh dan layout glyph/nested controls masih checklist manual.
+Lihat [kontrak, tes dan batas Stage 5d](testing-stage5d.md).
 
 ## Invariant dokumen
 

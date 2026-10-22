@@ -1,5 +1,9 @@
 # Stage 5b — tabel Markdown native read-only
 
+> Pembaruan [Stage 5d](testing-stage5d.md): tombol provenance leaf dapat
+> menavigasi ke awal rentang Source dalam Split. Ini bukan glyph/selection map;
+> hasil/count iterasi di bawah tetap catatan historis, bukan suite terbaru.
+
 > Catatan hasil tabel 5b. Mulai [Stage 5c](testing-stage5c.md), renderer
 > meminjam model cached, bukan mengonsumsi model baru pada setiap view.
 

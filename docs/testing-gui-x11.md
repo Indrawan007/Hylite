@@ -138,7 +138,7 @@ saat selesai atau gagal. Fallback cleanup **bukan** keberhasilan close; suite li
 
 ## CI dan bukti
 
-Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 374 pada Stage 5c). Output ringkas
+Workflow menjalankan smoke sesudah build dan seluruh tes Cargo (kini 396 pada Stage 5d). Output ringkas
 tersedia di GitHub Checks; artifact **`gui-x11-smoke`** di halaman run berisi:
 
 - `summary.json`: status, pemeriksaan yang berhasil, dan error bila ada;
@@ -236,3 +236,28 @@ menambah klik, mengubah expected bytes atau memperpanjang timeout untuk lolos.
 `cache-split.png` dan `cache-split-edited.png` merekam runtime tetapi tidak
 menguji stale pixels/parse count. Kesegaran model/cache occupancy diuji terpisah
 pada suite Document. Detail dan batas benchmark/desktop ada di [Stage 5c](testing-stage5c.md).
+
+
+## Tambahan runner Stage 5d: tombol provenance ke Source
+
+**Lulus** pada [CI run 39728608200](https://github.com/Indrawan007/Hylite/actions/runs/39728608200),
+commit `40771f1`: **80 GUI** (66 clipboard, 12 title, 2 exit normal), **396 Cargo**,
+**158 core mandiri** (subset Cargo), dan **18 Python**. Empat clipboard check
+baru mempertahankan gate sebelumnya:
+
+1. Fixture heading café🙂, body, tabel, code serta terminal tab byte-exact.
+2. Source→Preview, klik bar **Show block source** pertama, ketik `X`: harus
+   membuka Split dan menyisipkan tepat sebelum `# café🙂` tanpa klik Source.
+3. Undo sentinel mengembalikan seluruh fixture termasuk whitespace.
+4. Undo berikutnya mengembalikan welcome clean: navigasi bukan edit history.
+
+Semua Copy baru `refocus=False`. Screenshot `reveal-preview.png` dan
+`reveal-split.png` adalah evidence runtime, belum ditinjau visual. Klik pada
+kontrol preview memang aksi produk yang diuji, bukan workaround fokus editor.
+Mode/panel/stale guards dan semua jenis leaf diuji terpisah di Cargo; GUI baru
+hanya membuktikan first-heading, bukan klik nested/cell/glyph atau viewport jauh.
+Setelah kontrol provenance menambah tinggi layout, probe wheel tabel memakai
+`900,300` (bukan `900,200`) agar tetap di area grid. Ini tetap bukan scrollbar
+position/pixel assertion. Snapshot tetap frame-local; tidak ada test hook app,
+relaksasi expected source, deadline, atau pengujian Wayland/Hyprland baru.
+Lihat [kontrak dan batas navigasi Stage 5d](testing-stage5d.md).

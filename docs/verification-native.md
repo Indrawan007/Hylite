@@ -73,6 +73,17 @@ controller sekarang memakai task scoped restore, bukan melemahkan probe.
 Lihat [detail dan batas cache](testing-stage5c.md); ini bukan benchmark speedup,
 layout/pixel oracle atau source↔selection mapping.
 
+Update provenance navigation Stage 5d: [CI run 39728608200](https://github.com/Indrawan007/Hylite/actions/runs/39728608200),
+commit `40771f1`, lulus **396 tes Cargo**, **158 core mandiri** (subset Cargo),
+**18 helper Python**, **80 pemeriksaan GUI X11**, format/build debug/Clippy
+strict. Tambahan 22 tes Rust meliputi resolver snapshot+UTF-8, membership model,
+stale/edit/replace/metadata, guard/query/history controller dan action renderer.
+Empat clipboard check baru membuktikan klik tombol provenance membuka Split,
+keyboard sentinel pada awal first-heading dan dua Undo mempertahankan source
+Unicode/terminal tab serta baseline clean. Tidak ada klik tambahan ke Source.
+Ini block-start anchor, bukan glyph/caret hit-testing, selection mapping atau
+scroll sync. Detail, artifact dan checklist manual: [Stage 5d](testing-stage5d.md).
+
 ## Perbaikan yang dipicu CI
 
 1. Clippy menolak task Iced `must_use` yang diabaikan tes controller. Tes sekarang

@@ -67,9 +67,25 @@ bisa berubah, sementara model preview tetap valid karena teks tidak berubah.
 
 ## Status eksekusi
 
-Lokal: **158 core** (150 baseline + 8 navigator) dan **18 helper Python** lulus;
-format harness/aplikasi dan diff diperiksa. Gate Cargo/Iced/Clippy/build serta
-klik GUI native baru masih menunggu CI; tidak diasumsikan lulus dari core saja.
+[CI run 39728608200](https://github.com/Indrawan007/Hylite/actions/runs/39728608200)
+**success** pada commit `40771f1e5cde268943c1e0a23ce1e7990c3f128c`, job
+`119658209013`, Ubuntu 24.04 / Rust stable, durasi 2m54s. Gate format,
+**158 core** strict mandiri, Clippy/build debug `--locked --all-targets
+--all-features`, **396 Cargo**, **18 Python** dan **80 GUI X11** semuanya lulus.
+158 core termasuk dalam 396, bukan tambahan; 22 Rust baru termasuk suite itu.
+80 GUI terdiri dari 66 clipboard + 12 title + 2 exit native. Tidak ada gate atau
+expected byte yang dilonggarkan. Pemeriksaan lokal format/diff/158 core/18 Python
+juga lulus; full Cargo dan GUI dirujuk ke runner native, bukan hasil core saja.
+
+[Artifact gui-x11-smoke](https://github.com/Indrawan007/Hylite/actions/runs/39728608200/artifacts/12404142207)
+dikonfirmasi ada melalui API (735429 bytes, belum expired saat diperiksa,
+retensi 7 hari). Screenshot belum ditinjau visual dan bukan oracle pixel.
+
+Baru setelah verifikasi pertama, koordinat wheel probe tabel dipindah dari
+`900,200` ke `900,300` agar tetap di area grid yang sekarang lebih rendah karena
+kontrol provenance; unit helper mengunci koordinat tersebut. Jumlah/expected
+byte/refocus policy/timeout sama. Penyesuaian probe dan dokumentasi tetap
+menjalani workflow penuh yang sama pada push branch.
 
 ## Batas dan checklist manual — belum dinyatakan lulus
 

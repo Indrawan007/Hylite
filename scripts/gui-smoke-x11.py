@@ -364,7 +364,8 @@ def exercise_tables(desktop, artifacts):
     desktop.screenshot(artifacts / "tables-native.png")
     # Send real horizontal wheel events inside the table viewport. Screenshots
     # record runtime behavior, not an automatic assertion of scrollbar position.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "200",
+    # The new block-source bars put the grid lower than its Stage 5b position.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "300",
                     "click", "--repeat", "6", "--delay", "70", "7")
     desktop.screenshot(artifacts / "tables-horizontal.png")
     desktop.type_ascii("LEAK")

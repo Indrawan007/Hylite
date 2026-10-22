@@ -1,5 +1,9 @@
 # Stage 5a — fondasi preview Markdown native read-only
 
+> Pembaruan [Stage 5d](testing-stage5d.md): tombol provenance leaf dapat
+> menavigasi ke awal rentang Source dalam Split. Ini bukan glyph/selection map;
+> hasil/count iterasi di bawah tetap catatan historis, bukan suite terbaru.
+
 > Catatan historis fondasi 5a. Tabel yang pada iterasi ini masih fallback kini
 > diperluas menjadi grid native pada [Stage 5b](testing-stage5b.md).
 > [Stage 5c](testing-stage5c.md) menambah cache proyeksi dan borrowed renderer.

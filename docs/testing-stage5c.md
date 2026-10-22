@@ -1,5 +1,9 @@
 # Stage 5c — cache proyeksi preview per revisi konten
 
+> Pembaruan [Stage 5d](testing-stage5d.md): tombol provenance leaf dapat
+> menavigasi ke awal rentang Source dalam Split. Ini bukan glyph/selection map;
+> hasil/count iterasi di bawah tetap catatan historis, bukan suite terbaru.
+
 Melanjutkan [Stage 5a](testing-stage5a.md) dan [tabel Stage 5b](testing-stage5b.md).
 Ini optimasi jalur model/render, **bukan WYSIWYG**, incremental parser, cache
 widget/layout, atau bukti peningkatan latensi/RAM terukur.
