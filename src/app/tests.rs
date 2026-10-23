@@ -6930,7 +6930,8 @@ fn workspace_rows_open_a_file_without_a_dialog_and_keep_the_snapshot_rule() {
         Ok(Some((alpha.clone(), "alpha tree".into()))),
     ));
     assert_eq!(app.document.path(), Some(alpha.as_path()));
-    assert_eq!(app.document.text(), "alpha tree");
+    // `text()` preserves the Iced convention of at least one final LF.
+    assert_eq!(app.document.text(), "alpha tree\n");
     assert!(app.operations.active().is_none());
     assert!(app.status_message.contains("Opened:"));
     assert_eq!(app.workspace_path_dirty(&alpha), Some(false));
@@ -6967,20 +6968,29 @@ fn collapsing_a_folder_through_the_tree_removes_its_rows_from_selection() {
     write(directory.path(), "notes/nested.md", "nested");
     let beta = write(directory.path(), "beta.md", "beta");
     let mut app = workspace_fixture(directory.path());
-    let rows = app.workspace.as_ref().unwrap();
-    assert_eq!(rows.row_count(), 3);
-    assert_eq!(rows.rows()[1].name, "nested.md");
+    let workspace = app.workspace.as_ref().unwrap();
+    assert_eq!(workspace.row_count(), 3);
+    assert_eq!(workspace.rows()[1].name, "nested.md");
+    assert_eq!(workspace.selected_path(), Some(notes.clone()));
 
     let _ = app.update(Message::ToggleWorkspaceDir(notes.clone()));
     let collapsed = app.workspace.as_ref().unwrap();
     assert_eq!(collapsed.row_count(), 2);
-    assert_eq!(collapsed.selected_path(), Some(beta.clone()));
+    assert!(collapsed.selected_path().is_some_and(|path| path == notes));
+    assert!(collapsed.rows()[0].collapsed);
     assert!(app.status_message.starts_with("Collapsed"));
 
+    // The hidden nested row can never be selected: the second row is beta.md.
+    let _ = app.update(Message::SelectWorkspaceRow(1));
+    assert_eq!(
+        app.workspace.as_ref().unwrap().selected_path(),
+        Some(beta.clone())
+    );
+
+    // Expanding from the folder row restores the nested row and its order.
     let _ = app.update(Message::SelectWorkspaceRow(-1));
-    assert_eq!(app.workspace.as_ref().unwrap().selected_path(), Some(notes));
     let _ = app.update(Message::ActivateWorkspaceRow);
-    assert_eq!(app.workspace.as_ref().unwrap().row_count(), 3, "expanded");
+    assert_eq!(app.workspace.as_ref().unwrap().row_count(), 3);
     let _ = app.update(Message::SelectWorkspaceRow(1));
     let _ = app.update(Message::ActivateWorkspaceRow);
     assert!(matches!(
