@@ -662,3 +662,32 @@ oracle. Middle/3+body/1kolom/12kolom/3spasi/trailing-tab UI, no-op/query/Go-to
 physical focus, large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/
 RTL/HiDPI/GPU tetap manual. Bukan header/column move/drag atau inline WYSIWYG.
 [Kontrak dan batas Stage6m](testing-stage6m.md).
+
+## Stage 6n: bounded column movement with alignment, suite privat kesebelas
+
+`--suite table-column-move` memakai private Xvfb/app/XDG/env/clipboard sendiri,
+alarm180s/step5min, job45min tetap. Semua21 old exercise bodies AST-identical
+terhadap8fbc789; sepuluh gate lama utuh tanpa perubahan bytes/koordinat/refocus/
+deadline/retry/runtime hooks. Dua helper baru mengunci independent full raw
+columns/alignment/selected-header caret/four-click/Undo/no-refocus/exit serta
+exclusive dispatch; private DISPLAY guard mencakup sebelas suite sebelum subprocess.
+
+[CI 39874500418](https://github.com/Indrawan007/Hylite/actions/runs/39874500418),
+`46c89c6`, **success**, **738 Cargo /264 strict core (subset) /45 Python**,
+22 Oktober23:59:38 UTC /23 Oktober2026 Makassar. New suite **11 checks** =10
+exact Source Copy +natural clean Close0. Preview Column1 Move right menukar raw
+header/delimiter/body dengan old alignment mengikuti kolom asal, raw Unicode/
+markup/escaped pipe/entity/spacing/tab/prefix/suffix utuh. Satu Undo/Redo memulihkan
+original/moved columns. Split Column2 Move left lalu native X masuk ke selected
+moved Count header payload tanpa Source refocus. Undo typing/move/paste terpisah
+sampai welcome clean. Move choices append setelah old prefix termasuk row moves;
+no-wrap/single-column/identical guard diuji unit, bukan pixel/menu absence oracle.
+
+Total **228 GUI =116+9+9+9+14+16+11+11+11+11+11** =204 clipboard (195 Source
++9 draft),12 title,12 natural exits. Artifact `12468122247`,2.433.374 bytes, belum
+expired saat diperiksa; screenshot belum direview visual. Evidence
+`table-column-move/column-move-preview.png` / `column-move-split.png` bukan pixel/
+glyph oracle. Middle/3+kolom/header-only/empty/12kolom/3spasi/trailing-tab UI,
+no-op/query/Go-to physical focus, large menu keyboard/scroll dan Arch/Hyprland/
+Wayland/portal/IME/RTL/HiDPI/GPU tetap manual. Bukan drag/bulk/resize atau inline
+WYSIWYG. [Kontrak dan batas Stage6n](testing-stage6n.md).

@@ -1,6 +1,35 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6m terbaru — bounded raw body-row moves
+## Stage 6n terbaru — bounded raw column moves with alignment
+
+[CI 39874500418](https://github.com/Indrawan007/Hylite/actions/runs/39874500418),
+`46c89c632bef97018ca8633a4877569fe1528408`, **success**, watch exit0,
+job `120156694687`,22 Oktober2026 23:51:38–23:59:38 UTC /23 Oktober Makassar.
+Format/strict Clippy/native debug build, **738 Cargo**, **264 strict core**
+(subset), **45 Python**, sebelas suite Xvfb **116+9+9+9+14+16+11+11+11+11+11
+GUI** lulus. Total **228 GUI** =204 clipboard (195 Source +9 draft),12 title,
+12 natural exits. Artifact `12468122247`,2.433.374 bytes, belum expired saat
+diperiksa; screenshot belum direview visual.
+
+Column suite membuktikan Preview Move right dan Split Move left menukar raw
+header/delimiter/body serentak, alignment/dash/Unicode/markup/escaped pipe/entity/
+indent/tab/prefix/suffix utuh, one-step Preview Undo/Redo, Source focus/caret di
+selected moved header payload lewat native X tanpa refocus, separate typing/move/
+paste history dan natural Close0.22 Rust baru mencakup bounded neighbors, entire
+raw-column no-op preserving redo/checkpoint/cache, cold/stale/forged/nested/ragged/
+noncanonical/EOF/fallback/growth caps, header-only/empty/indent, parser preflight,
+fresh moved cell edit, save/modal/file/search/logical Go-to context.
+
+Semua21 old exercise bodies AST-identical; tidak melonggarkan oracle/koordinat/
+deadline/refocus. Runner kesebelas tetap alarm180s/step5min dan job45min. CI docs6m
+39873812558 cancelled saat push6n supersede; feature6m tetap success dan semua
+old gates kembali lulus di6n. Full parse/reconstruction/history O(n), bukan speedup.
+Tidak ada drag/bulk/resize/multi-column selection atau inline WYSIWYG. Middle/
+3+kolom/header-only/empty/12kolom/3spasi UI, physical no-op/query/Go-to focus,
+large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap
+manual. [Kontrak dan batas Stage6n](testing-stage6n.md).
+
+## Stage 6m — bounded raw body-row moves
 
 [CI 39872957659](https://github.com/Indrawan007/Hylite/actions/runs/39872957659),
 `27da9ae2fa9238324a65abae930bed1fd819b759`, **success**, watch exit0,
@@ -425,6 +454,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6m](testing-stage6m.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6n](testing-stage6n.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
