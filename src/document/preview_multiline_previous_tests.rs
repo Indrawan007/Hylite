@@ -160,12 +160,7 @@ fn prepare_refuses_cold_forged_single_line_nested_and_stale_targets_without_warm
             .prepare_multiline_paragraph_previous(&bad, "new\ntext")
             .is_none());
     }
-    for raw in [
-        "single\n",
-        "> nested\n> para\n",
-        "fake\npara\n",
-        "third\nlast\n",
-    ] {
+    for raw in ["single\n", "> nested\n> para\n", "fake\npara\n", "# gap\n"] {
         let start = SOURCE.find(raw).unwrap();
         let bad = Target {
             snapshot: doc.snapshot(),
@@ -214,10 +209,13 @@ fn abandoned_and_stale_plans_never_commit_or_drop_current_source_redo() {
     let plan = doc
         .prepare_multiline_paragraph_previous(&t[2], "new\ntext")
         .unwrap();
-    let mut foreign = Document::new(SOURCE);
+    let changed_suffix = SOURCE.replace("terminal\n\t", "terminal more\n\t");
+    let mut foreign = Document::new(&changed_suffix);
     let _ = roots(&foreign);
+    // Earlier ranges/payload still authenticate, but the full Source differs.
     assert!(foreign.commit_multiline_paragraph_move(plan).is_none());
-    assert_eq!(foreign.buffer_text(), SOURCE);
+    assert_eq!(foreign.buffer_text(), changed_suffix);
+    assert!(!foreign.can_undo());
 }
 #[test]
 fn sequential_apply_previous_has_one_edge_per_apply_and_source_typing_is_a_barrier() {
@@ -285,7 +283,8 @@ fn utf8_growth_shrink_bytes_and_line_capacity_keep_previous_offsets_exact() {
         vec!["x"; 128].join("\n"),
     ] {
         let mut doc = Document::new(SOURCE);
-        let (previous, _) = transition(&mut doc, &old[2], &value).unwrap();
+        let fresh = roots(&doc);
+        let (previous, _) = transition(&mut doc, &fresh[2], &value).unwrap();
         assert_eq!(previous.block, old[1].block);
         assert_eq!(previous.payload, old[1].payload);
         assert_eq!(

@@ -5873,7 +5873,7 @@ fn multiline_apply_previous_forward_navigation_uses_fresh_applied_payload_and_so
     assert!(app
         .document
         .buffer_text()
-        .starts_with("café🙂 **first**  \na\\|b &amp;\n\ntwo\n"));
+        .starts_with("café🙂 **first**  \na\\|b &amp;\n\n# gap\n\nsingle line"));
     let _ = app.update(Message::Undo);
     assert_eq!(app.document.buffer_text(), original);
 }
