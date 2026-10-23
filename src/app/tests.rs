@@ -6557,3 +6557,43 @@ fn draft_history_keys_route_only_to_the_one_open_single_line_panel() {
     assert!(multi.multiline_draft.is_some());
     assert_eq!(multi.draft_history_panel(), None);
 }
+
+#[test]
+fn draft_history_key_falls_back_to_preview_history_and_never_touches_source() {
+    let mut app = app_with_task_history();
+    let _ = app.update(Message::DraftHistory(false));
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(app.document.buffer_text(), "- [ ] café🙂\n\t");
+    assert!(app.preview_history_allowed(true));
+    let _ = app.update(Message::DraftHistory(true));
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+    // The fallback is Preview-only, exactly like the message it stands in for.
+    app.mode = EditMode::Source;
+    let _ = app.update(Message::DraftHistory(false));
+    assert_eq!(app.mode, EditMode::Source);
+    assert_eq!(app.document.buffer_text(), "- [x] café🙂\n\t");
+
+    // With a single-line draft open the same key moves only the local stack.
+    let mut para = single_paragraph_app();
+    let t = single_targets(&para);
+    let _ = para.update(Message::OpenPreviewParagraph(t[0].clone()));
+    set_paragraph_value(&mut para, "first A");
+    set_paragraph_value(&mut para, "first AB");
+    let before = (
+        para.document.buffer_text(),
+        para.document.can_undo(),
+        para.document.can_redo(),
+    );
+    let _ = para.update(Message::DraftHistory(false));
+    assert_eq!(para.paragraph_draft.as_ref().unwrap().value, "first A");
+    let _ = para.update(Message::DraftHistory(true));
+    assert_eq!(para.paragraph_draft.as_ref().unwrap().value, "first AB");
+    assert_eq!(
+        before,
+        (
+            para.document.buffer_text(),
+            para.document.can_undo(),
+            para.document.can_redo()
+        )
+    );
+}

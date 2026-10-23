@@ -141,7 +141,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .height(32),
         text(
             draft.error.or(draft.navigation_notice).unwrap_or(
-                "Enter = Apply and close · Previous/Next = unchanged move · Esc = Cancel"
+                "Ctrl+Z/Ctrl+Y = Undo/Redo draft · Enter = Apply and close · Previous/Next = unchanged move · Esc = Cancel"
             )
         )
         .size(13),

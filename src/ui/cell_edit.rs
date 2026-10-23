@@ -67,7 +67,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             button(text("Next").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
             button(text("Apply & Next").size(14)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
             button(text("Apply & Previous").size(14)).width(160).height(32).on_press_maybe(apply_previous_message(draft))].spacing(8).height(32),
-        text(draft.error.or(draft.navigation_notice).unwrap_or("Previous/Next require an unchanged draft · Apply & Next/Previous commits one cell · Enter = Apply and close · Esc = Cancel current draft")).size(13),
+        text(draft.error.or(draft.navigation_notice).unwrap_or("Ctrl+Z/Ctrl+Y = Undo/Redo draft · Enter = Apply and close · Previous/Next = unchanged move · Apply & Next/Previous commits one cell · Esc = Cancel")).size(13),
     ].spacing(12).width(Length::Fill);
     // Stable top-aligned controls; footer/error wrapping never moves the input
     // or navigation buttons. No impact on the normal Preview/Split action bar.
