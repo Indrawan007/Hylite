@@ -307,6 +307,7 @@ fn draft_history_affordances_track_local_snapshots_without_touching_apply() {
     // An error disables Apply but never the local history.
     d.error = Some("stale");
     assert!(apply_message(&d).is_none());
+    // Local history stays usable while navigation/Apply obey the error.
     assert!(undo_message(&d).is_some());
-    assert!(can_move(&d, crate::document::ParagraphDirection::Next));
+    assert!(!can_move(&d, crate::document::ParagraphDirection::Next));
 }
