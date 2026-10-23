@@ -2889,7 +2889,7 @@ def exercise_inline_spike(desktop, artifacts, document):
     # the probe does not rely on the click's glyph hit-testing. Seven visible-
     # character moves place it between `o` and `l` in the bold run.
     desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                    "400", "150", "click", "1")
+                    "600", "170", "click", "1")
     desktop.key("Home")
     for _ in range(7):
         desktop.key("Right")
