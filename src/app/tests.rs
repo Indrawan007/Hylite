@@ -6789,6 +6789,7 @@ fn tab_switching_is_refused_while_a_draft_or_confirmation_is_open() {
     let _ = app.update(Message::CancelPreviewParagraph);
 
     // A pending confirmation is equally exclusive.
+    app.mode = EditMode::Source;
     app.document = Document::new("dirty text");
     let _ = app.update(Message::Edit(text_editor::Action::Edit(
         text_editor::Edit::Insert('!'),
