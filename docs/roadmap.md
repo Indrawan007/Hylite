@@ -48,7 +48,7 @@ Tujuannya: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF".
 | **8a** ✅ | **Multi-buffer + tab**: tab memarkir seluruh `Document` (bukan `Vec<Buffer>` terpisah); strip di dalam baris toolbar; perpindahan mempertahankan teks, caret, seleksi, snapshot, path, dirty, dan **stack history masing-masing**; `Ctrl+T`/`Ctrl+W`/`Alt+1..9` + `＋`/`×`/`›` | Prasyarat teknis untuk 8b; menyentuh `Hylite` jadi lebih baik sebelum lapisan WYSIWYG menempel | **selesai** — [catatan](testing-stage8a.md) | sedang — refactor state luas (dipilih: park `Document`, bukan buffer kedua) |
 | **8b** ✅ | **File tree + workspace folder**: `hylite <folder>`, `Ctrl+Shift+O`, scan sekali tanpa watcher (F5/Refresh), batas 512 entri & kedalaman 8, symlink tidak diikuti, buka file dari tree lewat jalur Open yang sudah ada, `•` per file kotor, `Alt+J/K/Enter` | Melengkapi 8a menjadi alur kerja nyata | **selesai** — [catatan](testing-stage8b.md) | rendah — batas scan dideklarasikan; tanpa watcher |
 | **8c** ✅ | **Gambar read-only di Preview**: paragraf berisi satu gambar dirender (PNG/GIF/BMP/JPEG), path relatif terhadap folder dokumen, gerbang 4 MiB / 8192 px / 40 MP dari header, skema apa pun ditolak sebelum I/O, marker inert per alasan | `iced` sudah mengaktifkan fitur `image`, jadi biayanya rendah dan dampak visualnya besar | **selesai** — [catatan](testing-stage8c.md) | rendah — tanpa decoder sendiri, tanpa jaringan |
-| **8d** | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | sedang | sedang — pilih crate murni-Rust, tanpa browser |
+| **8d** ✅ | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | **selesai** — [catatan](testing-stage8d.md) | sedang — ditulis sendiri (PDF 1.4, base-14, WinAnsi), tanpa browser dan tanpa crate |
 | **8e** | **Math read-only (subset)**: `$…$` dan `$$…$$` dikenali sebagai blok math dan dirender dengan **subset** operator/struktur yang dideklarasikan (pecahan, sup/sub, akar, operator umum), sisanya jatuh ke teks mentah yang ditandai | Menutup gap yang paling terlihat tanpa berpura-pura jadi KaTeX penuh | sedang–besar | tinggi — jangan mengklaim paritas KaTeX |
 
 **Gate Fase A:** 5 suite GUI baru (tab, file tree, gambar, PDF, math), semua suite
@@ -131,7 +131,7 @@ WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
 | C — Skala & performa | 10a–10c | ~20 % | 15 % |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Artinya: kalau fase A selesai semua, **kesiapan rilis naik ke ≈ 55–60 %** (dari ≈ 42 %),
+Artinya: kalau fase A selesai semua, **kesiapan rilis naik ke ≈ 55–60 %** (dari ≈ 43 %),
 tetapi **kemiripan pengalaman MarkText baru naik sedikit** — karena inti pengalaman
 ada di Fase B. Ini konsekuensi yang saya sampaikan di awal, bukan kejutan di akhir.
 

@@ -1080,3 +1080,31 @@ Gambar yang bercampur teks, berada di tabel, atau di dalam sel tetap marker.
 `render_preview` menerima `base_dir` dari `Document::path().parent()`; tidak ada
 renderer yang boleh mengarang path.
 [Kontrak/tests/evidence/batas 8c](testing-stage8c.md).
+
+## Ekspor PDF (Stage 8d)
+
+`src/export/pdf.rs` menulis PDF 1.4 sendiri: objek bernomor, tabel xref dengan
+offset byte, trailer, dan satu stream konten per halaman. Tidak ada crate PDF,
+tidak ada browser, tidak ada font yang diunduh. Font yang dipakai adalah empat
+base-14 (`Helvetica`, `Helvetica-Bold`, `Helvetica-Oblique`, `Courier`) dengan
+`/WinAnsiEncoding`; karakter WinAnsi ditulis sebagai escape oktal (`é` → `\351`)
+supaya stream tetap ASCII dan byte-nya tepat, karakter lain menjadi `?`.
+
+Tata letak berjalan di atas abstraksi kecil: `Canvas` memegang kursor vertikal,
+memulai halaman baru ketika tinggi berikutnya melewati margin bawah
+(`would_break`/`ensure`), dan menulis teks/garis/persegi ke stream. Lebar teks
+memakai tabel lebar Helvetica untuk ASCII dan 600/1000 untuk Courier, jadi wrap
+adalah perkiraan yang deterministik, bukan metrik font sebenarnya.
+
+`src/export/pdf_build.rs` adalah satu-satunya pemetaan dari proyeksi Preview
+(`preview_model`) ke item tata letak: heading, paragraf, code, quote, list,
+rule, tabel, dan literal. Karena lapisan PDF tidak mengenal Markdown, renderer
+bisa diuji tanpa parser dan pemetaan tanpa renderer.
+
+Dua pintu masuk memakai fungsi renderer yang sama: toolbar/`Ctrl+Shift+P`
+melalui dialog simpan native dengan palet dari tema aktif
+(`Palette::from_colors`), dan `hylite export-pdf <in.md> <out.pdf>` tanpa jendela
+untuk skrip. Keduanya menulis lewat `files::atomic_write`, dan jalur CLI menolak
+tujuan yang menimpa sumber Markdown lewat `files::ensure_distinct_destination`.
+Kegagalan ekspor tidak pernah mengubah path, dirty flag, atau riwayat dokumen.
+[Kontrak/tests/evidence/batas 8d](testing-stage8d.md).

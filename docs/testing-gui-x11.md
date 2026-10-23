@@ -1280,3 +1280,32 @@ screenshot, 0 klik, 6 `ctrl+shift+m`, 1 `ctrl+v`, 1 `request_close` + 1
 
 Batas: gerbang path/format/ukuran diuji di Rust; tampilan gambar (HiDPI, warna,
 animasi, SVG/WebP) tidak diuji sama sekali.
+
+## Stage 8d: suite ke-27 `pdf` (ekspor headless)
+
+Suite ini boot dengan `hylite catatan.md`, lalu menjalankan binary yang sama
+sebagai `hylite export-pdf catatan.md catatan.pdf`. Dialog simpan native tidak
+bisa didorong lewat Xvfb, jadi yang diuji adalah jalur CLI — bukan aksi toolbar;
+itu dinyatakan sebagai batas, bukan diklaim sebagai cakupan.
+
+Yang diuji: PDF diawali `%PDF-1.4` dan diakhiri `%%EOF`, `startxref` menunjuk
+tabel xref, setiap entri menunjuk header objeknya, dan setiap `/Length` sama
+dengan panjang stream; heading, bold, inline code, sel tabel dan baris kode
+berada di stream konten; `é` bertahan sebagai escape oktal dan emoji menjadi `?`;
+Markdown tetap byte-identik; penolakan menimpa sumber dan input hilang sama-sama
+exit 1 tanpa membuat file; perintah cacat adalah usage error exit 2. Jendela GUI
+yang terbuka sepanjang waktu tetap memegang dokumen yang sama dan keluar natural.
+
+10 pemeriksaan: 7 `passed_check` + 1 `expect_copy` (`refocus: False`), 2
+screenshot, 4 pemanggilan `export-pdf`, 1 usage run, 1 `request_close` + 1
+`expect_native_exit`.
+
+**Lulus** [CI 39956545830](https://github.com/Indrawan007/Hylite/actions/runs/39956545830),
+`f9d160b`, job `120423694760`, 23 Oktober 2026 12:51:46–13:04:36 UTC /
+20:51:46–21:04:36 Makassar.
+**1014 Cargo**, **27 suite / 498 pemeriksaan GUI** (444 clipboard, 17 title,
+27 exit). Artifact `12503736448`, 3.951.707 bytes, expires 2026-10-30T13:04:31Z.
+[Kontrak 8d](testing-stage8d.md).
+
+Batas: tidak ada oracle piksel, tidak ada otomasi dialog simpan, dan PDF tidak
+dibuka oleh pembaca PDF mana pun di CI — hanya strukturnya yang diperiksa.

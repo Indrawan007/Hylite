@@ -1,10 +1,10 @@
-# Laporan Progress — Hylite (snapshot Stage 8c)
+# Laporan Progress — Hylite (snapshot Stage 8d)
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode:** `3652184`
-(dokumentasi 8c berada di commit terpisah pada branch yang sama)
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode:** `f9d160b`
+(dokumentasi 8d berada di commit terpisah pada branch yang sama)
 
-**Basis:** commit `3652184` lulus [CI 39947223034](https://github.com/Indrawan007/Hylite/actions/runs/39947223034)
-Status kerja: **belum di-merge ke `main`**; dokumentasi 8c ditulis setelah CI kode lulus.
+**Basis:** commit `f9d160b` lulus [CI 39956545830](https://github.com/Indrawan007/Hylite/actions/runs/39956545830)
+Status kerja: **belum di-merge ke `main`**; dokumentasi 8d ditulis setelah CI kode lulus.
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -14,12 +14,13 @@ Status kerja: **belum di-merge ke `main`**; dokumentasi 8c ditulis setelah CI ko
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–8c) | **≈ 89 %** | 38 stage yang dideklarasikan sudah diimplementasi + diverifikasi otomatis |
-| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 42 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–8d) | **≈ 90 %** | 39 stage yang dideklarasikan sudah diimplementasi + diverifikasi otomatis |
+| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 43 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
 
 Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 89 % tinggi
 karena scope yang dideklarasikan memang sengaja sempit: editor native + prototipe
-editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
+editing blok terbatas. Kenaikan 89 % → 90 % berasal dari satu stage (8d), jadi
+jangan dibaca sebagai lompatan kemampuan produk. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 2. Capaian per stage
 
@@ -67,15 +68,26 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | 7m | Keyboard `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Shift+Z` untuk kedua stack draft lokal itu, dengan fallback Source/Preview yang tidak berubah |
 | 7n | Umpan balik gestur history kosong/terlalu besar di footer + penguatan properti batas history (tanpa perubahan koordinat atau gate GUI) |
 
+### Permukaan dokumen (Stage 8a–8d) — selesai 100 % dari fase yang dijadwalkan
+
+| Stage | Isi | Bukti |
+|---|---|---|
+| 8a | Tab multi-buffer (park seluruh `Document`, history per tab) | `docs/testing-stage8a.md` |
+| 8b | Workspace folder + file tree sekali-scan, tanpa watcher | `docs/testing-stage8b.md` |
+| 8c | Gambar read-only di Preview dengan gerbang path/format/ukuran | `docs/testing-stage8c.md` |
+| 8d | Ekspor PDF 1.4 yang ditulis sendiri + `hylite export-pdf` headless | `docs/testing-stage8d.md` |
+
+Fase A belum selesai: 8e (math read-only subset) masih di [roadmap](roadmap.md).
+
 ### Verifikasi otomatis — selesai 100 % dari yang dirancang
 
 | Metrik | Nilai |
 |---|---|
-| Tes Cargo | **988** lulus |
-| Tes core mandiri (subset) | **314** |
-| Helper Python | **79** |
-| Suite GUI X11 | **26 suite / 488 pemeriksaan** (444 clipboard, 17 title, 27 exit native) |
-| Gate lama yang dipertahankan | 26 suite (25 lama dijalankan ulang utuh) + 28 badan exercise identik AST (`bb37223`) |
+| Tes Cargo | **1014** lulus |
+| Tes core mandiri (subset) | **326** |
+| Helper Python | **85** |
+| Suite GUI X11 | **27 suite / 498 pemeriksaan** (444 clipboard, 17 title, 27 exit native) |
+| Gate lama yang dipertahankan | 27 suite (26 lama dijalankan ulang utuh) + 28 badan exercise identik AST |
 | Lint/format | `cargo fmt` + strict Clippy `-D warnings` + build debug |
 
 ### Yang belum dikerjakan
@@ -89,7 +101,8 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | WYSIWYG inline bebas ala MarkText | **belum** (masih panel draft terbatas) |
 | Multi-dokumen (tab + file tree) | **ya, terbatas** — tanpa watcher/split pane/session restore |
 | Gambar di Preview | **ya, terbatas** — PNG/GIF/BMP/JPEG lokal ≤4 MiB & ≤8192 px; tanpa oracle piksel, SVG/WebP, atau jaringan |
-| PDF dan math subset | **belum** — jadwal Fase A 8d–8e di [roadmap](roadmap.md) |
+| Ekspor PDF | **ya, terbatas** — PDF 1.4 ditulis sendiri, palet tema aktif, tabel + code block, tanpa browser; tanpa gambar/link/math render, font embedding, atau kompresi |
+| Math subset | **belum** — jadwal Fase A 8e di [roadmap](roadmap.md) |
 | Incremental parsing / klaim performa | **belum** — semua jalur O(n) salin+parse |
 | Packaging/AUR/release build | **belum** |
 | Checklist manual Tahap 2–4 | **belum dicentang** |
@@ -132,10 +145,10 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 6. Basis perhitungan persentase
 
-- **89 % roadmap**: 38 stage dideklarasikan (5a–5e, 6a–6p, 7a–7n, 8a, 8b, 8c); semuanya
-  diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~11 % adalah kategori
+- **90 % roadmap**: 39 stage dideklarasikan (5a–5e, 6a–6p, 7a–7n, 8a–8d); semuanya
+  diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~10 % adalah kategori
   desktop/WYSIWYG/performa yang sengaja ditandai di luar scope stage.
-- **42 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
+- **43 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
   tetapi tanpa validasi compositor, packaging, dan WYSIWYG umum, aplikasi belum layak
   disebut siap produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
@@ -143,12 +156,13 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- Riwayat CI terakhir: `39947223034` (`3652184`) **success** — 988 Cargo / 488 GUI,
-  artefak `12499286571`, 3.785.113 bytes, expires 2026-10-30T11:48:39Z, digest SHA256
-  dari API `68155a0f…a68208` (zip tidak dapat diunduh dari sandbox; percobaan
-  sebelumnya `39941613766`/`bd73dd9`).
-- Verifikasi lokal: `cargo fmt --all -- --check`, 314 strict core, 79 Python, dan
-  pemeriksaan AST 28 badan exercise lama PASS.
+- Riwayat CI terakhir: `39956545830` (`f9d160b`) **success** — 1014 Cargo / 326 strict
+  core / 85 Python / 27 suite GUI 498 pemeriksaan, artefak `12503736448`,
+  3.951.707 bytes, expires 2026-10-30T13:04:31Z (zip tidak dapat diunduh dari
+  sandbox; percobaan sebelumnya `39952157004`/`a66e02e`, `39954779752`/`a66e02e`
+  gagal pada langkah yang sudah diperbaiki).
+- Verifikasi lokal: `cargo fmt --all -- --check`, 326 strict core (termasuk clippy
+  driver), 85 Python, dan pemeriksaan AST 28 badan exercise lama PASS.
