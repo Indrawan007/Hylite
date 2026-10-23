@@ -1253,3 +1253,30 @@ dari navigasi dan expand mengembalikannya.
 Batas: baris pohon bisa diklik di UI tetapi tidak diuji lewat mouse; penanda
 dirty per file hanya diuji di Rust; tidak ada watcher, rename/delete/create,
 drag, atau filter.
+
+## Stage 8c: suite ke-26 `images` (Preview gambar, tanpa oracle piksel)
+
+Suite ini boot dengan `hylite doc.md` (argumen file dari Stage 8b). Dokumennya
+berisi satu PNG lokal yang benar-benar bisa didekode, satu URL remote, satu file
+yang tidak ada, satu file > 4 MiB, dan satu gambar inline di tengah teks. Preview
+dan Split dirender, screenshot disimpan sebagai bukti, dan **tidak ada assertion
+piksel** — jadi "gambarnya terlihat benar" tidak diklaim di sini.
+
+Yang benar-benar diuji: dokumen tetap byte-identik (copy clipboard persis) setelah
+Preview **dan** Split dirender, dan sebuah paste yang dilakukan saat Preview tampil
+tidak pernah masuk ke dokumen — oracle bahwa mode Preview memang aktif dan
+read-only. Lalu close native exit 0.
+
+5 pemeriksaan: 3 `expect_copy` (semua `refocus: False`), 1 title dokumen, 2
+screenshot, 0 klik, 6 `ctrl+shift+m`, 1 `ctrl+v`, 1 `request_close` + 1
+`expect_native_exit`.
+
+**Lulus** [CI 39947223034](https://github.com/Indrawan007/Hylite/actions/runs/39947223034),
+`3652184`, job `120392715915`, 23 Oktober 2026 11:36:11–11:48:45 UTC.
+**988 Cargo**, **26 suite / 488 pemeriksaan GUI** (444 clipboard, 17 title,
+27 exit). Artifact `12499286571`, 3.785.113 bytes, expires
+2026-10-30T11:48:39Z, digest SHA256 `68155a0f…a68208`.
+[Kontrak 8c](testing-stage8c.md).
+
+Batas: gerbang path/format/ukuran diuji di Rust; tampilan gambar (HiDPI, warna,
+animasi, SVG/WebP) tidak diuji sama sekali.

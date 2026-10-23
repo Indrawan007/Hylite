@@ -1058,3 +1058,25 @@ Lebar sidebar dan koordinat editor tidak berubah. Keyboard: `Alt+J`/`Alt+K`/
 file tunggal. Launch argumen `hylite <folder>`/`<file>` masuk lewat
 `Hylite::with_launch_path`, satu-satunya konstruktor.
 [Kontrak/tests/evidence/batas 8b](testing-stage8b.md).
+
+## Gambar read-only di Preview (Stage 8c)
+
+`src/images.rs` (murni `std`, ikut strict-core) adalah satu-satunya pintu masuk
+gambar. `resolve` menolak skema apa pun (`http:`, `https:`, `file:`, `data:`,
+`//host`, `scheme:`) **sebelum** I/O, men-decode `%XX` (escape rusak ditolak),
+dan me-resolve path relatif hanya terhadap folder dokumen — dokumen tanpa path
+menghasilkan `MissingBase`, bukan tebakan working directory. `inspect` lalu
+memeriksa `metadata` (≤ 4 MiB, harus file biasa) dan membaca maksimum 64 KiB
+header untuk dimensi PNG/GIF/BMP/JPEG; `MAX_DIMENSION = 8192` dan
+`MAX_PIXELS = 40 000 000` menjaga biaya dekode. Format lain → `UnsupportedFormat`.
+Setiap kegagalan punya `label()` stabil yang menjadi teks marker inert.
+
+Proyeksi preview tetap menghasilkan teks marker lama
+(`[image not loaded: ![alt](src)]`) sehingga semua oracle lama byte-identik; run
+itu juga membawa `images::Spec { src, alt }`. Renderer hanya mengganti **satu**
+run gambar di dalam paragraf yang isinya tepat itu menjadi widget gambar
+(`container(image).max_width(560).max_height(420)` + tooltip `alt · W×H`).
+Gambar yang bercampur teks, berada di tabel, atau di dalam sel tetap marker.
+`render_preview` menerima `base_dir` dari `Document::path().parent()`; tidak ada
+renderer yang boleh mengarang path.
+[Kontrak/tests/evidence/batas 8c](testing-stage8c.md).

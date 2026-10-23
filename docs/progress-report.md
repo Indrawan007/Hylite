@@ -1,10 +1,10 @@
-# Laporan Progress — Hylite (snapshot Stage 8b)
+# Laporan Progress — Hylite (snapshot Stage 8c)
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode:** `bd73dd9`
-(dokumentasi 8b berada di commit terpisah pada branch yang sama)
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode:** `3652184`
+(dokumentasi 8c berada di commit terpisah pada branch yang sama)
 
-**Basis:** commit `bd73dd9` lulus [CI 39941613766](https://github.com/Indrawan007/Hylite/actions/runs/39941613766)
-Status kerja: **belum di-merge ke `main`**; dokumentasi 8b ditulis setelah CI kode lulus.
+**Basis:** commit `3652184` lulus [CI 39947223034](https://github.com/Indrawan007/Hylite/actions/runs/39947223034)
+Status kerja: **belum di-merge ke `main`**; dokumentasi 8c ditulis setelah CI kode lulus.
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -14,7 +14,7 @@ Status kerja: **belum di-merge ke `main`**; dokumentasi 8b ditulis setelah CI ko
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–8b) | **≈ 89 %** | 37 stage yang dideklarasikan sudah diimplementasi + diverifikasi otomatis |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–8c) | **≈ 89 %** | 38 stage yang dideklarasikan sudah diimplementasi + diverifikasi otomatis |
 | **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 42 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
 
 Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 89 % tinggi
@@ -71,11 +71,11 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 | Metrik | Nilai |
 |---|---|
-| Tes Cargo | **975** lulus |
-| Tes core mandiri (subset) | **306** |
-| Helper Python | **75** |
-| Suite GUI X11 | **25 suite / 483 pemeriksaan** (441 clipboard, 16 title, 26 exit native) |
-| Gate lama yang dipertahankan | 25 suite (24 lama dijalankan ulang utuh) + 28 badan exercise identik AST (`bb37223`) |
+| Tes Cargo | **988** lulus |
+| Tes core mandiri (subset) | **314** |
+| Helper Python | **79** |
+| Suite GUI X11 | **26 suite / 488 pemeriksaan** (444 clipboard, 17 title, 27 exit native) |
+| Gate lama yang dipertahankan | 26 suite (25 lama dijalankan ulang utuh) + 28 badan exercise identik AST (`bb37223`) |
 | Lint/format | `cargo fmt` + strict Clippy `-D warnings` + build debug |
 
 ### Yang belum dikerjakan
@@ -87,7 +87,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | Selection arah/anchor, mapping glyph, drag, multi-cell | **belum** |
 | Sinkronisasi scroll Preview↔Source | **belum** |
 | WYSIWYG inline bebas ala MarkText | **belum** (masih panel draft terbatas) |
-| Gambar read-only, PDF, math subset | **belum** — jadwal Fase A 8c–8e di [roadmap](roadmap.md) |
+| PDF dan math subset | **belum** — jadwal Fase A 8d–8e di [roadmap](roadmap.md) |
 | Incremental parsing / klaim performa | **belum** — semua jalur O(n) salin+parse |
 | Packaging/AUR/release build | **belum** |
 | Checklist manual Tahap 2–4 | **belum dicentang** |
@@ -113,7 +113,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
    dan draft pane terbatas masih kompromi prototipe.
 3. **O(n) di banyak jalur** (parse penuh, salinan Source, dua buffer native di plan
    7e/7f) — memori ekstra, belum ada optimasi.
-4. **Statistik tes bukan cakupan.** 306 core adalah subset dari 975 Cargo; angka GUI
+4. **Statistik tes bukan cakupan.** 314 core adalah subset dari 988 Cargo; angka GUI
    membuktikan byte/fokus/urutan, bukan piksel atau mapping glyph.
 5. **Screenshot artefak belum direview visual** dan bukan oracle piksel.
 
@@ -130,7 +130,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 6. Basis perhitungan persentase
 
-- **89 % roadmap**: 37 stage dideklarasikan (5a–5e, 6a–6p, 7a–7n, 8a, 8b); semuanya
+- **89 % roadmap**: 38 stage dideklarasikan (5a–5e, 6a–6p, 7a–7n, 8a, 8b, 8c); semuanya
   diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~11 % adalah kategori
   desktop/WYSIWYG/performa yang sengaja ditandai di luar scope stage.
 - **42 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
@@ -141,12 +141,12 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- Riwayat CI terakhir: `39941613766` (`bd73dd9`) **success** — 975 Cargo / 483 GUI,
-  artefak `12496547458`, 3.659.862 bytes, expires 2026-10-30T11:00:12Z, digest SHA256
-  dari API `17c88ad1…c9eb37` (zip tidak dapat diunduh dari sandbox; percobaan
-  sebelumnya `39936002455`/`e6677d7`).
-- Verifikasi lokal: `cargo fmt --all -- --check`, 306 strict core, 75 Python, dan
+- Riwayat CI terakhir: `39947223034` (`3652184`) **success** — 988 Cargo / 488 GUI,
+  artefak `12499286571`, 3.785.113 bytes, expires 2026-10-30T11:48:39Z, digest SHA256
+  dari API `68155a0f…a68208` (zip tidak dapat diunduh dari sandbox; percobaan
+  sebelumnya `39941613766`/`bd73dd9`).
+- Verifikasi lokal: `cargo fmt --all -- --check`, 314 strict core, 79 Python, dan
   pemeriksaan AST 28 badan exercise lama PASS.
