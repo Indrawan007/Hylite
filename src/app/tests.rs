@@ -5557,6 +5557,7 @@ fn multiline_apply_next_lexical_structural_oversized_and_stale_refusal_keep_loca
     let _ = app.update(Message::ApplyMultilineParagraphNext);
     assert_eq!(app.multiline_draft.as_ref().unwrap().value(), original);
     assert_eq!(app.document.snapshot(), before);
+    set_paragraph_value(&mut app, "fine");
     app.document.replace(None, "replacement\ntext\n");
     let before = app.document.snapshot();
     let _ = app.update(Message::ApplyMultilineParagraphNext);
@@ -5806,6 +5807,7 @@ fn multiline_apply_previous_lexical_structural_oversized_and_stale_refusal_keep_
     let _ = app.update(Message::ApplyMultilineParagraphPrevious);
     assert_eq!(app.multiline_draft.as_ref().unwrap().value(), accepted);
     assert_eq!(app.document.snapshot(), before);
+    set_paragraph_value(&mut app, "fine");
     app.document.replace(None, "replacement\ntext\n");
     let before = app.document.snapshot();
     let _ = app.update(Message::ApplyMultilineParagraphPrevious);
@@ -6187,7 +6189,6 @@ fn single_paragraph_dirty_move_refuses_without_discarding_the_draft() {
 }
 #[test]
 fn single_paragraph_apply_next_commits_one_edge_and_opens_a_fresh_neighbor() {
-    use crate::document::ParagraphDirection::Next;
     for mode in [EditMode::Preview, EditMode::Split] {
         let mut app = single_paragraph_app();
         app.mode = mode;
@@ -6257,14 +6258,13 @@ fn single_paragraph_apply_previous_keeps_earlier_offsets_and_first_boundary_refu
 }
 #[test]
 fn single_paragraph_unchanged_apply_next_adds_no_source_edge_and_keeps_redo() {
-    use crate::document::ParagraphDirection::Next;
     let mut app = single_paragraph_app();
     let t = single_targets(&app);
     let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
     set_paragraph_value(&mut app, "saved first");
     let _ = app.update(Message::ApplyPreviewParagraph);
-    let _ = app.update(Message::PreviewHistory(false));
     let applied = app.document.buffer_text();
+    let _ = app.update(Message::PreviewHistory(false));
     let before = (
         app.document.snapshot(),
         app.document.render_key(),
@@ -6303,6 +6303,7 @@ fn single_paragraph_apply_next_guards_invalid_stale_and_modal_paths() {
     let _ = app.update(Message::ApplyPreviewParagraphNext);
     assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
     assert_eq!(app.document.snapshot(), snapshot);
+    set_paragraph_value(&mut app, "fine");
     app.document.replace(None, "replacement\ntext\n");
     let before = app.document.snapshot();
     let _ = app.update(Message::ApplyPreviewParagraphNext);
@@ -6322,7 +6323,6 @@ fn single_paragraph_apply_next_guards_invalid_stale_and_modal_paths() {
 }
 #[test]
 fn single_paragraph_adjacent_actions_preserve_save_export_and_logical_search() {
-    use crate::document::ParagraphDirection::Next;
     for kind in [OperationKind::Save, OperationKind::Export] {
         let mut app = single_paragraph_app();
         app.mode = EditMode::Split;

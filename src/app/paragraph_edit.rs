@@ -5,6 +5,41 @@ use crate::editor::EditMode;
 use crate::preview_paragraph::{self, Target};
 use crate::ui::paragraph_edit::Draft;
 use iced::Task;
+/// Why Apply & Previous/Next refused without mutating Source or history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AdjacentRefusal {
+    Invalid,
+    StaleTarget,
+    Boundary,
+    Unpreparable,
+    NeighborLost,
+    NeighborChanged,
+}
+
+impl AdjacentRefusal {
+    fn message(self) -> &'static str {
+        match self {
+            Self::Invalid => "Invalid paragraph draft; correct it or Cancel before Apply.",
+            Self::StaleTarget => "Paragraph target is stale; Cancel and reopen. Draft kept.",
+            Self::Boundary => "No supported single-line paragraph in that direction.",
+            Self::Unpreparable => {
+                "Apply & Next/Previous must preserve both root paragraphs. Nothing applied."
+            }
+            Self::NeighborLost => "Next raw paragraph draft cannot be preserved. Nothing applied.",
+            Self::NeighborChanged => "Next raw paragraph bytes changed; nothing applied.",
+        }
+    }
+}
+
+/// Read-only plan for Apply & Previous/Next, committed in a second phase.
+enum AdjacentDecision {
+    Refused(AdjacentRefusal),
+    Proceed {
+        plan: Box<crate::document::SingleMovePlan>,
+        moved: Box<Draft>,
+    },
+}
+
 impl Hylite {
     fn paragraph_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source && self.navigation_allowed() && self.cell_draft.is_none()
@@ -133,43 +168,31 @@ impl Hylite {
     pub(super) fn apply_preview_paragraph_next(&mut self) -> Task<Message> {
         self.apply_preview_paragraph_adjacent(crate::document::ParagraphDirection::Next)
     }
-    fn apply_preview_paragraph_adjacent(
-        &mut self,
+    /// Read-only decision for Apply & Previous/Next. Returns `None` when no
+    /// draft is open; every refusal names the exact reason so the caller can
+    /// keep the draft intact without touching Source or history.
+    fn decide_preview_paragraph_adjacent(
+        &self,
         direction: crate::document::ParagraphDirection,
-    ) -> Task<Message> {
+    ) -> Option<AdjacentDecision> {
         use crate::document::ParagraphDirection::{Next, Previous};
-        if !self.paragraph_operation_allowed() {
-            return Task::none();
-        }
-        let Some(draft) = &mut self.paragraph_draft else {
-            return Task::none();
-        };
+        let draft = self.paragraph_draft.as_ref()?;
         if draft.error.is_some() || !preview_paragraph::valid_value(&draft.value) {
-            draft.error = Some("Invalid paragraph draft; correct it or Cancel before Apply.");
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::Invalid));
         }
         if self
             .document
             .preview_paragraph_payload(&draft.target)
             .is_none()
         {
-            draft.error = Some("Paragraph target is stale; Cancel and reopen. Draft kept.");
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::StaleTarget));
         }
         if self
             .document
             .adjacent_single_paragraph(&draft.target, direction)
             .is_none()
         {
-            draft.navigation_notice = Some(match direction {
-                Previous => {
-                    "First supported single-line paragraph: use Apply or Cancel. Nothing applied."
-                }
-                Next => {
-                    "Last supported single-line paragraph: use Apply or Cancel. Nothing applied."
-                }
-            });
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::Boundary));
         }
         let plan = match direction {
             Previous => self
@@ -180,25 +203,57 @@ impl Hylite {
                 .prepare_single_paragraph_next(&draft.target, &draft.value),
         };
         let Some(plan) = plan else {
-            draft.error =
-                Some("Apply & Next/Previous must preserve both root paragraphs. Nothing applied.");
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::Unpreparable));
         };
-        let [previous, next] = plan.neighbors();
         let Some(mut moved) = self.paragraph_draft_for(plan.move_target()) else {
-            draft.error = Some("Next raw paragraph draft cannot be preserved. Nothing applied.");
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::NeighborLost));
         };
         if moved.value != plan.move_value() {
-            draft.error = Some("Next raw paragraph bytes changed; nothing applied.");
-            return self.restore_input_focus();
+            return Some(AdjacentDecision::Refused(AdjacentRefusal::NeighborChanged));
         }
-        let Some((target, changed)) = self.document.commit_single_paragraph_move(plan) else {
-            draft.error = Some("Paragraph transition became stale. Draft and Source kept.");
+        let [previous, next] = plan.neighbors();
+        moved.neighbors = [previous, next];
+        Some(AdjacentDecision::Proceed {
+            plan: Box::new(plan),
+            moved: Box::new(moved),
+        })
+    }
+    fn apply_preview_paragraph_adjacent(
+        &mut self,
+        direction: crate::document::ParagraphDirection,
+    ) -> Task<Message> {
+        use crate::document::ParagraphDirection::{Next, Previous};
+        if !self.paragraph_operation_allowed() {
+            return Task::none();
+        }
+        let decision = match self.decide_preview_paragraph_adjacent(direction) {
+            None => return Task::none(),
+            Some(decision) => decision,
+        };
+        let (plan, new_draft) = match decision {
+            AdjacentDecision::Refused(refusal) => {
+                if let Some(draft) = self.paragraph_draft.as_mut() {
+                    if refusal == AdjacentRefusal::Boundary {
+                        draft.navigation_notice = Some(match direction {
+                            Previous => "First supported single-line paragraph: use Apply or Cancel. Nothing applied.",
+                            Next => "Last supported single-line paragraph: use Apply or Cancel. Nothing applied.",
+                        });
+                    } else {
+                        draft.error = Some(refusal.message());
+                    }
+                }
+                return self.restore_input_focus();
+            }
+            AdjacentDecision::Proceed { plan, moved } => (plan, moved),
+        };
+        let Some((target, changed)) = self.document.commit_single_paragraph_move(*plan) else {
+            if let Some(draft) = self.paragraph_draft.as_mut() {
+                draft.error = Some("Paragraph transition became stale. Draft and Source kept.");
+            }
             return self.restore_input_focus();
         };
+        let mut moved = *new_draft;
         moved.target = target;
-        moved.neighbors = [previous, next];
         self.paragraph_draft = Some(moved);
         self.status_message = if changed {
             "Paragraph applied atomically; next single-line draft opened"
