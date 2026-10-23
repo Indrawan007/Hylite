@@ -1246,5 +1246,41 @@ class SmokeHelperTests(unittest.TestCase):
             for probe in old:
                 probe.assert_not_called()
 
+    def test_tabs_probe_keeps_every_buffer_independent(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_tabs(desktop, Path("/unused-evidence"))
+        welcome = (gui.ROOT / "src" / "welcome.md").read_bytes()
+        one = "tab one 🙂 **raw**".encode("utf-8")
+        two = "tab two é &amp;".encode("utf-8")
+        copies = [c.args[1] for c in desktop.expect_copy.call_args_list]
+        self.assertEqual(copies, [welcome, one, welcome, one, two, welcome, two, two])
+        self.assertTrue(all(c.kwargs == {"refocus": False} for c in desktop.expect_copy.call_args_list))
+        self.assertEqual(desktop.title_is_dirty.call_count, 3)
+        keys = [c.args[0] for c in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+t"), 1)
+        self.assertEqual(keys.count("ctrl+w"), 2)
+        self.assertEqual(keys.count("alt+1"), 2)
+        self.assertEqual(keys.count("alt+2"), 1)
+        self.assertEqual(keys.count("ctrl+z"), 2)
+        self.assertEqual(keys.count("ctrl+a"), 2)
+        self.assertEqual(keys.count("ctrl+v"), 2)
+        # The tab suite must never click: every tab move is keyboard-only so no
+        # toolbar coordinate can silently drift.
+        self.assertEqual([c.args for c in desktop.command.call_args_list], [])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_tabs_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        names = ["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation","exercise_paragraph_apply_next","exercise_paragraph_apply_previous","exercise_paragraph_draft_shortcuts","exercise_single_paragraph_navigation","exercise_draft_history_single","exercise_draft_history_keys"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_tabs"))
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "tabs")
+            new.assert_called_once_with(desktop, artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

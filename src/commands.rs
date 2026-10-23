@@ -110,6 +110,11 @@ pub enum Message {
     DismissConfigWarning,
 
     // UI
+    NewTab,
+    SwitchTab(usize),
+    CycleTab(bool),
+    CloseTab(usize),
+    CloseActiveTab,
     ToggleSidebar,
     SwitchMode(EditMode),
     CycleMode,
@@ -129,6 +134,12 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
             keyboard::Key::Character(ref c) if c == "d" || c == "D" => {
                 Some(Message::ConfirmDiscard)
             }
+            // Bare Alt+1..9 selects a tab. Exact Alt excludes AltGr (Ctrl+Alt),
+            // which must never move the user to another buffer.
+            keyboard::Key::Character(ref c) if c.len() == 1 => match c.as_bytes()[0] {
+                digit @ b'1'..=b'9' => Some(Message::SwitchTab((digit - b'1') as usize)),
+                _ => None,
+            },
             _ => None,
         };
     }
@@ -146,6 +157,10 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
             "f" | "F" => Some(Message::OpenFind(false)),
             "h" | "H" => Some(Message::OpenFind(true)),
             "g" | "G" => Some(Message::OpenGoTo),
+            // Tabs. Ctrl+Tab is deliberately absent: the Source editor may
+            // capture a modified Tab, so tab cycling uses Alt+digit.
+            "t" | "T" => Some(Message::NewTab),
+            "w" | "W" => Some(Message::CloseActiveTab),
             _ => None,
         },
         keyboard::Key::Character(ref c) if ctrl && shift => match c.as_str() {

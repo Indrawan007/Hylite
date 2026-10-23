@@ -5,6 +5,7 @@ pub mod notifications;
 pub mod search;
 pub mod sidebar;
 pub mod statusbar;
+pub mod tabs;
 pub mod toolbar;
 
 pub mod cell_edit;

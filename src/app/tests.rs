@@ -6720,3 +6720,163 @@ fn generated_draft_history_messages_never_touch_source_or_its_history() {
     let _ = app.update(Message::PreviewHistory(false));
     assert_eq!(app.document.buffer_text(), original);
 }
+
+#[test]
+fn new_tab_parks_the_active_document_with_its_own_history_and_caret() {
+    let mut app = app();
+    app.document = Document::new("first buffer\n");
+    app.mode = EditMode::Source;
+    let _ = app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('X'),
+    )));
+    assert!(app.document.can_undo());
+    let first_text = app.document.buffer_text();
+    let first_caret = app.document.caret_offset();
+    let first_snapshot = app.document.snapshot();
+    assert_eq!(app.tab_count(), 1);
+
+    let _ = app.update(Message::NewTab);
+    assert_eq!(app.tab_count(), 2);
+    assert_eq!(app.active_tab(), 1);
+    assert_eq!(app.document.buffer_text(), "");
+    assert!(!app.document.can_undo());
+    assert_eq!(app.document.path(), None);
+    // The parked buffer is untouched and still reports its own dirty state.
+    let parked = app.tab_document(0).unwrap();
+    assert_eq!(parked.buffer_text(), first_text);
+    assert_eq!(parked.caret_offset(), first_caret);
+    assert_eq!(parked.snapshot(), first_snapshot);
+    assert!(parked.can_undo());
+
+    // Typing in the new tab never reaches the parked one.
+    let _ = app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('Y'),
+    )));
+    assert_eq!(app.document.buffer_text(), "Y");
+    assert_eq!(app.tab_document(0).unwrap().buffer_text(), first_text);
+
+    let _ = app.update(Message::SwitchTab(0));
+    assert_eq!(app.active_tab(), 0);
+    assert_eq!(app.document.buffer_text(), first_text);
+    assert_eq!(app.document.caret_offset(), first_caret);
+    assert_eq!(app.document.snapshot(), first_snapshot);
+    assert!(app.document.can_undo());
+    assert_eq!(app.tab_document(1).unwrap().buffer_text(), "Y");
+    // Switching tabs is a move, not an edit: no new Source edge anywhere.
+    let _ = app.update(Message::SwitchTab(1));
+    assert_eq!(app.tab_document(0).unwrap().snapshot(), first_snapshot);
+}
+
+#[test]
+fn tab_switching_is_refused_while_a_draft_or_confirmation_is_open() {
+    let mut app = single_paragraph_app();
+    let original = app.document.buffer_text();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    set_paragraph_value(&mut app, "half typed");
+    let before = app.paragraph_draft.as_ref().unwrap().value.clone();
+    let _ = app.update(Message::NewTab);
+    assert_eq!(app.tab_count(), 1);
+    let _ = app.update(Message::SwitchTab(0));
+    assert_eq!(app.active_tab(), 0);
+    let _ = app.update(Message::CloseTab(0));
+    assert_eq!(app.tab_count(), 1);
+    let draft = app.paragraph_draft.as_ref().unwrap();
+    assert_eq!(draft.value, before);
+    assert_eq!(app.document.buffer_text(), original);
+    let _ = app.update(Message::CancelPreviewParagraph);
+
+    // A pending confirmation is equally exclusive.
+    app.document = Document::new("dirty text");
+    let _ = app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('!'),
+    )));
+    let _ = app.update(Message::NewFile);
+    assert!(app.pending_action.is_some());
+    let _ = app.update(Message::NewTab);
+    assert_eq!(app.tab_count(), 1);
+    let _ = app.update(Message::CancelPendingAction);
+    assert!(app.pending_action.is_none());
+}
+
+#[test]
+fn close_tab_refuses_dirty_and_last_tabs_and_keeps_the_remaining_buffers() {
+    let mut app = app();
+    app.document = Document::new("clean one\n");
+    app.mode = EditMode::Source;
+    let _ = app.update(Message::NewTab);
+    let _ = app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('Z'),
+    )));
+    assert_eq!(app.document.buffer_text(), "Z");
+    assert_eq!(app.tab_count(), 2);
+
+    // The active tab is dirty: closing it is refused, nothing is dropped.
+    let _ = app.update(Message::CloseTab(1));
+    assert_eq!(app.tab_count(), 2);
+    assert_eq!(app.active_tab(), 1);
+    assert_eq!(app.document.buffer_text(), "Z");
+
+    // A clean parked tab closes and the cursor falls back to its neighbour.
+    let _ = app.update(Message::SwitchTab(0));
+    assert_eq!(app.active_tab(), 0);
+    let _ = app.update(Message::CloseTab(0));
+    assert_eq!(app.tab_count(), 1);
+    assert_eq!(app.active_tab(), 0);
+    assert_eq!(app.document.buffer_text(), "Z");
+
+    // The last tab is never closed: the editor always keeps one buffer.
+    let _ = app.update(Message::CloseActiveTab);
+    assert_eq!(app.tab_count(), 1);
+    assert_eq!(app.document.buffer_text(), "Z");
+}
+
+#[test]
+fn tab_shortcuts_are_exact_ctrl_and_bare_alt_only() {
+    use crate::commands::shortcut;
+    use iced::keyboard;
+    let ctrl = keyboard::Modifiers::CTRL;
+    assert!(matches!(
+        shortcut(keyboard::Key::Character("t".into()), ctrl),
+        Some(Message::NewTab)
+    ));
+    assert!(matches!(
+        shortcut(keyboard::Key::Character("W".into()), ctrl),
+        Some(Message::CloseActiveTab)
+    ));
+    for modifiers in [
+        keyboard::Modifiers::empty(),
+        keyboard::Modifiers::SHIFT,
+        ctrl | keyboard::Modifiers::SHIFT,
+        ctrl | keyboard::Modifiers::ALT,
+        keyboard::Modifiers::LOGO,
+    ] {
+        assert!(shortcut(keyboard::Key::Character("t".into()), modifiers).is_none());
+        assert!(shortcut(keyboard::Key::Character("w".into()), modifiers).is_none());
+    }
+    assert!(matches!(
+        shortcut(
+            keyboard::Key::Character("3".into()),
+            keyboard::Modifiers::ALT
+        ),
+        Some(Message::SwitchTab(2))
+    ));
+    assert!(shortcut(
+        keyboard::Key::Character("0".into()),
+        keyboard::Modifiers::ALT
+    )
+    .is_none());
+    assert!(shortcut(
+        keyboard::Key::Character("3".into()),
+        keyboard::Modifiers::ALT | ctrl
+    )
+    .is_none());
+    // The confirmation accelerators are untouched.
+    assert!(matches!(
+        shortcut(
+            keyboard::Key::Character("s".into()),
+            keyboard::Modifiers::ALT
+        ),
+        Some(Message::ConfirmSave)
+    ));
+}

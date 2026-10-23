@@ -68,6 +68,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 .on_press(Message::ExportHtml)
                 .style(btn_style(false))
                 .padding([4, 10]),
+            crate::ui::tabs::view(app),
             horizontal_space(),
             mode_btn("Source", EditMode::Source),
             mode_btn("Preview", EditMode::Preview),

@@ -4,6 +4,7 @@ mod file_actions;
 mod multiline_paragraph;
 mod navigation;
 mod paragraph_edit;
+mod tabs;
 
 use crate::commands::{Message, PendingAction};
 use crate::config::Config;
@@ -19,7 +20,12 @@ use iced::{event, window, Element, Length, Subscription, Task, Theme};
 
 /// ── Main Application State ──────────────────────────────
 pub struct Hylite {
+    /// The active buffer. Inactive buffers are parked in `tabs`.
     pub document: Document,
+    /// Every open buffer, in tab order. The active slot holds no document
+    /// because its `Document` is `Hylite::document`.
+    pub tabs: Vec<tabs::Tab>,
+    pub active_tab: usize,
     pub search: crate::search::Search,
     pub go_to: crate::navigation::GoTo,
     pub multiline_draft: Option<crate::ui::multiline_paragraph::Draft>,
@@ -61,6 +67,8 @@ impl Hylite {
         (
             Self {
                 document: Document::new(include_str!("welcome.md")),
+                tabs: vec![tabs::Tab::active()],
+                active_tab: 0,
                 search: crate::search::Search::default(),
                 go_to: crate::navigation::GoTo::default(),
                 cell_draft: None,
@@ -271,6 +279,11 @@ impl Hylite {
             Message::MovePreviewParagraph(direction) => self.move_preview_paragraph(direction),
             Message::ApplyPreviewParagraph => self.apply_preview_paragraph(),
             Message::CancelPreviewParagraph => self.cancel_preview_paragraph(),
+            Message::NewTab => self.new_tab(),
+            Message::SwitchTab(index) => self.switch_tab(index),
+            Message::CycleTab(backward) => self.cycle_tab(backward),
+            Message::CloseTab(index) => self.close_tab(index),
+            Message::CloseActiveTab => self.close_active_tab(),
             Message::OpenPreviewCell(target) => self.open_preview_cell(target),
             Message::PreviewCellChanged(value) => self.change_preview_cell(value),
             Message::ApplyPreviewCell => self.apply_preview_cell(),
