@@ -1,8 +1,8 @@
-# Laporan Progress — Hylite (snapshot Stage 7f)
+# Laporan Progress — Hylite (snapshot Stage 7g)
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD:** `e8b20f3`
-**Basis:** commit `0353f5e` lulus [CI 39892699395](https://github.com/Indrawan007/Hylite/actions/runs/39892699395)
-Status kerja: **belum di-merge ke `main`**, working tree bersih, dokumentasi 7f sudah dipush.
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD:** `0539b02`
+**Basis:** commit `0539b02` lulus [CI 39895925701](https://github.com/Indrawan007/Hylite/actions/runs/39895925701)
+Status kerja: **belum di-merge ke `main`**; dokumentasi 7g ditulis setelah fitur lulus CI.
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -12,10 +12,10 @@ Status kerja: **belum di-merge ke `main`**, working tree bersih, dokumentasi 7f 
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–7f) | **≈ 82 %** | 27 dari 27 stage yang direncanakan sudah diimplementasi + diverifikasi otomatis |
-| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 40 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–7g) | **≈ 84 %** | 28 dari 28 stage yang direncanakan sudah diimplementasi + diverifikasi otomatis |
+| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 42 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
 
-Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 82 % tinggi
+Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 84 % tinggi
 karena scope yang dideklarasikan memang sengaja sempit: editor native + prototipe
 editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
@@ -46,7 +46,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | 6n / 6o | Pindah kolom / duplikasi kolom |
 | 6p | Apply & Previous sel |
 
-### Paragraf root & draft multiline (Stage 7a–7f) — selesai 100 %
+### Paragraf root & draft multiline (Stage 7a–7g) — selesai 100 %
 
 | Stage | Isi |
 |---|---|
@@ -56,16 +56,17 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | 7d | Previous/Next antar paragraf multiline, khusus draft unchanged |
 | 7e | Apply & Next atomik dengan preflight kandidat penuh |
 | 7f | Apply & Previous atomik, offset root sebelumnya tetap diverifikasi ulang |
+| 7g | Shortcut commit eksplisit draft: Ctrl+Enter, Ctrl+PageUp/PageDown |
 
 ### Verifikasi otomatis — selesai 100 % dari yang dirancang
 
 | Metrik | Nilai |
 |---|---|
-| Tes Cargo | **903** lulus |
+| Tes Cargo | **905** lulus |
 | Tes core mandiri (subset) | **294** |
-| Helper Python | **61** |
-| Suite GUI X11 | **19 suite / 378 pemeriksaan** (346 clipboard, 12 title, 20 exit native) |
-| Gate lama yang dipertahankan | 18 suite sebelum 7f, 28 badan exercise identik AST |
+| Helper Python | **63** |
+| Suite GUI X11 | **20 suite / 394 pemeriksaan** (361 clipboard, 12 title, 21 exit native) |
+| Gate lama yang dipertahankan | 19 suite sebelum 7g, 28 badan exercise identik AST |
 | Lint/format | `cargo fmt` + strict Clippy `-D warnings` + build debug |
 
 ### Yang belum dikerjakan
@@ -88,11 +89,11 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | Sumber kebenaran Source, history, file I/O, save/export | 20 % | 100 % | 20,0 |
 | Renderer preview + Split + navigasi/refocus | 15 % | 100 % | 15,0 |
 | Editing blok tabel/task/heading (6a–6p) | 25 % | 100 % | 25,0 |
-| Draft paragraf + multiline + history + Apply & Next/Previous (7a–7f) | 15 % | 100 % | 15,0 |
+| Draft paragraf + multiline + history + Apply & Next/Previous + shortcut commit (7a–7g) | 15 % | 100 % | 15,0 |
 | Verifikasi otomatis & CI | 15 % | 100 % | 15,0 |
-| Validasi desktop target + manual checklist | 5 % | 20 % | 1,0 |
+| Validasi desktop target + manual checklist | 5 % | 25 % | 1,3 |
 | WYSIWYG umum, selection/glyph, scroll sync, performa | 5 % | 10 % | 0,5 |
-| **Total** | **100 %** | | **≈ 81,5 %** |
+| **Total** | **100 %** | | **≈ 82,3 %** |
 
 ## 4. Risiko & batasan yang masih terbuka
 
@@ -119,10 +120,10 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 6. Basis perhitungan persentase
 
-- **82 % roadmap**: 27 stage dideklarasikan (5a–5e, 6a–6p, 7a–7f); semuanya
-  diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~18 % adalah kategori
+- **84 % roadmap**: 28 stage dideklarasikan (5a–5e, 6a–6p, 7a–7g); semuanya
+  diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~16 % adalah kategori
   desktop/WYSIWYG/performa yang sengaja ditandai di luar scope stage.
-- **40 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
+- **42 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
   tetapi tanpa validasi compositor, packaging, dan WYSIWYG umum, aplikasi belum layak
   disebut siap produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
@@ -130,10 +131,9 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- Riwayat CI terakhir: `39892699395` (`0353f5e`) **success** — 903 Cargo / 378 GUI,
-  artefak `12475384207`, 3.279.313 bytes, SHA256
-  `92636145659d325378e7c3073665a601d74c93bb1dcfa1bc6b1f95f4574b06a2`.
-- CI dokumentasi `e8b20f3` (`39893714451`) hanya memvalidasi dokumen, bukan hasil fitur.
+- Riwayat CI terakhir: `39895925701` (`0539b02`) **success** — 905 Cargo / 394 GUI,
+  artefak `12476433906`, 3.253.935 bytes, SHA256
+  `aa7def659290d7b336bc7b0860bbea4db9396b1968e4349391789539d294a138`.

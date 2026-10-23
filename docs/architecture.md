@@ -836,3 +836,21 @@ parse/reconstruction O(n) and extra memory, not speedup/process-RAM improvement.
 [7f](testing-stage7f.md); suites18–19 independent, 28old exercise bodies and all18
 pre-7f gates preserved. Apply & Previous uses the same opaque plan/commit path with
 direction-parameterized neighbour offsets.
+
+## Shortcut commit eksplisit draft multiline (Stage 7g)
+
+`commands::draft_commit_shortcut` adalah satu-satunya pemetaan tombol commit dan
+hanya menerima `Modifiers::CTRL` persis: Enter→Apply, PageUp→Apply & Previous,
+PageDown→Apply & Next. AltGr (Ctrl+Alt), Logo compositor, Shift dan tanpa modifier
+ditolak, jadi tidak ada commit implisit dan Enter/PageUp/PageDown native tetap
+menyunting teks.
+
+`session_key_binding` memanggil helper itu hanya untuk status *Focused* setelah
+jalur history lokal7c, lalu membungkusnya sebagai `text_editor::Binding::Custom`.
+Karena message-nya identik dengan tombol, seluruh guard7d–7f (error/stale/boundary/
+unchanged/mode/modal/file operation) tetap berlaku tanpa jalur kedua; tidak ada
+edge history, mutasi caret/checkpoint/cache, atau Apply implisit tambahan. Source
+dan panel sel/paragraf satu baris tidak mendapat shortcut baru; tata letak tombol
+tidak berubah, hanya teks bantuan footer.
+[Kontrak/tests/evidence/manual limits7g](testing-stage7g.md); suite20 independen,
+28old exercise bodies dan 19 gate sebelumnya preserved.

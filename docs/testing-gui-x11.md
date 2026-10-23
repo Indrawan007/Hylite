@@ -988,3 +988,35 @@ glyph mapping; disabled blur tidak diklaim direfocus. Capacity/offscreen/128bari
 Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU/visual review tetap manual. Copy full
 Source/parse/dua native buffer O(n) +memori ekstra, bukan speedup.
 [Kontrak7f](testing-stage7f.md).
+
+## Stage 7g: shortcut commit draft multiline, suite privat kedua puluh
+
+`--suite paragraph-draft-shortcuts` private app/Xvfb/XDG/env/clipboard, alarm180s,
+step5menit sendiri, job45menit tetap. **28old exercise bodies AST-identical
+`bb37223`**; 19gate lama dipertahankan tanpa perubahan bytes/koordinat/oracle/
+deadline/refocus, tanpa retry/runtime hook. Private DISPLAY guard kini20suite.
+
+**Lulus** [CI 39895925701](https://github.com/Indrawan007/Hylite/actions/runs/39895925701),
+`0539b02`, job120226246206, 23 Oktober2026 03:36:36–03:47:19 UTC /
+11:36:36–11:47:19 Makassar. Native format/Clippy/build/**905Cargo** dan 20suite
+**394GUI**. Tiga iterasi sebelumnya test-only (Message bukan PartialEq,
+`clone_on_copy`, dan fokus Source setelah Ctrl+Enter dipulihkan lewat mode switch
+seperti suite7b); tidak ada pelonggaran gate.
+
+**394GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24+19+23+26+16**,
+**361clipboard =278Source+83draft**,12titles,21natural exits. Suite baru
+**16checks** =15Copy(5Source+10draft)+Close0: **Ctrl+Enter** apply+close satu edge
+atomik, **Ctrl+PageDown/Ctrl+PageUp** Apply & Next/Previous melalui guard yang sama
+dengan tombol, boundary pertama/terakhir menolak tanpa wrap maupun partial Apply,
+draft changed dipertahankan, Escape tak menyentuh Source, dua Undo bertahap kembali
+ke fixture lalu welcome clean, Close0. Hanya2klik produk Open; tidak ada
+Copy setelah klik disabled.
+
+Artifact `12476433906`,3.253.935bytes,SHA256
+`aa7def659290d7b336bc7b0860bbea4db9396b1968e4349391789539d294a138`,unexpired;
+suite ini tidak membuat screenshot. Native count dari check annotations.
+
+Batas: shortcut nyata di Hyprland bisa diambil compositor; IME/keyboard non-US dan
+aksesibilitas keyboard-only manual. Ctrl+Alt/Logo/Shift sengaja ditolak di unit
+test, tetapi perilaku compositor nyata belum diuji. Arch/Hyprland/Wayland/portal/
+RTL/HiDPI/GPU tetap manual. [Kontrak7g](testing-stage7g.md).
