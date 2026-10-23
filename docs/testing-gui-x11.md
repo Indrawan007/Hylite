@@ -873,3 +873,40 @@ variants/disabled-button blur/narrow-window/traversal/accessibility/physical que
 focus, Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU still manual. X11 tiny-skia
 is not target compositor proof; full snapshots/rebuild O(n), not speedup.
 [Contract/evidence/limits7c](testing-stage7c.md).
+
+## Stage 7d: unchanged multiline Previous/Next, suite privat ketujuh belas
+
+`--suite paragraph-navigation` private app/Xvfb/XDG/env/clipboard,180s runner,
+5min own step/45min job unchanged. All27old exercise bodies AST-identical a616dd2;
+16old gates preserved, no old byte/coordinate/refocus/oracle/deadline change.
+Private DISPLAY guard now17suites. No retry/runtime hooks.
+
+**Lulus** [CI 39886493920](https://github.com/Indrawan007/Hylite/actions/runs/39886493920),
+`13769ac`,watch exit0,job120195796902,23 Oktober2026 01:53:10–02:02:24 UTC /
+09:53:10–10:02:24 Makassar. First feature CI passes. New **19checks**
+=18Copy(8Source+10draft)+natural Close0. First root Unicode/hard break native focus;
+dirty Next refusal/raw Copy then local Undo→Next skips heading/single/nested/code;
+exact second/native focus and previous session redo discarded; Previous first.
+Disabled first/last boundaries use Copy-before-click→Cancel preserving Source,
+not refocus clicks. Split second changed/dirty Previous refusal leaves Apply
+available; explicit Apply then native X at final-line end. Source typing/Apply
+Undo separate, first/skipped/suffix bytes untouched, final Undo welcome clean.
+12clicks only product Open/Previous/Next/Apply. Selection retention is controller
+unit proof, native Copy doesn't assert selection anchor/direction/pixel layout.
+
+**329GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24+19**,
+299clipboard(252Source+47draft),12titles,18natural exits. Native869Cargo;
+local294strict core unchanged subset,57Python, corresponding CI steps pass.
+Artifact `12473142607`,3.106.610bytes,unexpired; screenshots
+`paragraph-navigation/paragraph-navigation-preview.png`, `paragraph-navigation-dirty.png`
+not visually reviewed/pixel oracles. Native counts via check annotations, not full archive.
+
+Previous/Next only unchanged/error-free eligible LF-root2–128line/16KiB, no
+wrap/rebase/implicit Apply/creation. Success opens new session/caret0/history empty,
+Source unchanged; refusal retains draft/history/focus. New160×32row below old
+Apply/Cancel/Undo/Redo, footer44px lower; old input/button/root coordinates retained.
+No Apply & Next/Previous/cross-kind/glyph mapping/scroll sync/performance proof.
+Capacity/offscreen/more unsupported cases/selection direction/traversal/disabled
+blur/narrow-window/accessibility/physical query focus/Arch/Hyprland/Wayland/portal/
+IME/RTL/HiDPI/GPU remain manual. Full root walk/raw copies O(n), not speedup.
+[Contract/evidence/limits7d](testing-stage7d.md).

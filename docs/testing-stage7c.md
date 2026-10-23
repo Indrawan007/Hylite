@@ -2,7 +2,9 @@
 
 Successor to [7b multiline root drafts](testing-stage7b.md). Only the multiline
 modal gains session history; single-line7a, cell panels and Document history APIs
-are unchanged. This supersedes7b's **no draft-session Undo** limit, not its parser,
+are unchanged. [7d navigation](testing-stage7d.md) additionally starts a fresh local
+history on successful unchanged-only Previous/Next; old-session redo is discarded.
+This supersedes7b's **no draft-session Undo** limit, not its parser,
 authentication, eligibility or Source-authority rules.
 
 ## Contract

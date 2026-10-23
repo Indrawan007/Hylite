@@ -771,3 +771,32 @@ immutable/checkpoint and file/modal guards unchanged. Does supersede7b's explici
 no draft-session Undo limitation only for multiline native panel. New independent
 private GUI suite16 preserves26old exercise bodies and all15gates. See
 [contract/tests/evidence/manual limits7c](testing-stage7c.md).
+
+## Unchanged-only multiline root draft navigation (Stage 7d)
+
+`document::ParagraphDirection` +`adjacent_multiline_paragraph` memilih nearest
+eligible root metadata dalam urutan Source setelah exact warm target auth7b.
+Hanya root vector, tidak children: skip single-line/heading/nested/code/literal/
+EOF/unsupported. No wrap/rebase/parse/warm; neighbor snapshot/range current.
+Read-only, tidak mutate Source/cache/history/caret/revision/checkpoint/dirty/redo.
+
+Controller only allows move in valid multiline Preview/Split modal, normal file/
+pending/Open guards. Raw draft must equal authenticated current payload, error
+must be None; dirty/invalid/stale/boundary retains accepted text/selection/history.
+Separate notice doesn't invalidate Apply; effective local edit/history restore
+clears it. Named focus scope after move/refusal, not focus_next. Native buffer and
+neighbor affordances constructed before replacing old session; successful movement
+resets local history/caret0, including old session redo after Undo to original.
+
+Previous/Next160×32 append a new row after existing Apply/Cancel/Undo/Redo, those
+coordinates/input/root bars unchanged; footer moves44px. No new shortcut or Apply
+and Next, no implicit Source commit. Bounds/error disable controls; disabled click
+blur isn't refocus proof. Apply explicit closes as one PreviewParagraph edge,
+Cancel/no-op/navigation aren't Source history. Cell/single-line panels,7b grammar,
+Source helpers/history, immutable Save/Export and logical search/Go-to unchanged.
+
+Lookup/auth copies/root walk O(n), not performance claim; no glyph selection
+mapping, cross-kind/EOF editing, block creation/sync scroll. Native Copy proves
+raw value/focus, controller selection tests aren't native anchor/pixel proof.
+[Contract/tests/evidence/manual limits7d](testing-stage7d.md), independent suite17;
+27old exercise bodies and all16gates preserved.

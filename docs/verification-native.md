@@ -1,6 +1,47 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 7c terbaru — bounded multiline draft-local Undo/Redo
+## Stage 7d terbaru — navigasi unchanged multiline root drafts
+
+[CI 39886493920](https://github.com/Indrawan007/Hylite/actions/runs/39886493920),
+`13769acbbcca76ef055566b9035265b990faf7cf`, **success**,watcher exit0,
+job `120195796902`,23 Oktober2026 01:53:10–02:02:24 UTC /09:53:10–10:02:24 Makassar.
+Native format/strict Clippy/debug build/**869Cargo**,all17privateGUI suites pass:
+**116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24+19 =329GUI**,
+299clipboard(252Source+47draft),12titles,18natural exits. Local294strict core
+unchanged (subset869),57Python, corresponding CI steps pass too. Native counts
+from check annotations, not full archived-log inspection. Artifact `12473142607`,
+3.106.610bytes,unexpired when checked; screenshots not visually reviewed.
+
+New19check probe: Unicode/hard-break first root opens focused, dirty Next refuses
+without losing raw draft/focus; local Undo→Next skips heading/single/nested/code
+and loads exact second; no old-session Redo, Previous→first. Disabled first/last
+boundary Copy-before-click/Cancel exact Source, no wrap/Apply/refocus hack. Split
+second edit dirty Previous refusal still permits explicit Apply, then native X
+at applied payload end; Source typing/Apply Undo separate, only second payload
+changed, every skipped/first/suffix byte intact; next Undo welcome clean/Close0.
+Selection retained in controller test; native Copy is raw value/focus proof, not
+anchor/direction/pixel oracle.17newRust=8Document+7controller+2UI.27old exercise
+bodies AST-identical a616dd2,all16old gates intact, no old byte/coordinate/deadline/
+oracle/refocus change, no retry/runtime hooks. Feature push passes first try.
+
+Exact warm current target auth +source-order root metadata read, no cold parse/
+warm/rebase/nested fallback. Unchanged/error-free required; dirty/error/stale/
+boundary accepted text/history retained with notice, Apply remains explicit.
+Successful move constructs exact native buffer before swap, caret0/fresh history
+including dropping old local redo after Undo to original. Source/cache/caret/
+snapshot/checkpoint/search/redo untouched by navigation; immutable Save/Export/
+logical Go-to/context/file guards unchanged. Cell/single-line panels and7b grammar
+unchanged; new160×32button row below old controls, footer44px lower only.
+
+No Apply & Next/Previous, cross-kind/EOF/indented editing, implicit Apply/create/
+reorder/delete, glyph mapping/free inline typing/sync scroll/performance proof.
+Lookup/raw copies/root walk O(n); capacity/offscreen/other unsupported variants/
+native selection direction/narrow-window/accessibility/physical query focus and
+Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU remain manual. Docs7c39885686359
+cancelled superseded feature7d;7c feature39884654030 success.
+[Contract/evidence/manual limits7d](testing-stage7d.md).
+
+## Stage 7c — bounded multiline draft-local Undo/Redo
 
 [CI 39884654030](https://github.com/Indrawan007/Hylite/actions/runs/39884654030),
 `125365525c5d6a51e4e952d549940c516b144326`, **success**,watcher exit0,
@@ -645,6 +686,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal draft multiline terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 7c](testing-stage7c.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 7d](testing-stage7d.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
