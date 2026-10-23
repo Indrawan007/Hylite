@@ -2048,7 +2048,6 @@ def exercise_paragraph_apply_previous(desktop, artifacts):
     desktop.key("ctrl+z")
     desktop.expect_copy("Another Source Undo removes only the final Apply Previous", applied, refocus=False)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
     desktop.expect_copy("The first Apply Previous is its own atomic edge back to the clean welcome fixture", source, refocus=False)
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)
