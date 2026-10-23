@@ -634,8 +634,7 @@ impl Hylite {
             // Ctrl+Z/Y/Shift+Z stay neutral here: `listen_with` takes a fn
             // pointer, so the controller decides between the open single-line
             // draft stack and the Preview/Source history.
-            if let Some(message) = crate::commands::draft_history_shortcut(&key, modifiers, status)
-            {
+            if let Some(message) = crate::commands::draft_history_shortcut(&key, modifiers) {
                 return Some(message);
             }
             crate::commands::shortcut(key, modifiers)
