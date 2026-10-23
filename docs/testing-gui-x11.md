@@ -1104,3 +1104,39 @@ bytes/koordinat/oracle/deadline/refocus tidak berubah.
 (385 clipboard — 289 Source + 96 draft input; 12 title; 22 exit native normal).
 Artifact `12482570864`, 3.316.700bytes, expires 2026-10-30T06:08:08Z; SHA256 tidak
 dapat diunduh dari sandbox ini. [Kontrak7k](testing-stage7k.md).
+
+## Stage 7l: suite ke-22 `draft-history-single` (history draft lokal panel satu baris)
+
+Stage7l menambah dua tombol `Undo draft`/`Redo draft` pada panel paragraf satu baris
+dan panel sel tabel. Baris `Apply`/`Cancel` tidak berubah, dan lebar tombol sel tetap
+90/130/120/120px, sehingga seluruh koordinat suite lama tetap. Suite baru berjalan
+di display X11 sendiri dengan marker `[paragraph draft]`/`[cell draft]` dan menguji
+kedua panel dalam **satu sesi Source**:
+
+1. Undo/Redo lokal paragraf tanpa satu byte Source berubah;
+2. dua snapshot paragraf, `Undo draft` + `Return` (Apply), lalu satu `ctrl+z` Source
+   yang menghapus **hanya** edge itu;
+3. fixture tabel mengganti seluruh dokumen (paste mentah saat Source masih fokus),
+   lalu Undo/Redo lokal sel, Apply satu edge, dan satu `ctrl+z` Source;
+4. dua `ctrl+z` Source berikutnya kembali ke dokumen `welcome` yang bersih,
+   diverifikasi lewat judul bersih dan close native normal.
+
+Jumlah yang dipertahankan apa adanya: 24 `expect_copy` (semua `refocus: False`),
+14 klik, 11 `ctrl+shift+m`, 2 `Escape`, 2 `Return`, 4 `ctrl+z`, 7 `ctrl+a`,
+7 `ctrl+v`, 2 `title_is_dirty`, 1 `request_close` + 1 `expect_native_exit`.
+Dua tes Python mengunci daftar payload/koordinat/tombol suite ini.
+
+**Lulus** [CI 39915156642](https://github.com/Indrawan007/Hylite/actions/runs/39915156642),
+`d6ecb70`, job120286966415, 23 Oktober2026 07:01:48–07:15:01 UTC /
+15:01:48–15:15:01 Makassar. **948 Cargo**, **22 suite / 450 pemeriksaan GUI**
+(409 clipboard — 300 Source + 109 draft input; 12 title konfirmasi + 2 judul dirty;
+4 transisi judul draft; 23 exit native normal). Artifact `12484788441`,
+3.329.395bytes, expires 2026-10-30T07:13:41Z, digest SHA256 dilaporkan API
+`bb80e4a5…4f7e6de2` (zip tidak dapat diunduh dari sandbox ini).
+[Kontrak7l](testing-stage7l.md).
+
+Batas: fokus Source harus dipulihkan lewat siklus mode penuh
+(`Split → Source → Preview → Split`) sebelum copy; copy di Preview/Split menghasilkan
+sentinels `hylite-copy-not-acknowledged-…`. `paste_from_clean` menuntut judul bersih,
+jadi penggantian dokumen di tengah suite memakai paste mentah. Semua ini batasan
+harness, bukan pelonggaran oracle.

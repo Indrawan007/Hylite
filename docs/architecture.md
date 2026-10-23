@@ -935,3 +935,29 @@ provenance tidak pernah menjadi otorisasi. Baris petunjuk tetap tinggi20px sehin
 input dan kedua baris tombol sel tidak bergeser — cukup teks yang berubah.
 [Kontrak/tests/evidence/manual limits7k](testing-stage7k.md); tanpa suite ke-22,
 21 suite lama dijalankan ulang utuh.
+
+## History draft lokal panel satu baris (Stage 7l)
+
+Panel7a/7j (paragraf satu baris) dan6h/6i/6p (sel tabel) tidak punya history lokal;
+Stage7l memberi keduanya `multiline_draft_history::History` sendiri — 100 record
+Undo+Redo /1MiB teks mentah tersimpan /≤16KiB per record — plus dua tombol eksplisit
+`Undo draft`/`Redo draft`. Record tetap hanya `{text, caret}`: tanpa Snapshot,
+`state_id`, identitas file, operasi, atau status simpan. Satu edit efektif = satu
+langkah, tanpa coalescing waktu/caret; cabang baru membuang redo; eviksi Undo
+tertua lalu Redo terjauh.
+
+`app::paragraph_edit::history_preview_paragraph` dan
+`app::cell_edit::history_preview_cell` mengambil target, menolak record melebihi
+`MAX_BYTES`, lalu `History::step` dan **memvalidasi ulang** nilai hasil restore
+(pesan error paragraf/sel yang sama seperti Apply). Restore efektif membersihkan
+`navigation_notice`/error sebelumnya. Undo/Redo draft tidak pernah menyentuh
+dokumen, snapshot, render key, caret Source, revisi, checkpoint, dirty flag, atau
+stack Source/`PreviewHistory`; `Apply` tetap satu-satunya jalur ke Source dan tetap
+mencatat tepat satu edge. `Cancel`/Apply/penutupan no-op membuang seluruh stack.
+
+Tombol memakai `can_undo`/`can_redo` sehingga disabled tanpa state palsu, dan baris
+tombol sel tetap lebar 90/130/120/120px agar tinggi baris serta koordinat suite
+GUI lama tidak bergeser. Tidak ada shortcut keyboard baru (`text_input` Iced0.13
+menangkap `Enter`/`Escape`/`PageUp`/`PageDown`), tanpa grouping, dan tanpa berbagi
+history antar panel. [Kontrak/tests/evidence/manual limits7l](testing-stage7l.md);
+suite ke-22 independen, 28 badan exercise lama dan 21 gate sebelumnya preserved.
