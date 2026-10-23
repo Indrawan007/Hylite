@@ -112,6 +112,9 @@ jobs:
       - name: Smoke test multiline draft commit shortcuts on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite paragraph-draft-shortcuts --artifacts "$RUNNER_TEMP/hylite-gui-smoke/paragraph-draft-shortcuts"
+      - name: Smoke test single paragraph navigation on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite paragraph-navigation-single --artifacts "$RUNNER_TEMP/hylite-gui-smoke/paragraph-navigation-single"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

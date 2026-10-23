@@ -54,6 +54,33 @@ impl MultilineMovePlan {
     }
 }
 
+/// Opaque two-phase plan for single-line root paragraph navigation.
+pub(crate) struct SingleMovePlan {
+    anchor: crate::preview_paragraph::Target,
+    original: String,
+    source_before: String,
+    moved: crate::preview_paragraph::Target,
+    value: String,
+    neighbors: [bool; 2],
+    edit: Option<PreparedSingleEdit>,
+}
+struct PreparedSingleEdit {
+    content: text_editor::Content,
+    text: String,
+    blocks: Vec<Block>,
+}
+impl SingleMovePlan {
+    pub(crate) fn move_target(&self) -> crate::preview_paragraph::Target {
+        self.moved.clone()
+    }
+    pub(crate) fn move_value(&self) -> &str {
+        &self.value
+    }
+    pub(crate) fn neighbors(&self) -> [bool; 2] {
+        self.neighbors
+    }
+}
+
 impl Document {
     pub fn new(text: &str) -> Self {
         // with_text drops the terminal empty line in Iced 0.13. Use the
@@ -498,6 +525,176 @@ impl Document {
             block: next.source.clone(),
             payload: next.multiline_paragraph_payload.clone()?,
         })
+    }
+
+    /// Nearest eligible single-line root paragraph in source order. Read only;
+    /// multiline roots are skipped because they belong to the7d–7f drafts.
+    pub(crate) fn adjacent_single_paragraph(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        direction: crate::document::ParagraphDirection,
+    ) -> Option<crate::preview_paragraph::Target> {
+        use crate::document::ParagraphDirection as Direction;
+        self.preview_paragraph_payload(target)?;
+        let mut eligible = self.preview.get()?.iter().filter(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.paragraph_payload.is_some()
+                && block.multiline_paragraph_payload.is_none()
+        });
+        let next = match direction {
+            Direction::Previous => eligible
+                .take_while(|b| b.source.start < target.block.start)
+                .last(),
+            Direction::Next => eligible.find(|b| b.source.start > target.block.start),
+        }?;
+        Some(crate::preview_paragraph::Target {
+            snapshot: self.snapshot,
+            block: next.source.clone(),
+            payload: next.paragraph_payload.clone()?,
+        })
+    }
+
+    pub(crate) fn prepare_single_paragraph_next(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> Option<SingleMovePlan> {
+        self.prepare_single_paragraph_move(target, value, crate::document::ParagraphDirection::Next)
+    }
+
+    pub(crate) fn prepare_single_paragraph_previous(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> Option<SingleMovePlan> {
+        self.prepare_single_paragraph_move(
+            target,
+            value,
+            crate::document::ParagraphDirection::Previous,
+        )
+    }
+
+    fn prepare_single_paragraph_move(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+        direction: crate::document::ParagraphDirection,
+    ) -> Option<SingleMovePlan> {
+        use crate::document::ParagraphDirection::{Next, Previous};
+        let original = self.preview_paragraph_payload(target)?;
+        if !crate::preview_paragraph::valid_value(value) {
+            return None;
+        }
+        let old_next = self.adjacent_single_paragraph(target, direction)?;
+        let next_value = self.preview_paragraph_payload(&old_next)?;
+        let source_before = self.buffer_text();
+        if original == value {
+            return Some(SingleMovePlan {
+                anchor: target.clone(),
+                original,
+                source_before,
+                moved: old_next.clone(),
+                value: next_value,
+                neighbors: [
+                    self.adjacent_single_paragraph(&old_next, Previous)
+                        .is_some(),
+                    self.adjacent_single_paragraph(&old_next, Next).is_some(),
+                ],
+                edit: None,
+            });
+        }
+        let change = crate::preview_paragraph::plan(&source_before, self.snapshot, target, value)?;
+        let mut candidate = source_before.clone();
+        candidate.replace_range(change.range, &change.replacement);
+        let blocks = preview_model::parse(&candidate);
+        let end = target
+            .block
+            .start
+            .checked_add(value.len())?
+            .checked_add(1)?;
+        if !blocks.iter().any(|b| {
+            b.kind == preview_model::Kind::Paragraph
+                && b.source == (target.block.start..end)
+                && b.paragraph_payload.as_ref() == Some(&(target.block.start..end - 1))
+                && b.multiline_paragraph_payload.is_none()
+        }) {
+            return None;
+        }
+        let shift = |n: usize| n.checked_sub(original.len())?.checked_add(value.len());
+        let (block, payload) = match direction {
+            Next => (
+                shift(old_next.block.start)?..shift(old_next.block.end)?,
+                shift(old_next.payload.start)?..shift(old_next.payload.end)?,
+            ),
+            Previous => (old_next.block.clone(), old_next.payload.clone()),
+        };
+        blocks.iter().find(|b| {
+            b.kind == preview_model::Kind::Paragraph
+                && b.source == block
+                && b.paragraph_payload.as_ref() == Some(&payload)
+        })?;
+        if candidate.get(payload.clone())? != next_value {
+            return None;
+        }
+        let neighbors = [
+            blocks.iter().any(|b| {
+                b.kind == preview_model::Kind::Paragraph
+                    && b.paragraph_payload.is_some()
+                    && b.multiline_paragraph_payload.is_none()
+                    && b.source.start < block.start
+            }),
+            blocks.iter().any(|b| {
+                b.kind == preview_model::Kind::Paragraph
+                    && b.paragraph_payload.is_some()
+                    && b.multiline_paragraph_payload.is_none()
+                    && b.source.start > block.start
+            }),
+        ];
+        let content = content_at(&candidate, target.payload.start.checked_add(value.len())?)?;
+        Some(SingleMovePlan {
+            anchor: target.clone(),
+            original,
+            source_before,
+            moved: crate::preview_paragraph::Target {
+                snapshot: self.snapshot,
+                block,
+                payload,
+            },
+            value: next_value,
+            neighbors,
+            edit: Some(PreparedSingleEdit {
+                content,
+                text: candidate,
+                blocks,
+            }),
+        })
+    }
+
+    pub(crate) fn commit_single_paragraph_move(
+        &mut self,
+        plan: SingleMovePlan,
+    ) -> Option<(crate::preview_paragraph::Target, bool)> {
+        if self.preview_paragraph_payload(&plan.anchor)? != plan.original
+            || self.buffer_text() != plan.source_before
+        {
+            return None;
+        }
+        let changed = plan.edit.is_some();
+        if let Some(edit) = plan.edit {
+            self.break_undo_group();
+            let before = self.record();
+            self.replace_content(edit.content);
+            self.record_edit(
+                before,
+                &edit.text,
+                EditKind::PreviewParagraph,
+                Instant::now(),
+            );
+            self.preview = OnceCell::from(edit.blocks);
+        }
+        let mut moved = plan.moved;
+        moved.snapshot = self.snapshot;
+        Some((moved, changed))
     }
 
     /// Read-only Source context for a draft header. Authenticates the warm
@@ -1329,3 +1526,6 @@ mod preview_multiline_previous_tests;
 #[cfg(test)]
 #[path = "preview_multiline_property_tests.rs"]
 mod preview_multiline_property_tests;
+#[cfg(test)]
+#[path = "preview_paragraph_navigation_tests.rs"]
+mod preview_paragraph_navigation_tests;

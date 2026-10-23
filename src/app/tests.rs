@@ -6103,3 +6103,247 @@ fn async_replies_and_typing_do_not_overwrite_status_with_a_blocked_notice() {
     let _ = app.update(Message::EndTypingGroup);
     assert!(!app.status_message.contains("Apply or press Esc"));
 }
+
+fn single_paragraph_app() -> Hylite {
+    let mut app = app();
+    app.document = Document::new(
+        "café🙂 **first**  \n\n# gap\n\n> nested\n> quote\n\n```\ncode\nblock\n```\n\nsecond é🙂 &amp;\n\nthird 🙂  \n\t",
+    );
+    app.mode = EditMode::Preview;
+    app
+}
+fn single_targets(app: &Hylite) -> Vec<crate::preview_paragraph::Target> {
+    app.document
+        .preview_blocks()
+        .iter()
+        .filter(|b| b.multiline_paragraph_payload.is_none())
+        .filter_map(|b| {
+            Some(crate::preview_paragraph::Target {
+                snapshot: app.document.snapshot(),
+                block: b.source.clone(),
+                payload: b.paragraph_payload.clone()?,
+            })
+        })
+        .collect()
+}
+fn set_paragraph_value(app: &mut Hylite, value: &str) {
+    let _ = app.update(Message::PreviewParagraphChanged(value.into()));
+}
+#[test]
+fn single_paragraph_open_sets_neighbors_and_navigation_skips_other_blocks() {
+    use crate::document::ParagraphDirection::{Next, Previous};
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().neighbors,
+        [false, true]
+    );
+    let _ = app.update(Message::MovePreviewParagraph(Next));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "second é🙂 &amp;"
+    );
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().neighbors,
+        [true, true]
+    );
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().target, t[1]);
+    let _ = app.update(Message::MovePreviewParagraph(Previous));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **first**  "
+    );
+    let _ = app.update(Message::MovePreviewParagraph(Previous));
+    assert!(app
+        .paragraph_draft
+        .as_ref()
+        .unwrap()
+        .navigation_notice
+        .is_some());
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().target, t[0]);
+}
+#[test]
+fn single_paragraph_dirty_move_refuses_without_discarding_the_draft() {
+    use crate::document::ParagraphDirection::Next;
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let snapshot = app.document.snapshot();
+    set_paragraph_value(&mut app, "changed draft");
+    let _ = app.update(Message::MovePreviewParagraph(Next));
+    let draft = app.paragraph_draft.as_ref().unwrap();
+    assert_eq!(draft.target, t[0]);
+    assert_eq!(draft.value, "changed draft");
+    assert!(draft.navigation_notice.is_some());
+    assert_eq!(app.document.snapshot(), snapshot);
+    // The explicit Apply remains available after a dirty navigation refusal.
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert!(app.paragraph_draft.is_none());
+    assert!(app
+        .document
+        .buffer_text()
+        .contains("changed draft\n\n# gap"));
+}
+#[test]
+fn single_paragraph_apply_next_commits_one_edge_and_opens_a_fresh_neighbor() {
+    use crate::document::ParagraphDirection::Next;
+    for mode in [EditMode::Preview, EditMode::Split] {
+        let mut app = single_paragraph_app();
+        app.mode = mode;
+        let original = app.document.buffer_text();
+        let t = single_targets(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+        set_paragraph_value(&mut app, "grown **é🙂**");
+        let _ = app.update(Message::ApplyPreviewParagraphNext);
+        let draft = app.paragraph_draft.as_ref().unwrap();
+        assert_eq!(draft.value, "second é🙂 &amp;");
+        assert_eq!(draft.target.snapshot, app.document.snapshot());
+        assert!(draft.navigation_notice.is_none() && draft.error.is_none());
+        assert_eq!(draft.neighbors, [true, true]);
+        let mut expected = original.clone();
+        expected.replace_range(t[0].payload.clone(), "grown **é🙂**");
+        assert_eq!(app.document.buffer_text(), expected);
+        assert_eq!(app.document.caret_offset(), "grown **é🙂**".len());
+        let _ = app.update(Message::CancelPreviewParagraph);
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(false)
+        } else {
+            Message::Undo
+        });
+        assert_eq!(app.document.buffer_text(), original);
+        assert!(!app.document.can_undo());
+    }
+}
+#[test]
+fn single_paragraph_apply_previous_keeps_earlier_offsets_and_first_boundary_refuses() {
+    use crate::document::ParagraphDirection::Next;
+    let mut app = single_paragraph_app();
+    let original = app.document.buffer_text();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[2].clone()));
+    set_paragraph_value(&mut app, "third edited");
+    let _ = app.update(Message::ApplyPreviewParagraphPrevious);
+    let draft = app.paragraph_draft.as_ref().unwrap();
+    assert_eq!(draft.value, "second é🙂 &amp;");
+    assert_eq!(draft.target.block, t[1].block);
+    assert_eq!(draft.neighbors, [true, true]);
+    let _ = app.update(Message::MovePreviewParagraph(Next));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "third edited");
+    let _ = app.update(Message::MovePreviewParagraph(
+        crate::document::ParagraphDirection::Previous,
+    ));
+    let _ = app.update(Message::ApplyPreviewParagraphPrevious);
+    let draft = app.paragraph_draft.as_ref().unwrap();
+    assert_eq!(draft.value, "café🙂 **first**  ");
+    assert_eq!(draft.neighbors, [false, true]);
+    let snapshot = app.document.snapshot();
+    set_paragraph_value(&mut app, "first edited");
+    let _ = app.update(Message::ApplyPreviewParagraphPrevious);
+    assert!(app
+        .paragraph_draft
+        .as_ref()
+        .unwrap()
+        .navigation_notice
+        .is_some());
+    assert_eq!(app.document.snapshot(), snapshot);
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "first edited");
+    let _ = app.update(Message::CancelPreviewParagraph);
+    assert!(app
+        .document
+        .buffer_text()
+        .starts_with("café🙂 **first**  \n\n# gap"));
+    assert_ne!(app.document.buffer_text(), original);
+}
+#[test]
+fn single_paragraph_unchanged_apply_next_adds_no_source_edge_and_keeps_redo() {
+    use crate::document::ParagraphDirection::Next;
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    set_paragraph_value(&mut app, "saved first");
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    let _ = app.update(Message::PreviewHistory(false));
+    let applied = app.document.buffer_text();
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "second é🙂 &amp;"
+    );
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+    let _ = app.update(Message::CancelPreviewParagraph);
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(app.document.buffer_text(), applied);
+}
+#[test]
+fn single_paragraph_apply_next_guards_invalid_stale_and_modal_paths() {
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let snapshot = app.document.snapshot();
+    set_paragraph_value(&mut app, " bad indent");
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
+    assert_eq!(app.document.snapshot(), snapshot);
+    set_paragraph_value(&mut app, "two\nlines");
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
+    assert_eq!(app.document.snapshot(), snapshot);
+    app.document.replace(None, "replacement\ntext\n");
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.paragraph_draft.is_some());
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    app.mode = EditMode::Source;
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert_eq!(app.document.snapshot(), before);
+    let mut app = single_paragraph_app();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyPreviewParagraphNext);
+    assert_eq!(app.document.snapshot(), before);
+}
+#[test]
+fn single_paragraph_adjacent_actions_preserve_save_export_and_logical_search() {
+    use crate::document::ParagraphDirection::Next;
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = single_paragraph_app();
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        let token = app.operations.start(kind, app.document.snapshot()).unwrap();
+        let t = single_targets(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+        set_paragraph_value(&mut app, "needle and needle");
+        let _ = app.update(Message::ApplyPreviewParagraphNext);
+        assert_eq!(app.search.count(), 2);
+        assert!(app.operations.active().is_some());
+        let target = app.paragraph_draft.as_ref().unwrap().target.clone();
+        let _ = app.update(match kind {
+            OperationKind::Save => Message::FileSaved(token, Ok(Some("single-next.md".into()))),
+            _ => Message::HtmlExported(token, Ok(Some("single-next.html".into()))),
+        });
+        assert_eq!(app.paragraph_draft.as_ref().unwrap().target, target);
+        assert!(app.document.is_dirty());
+        let _ = app.update(Message::CancelPreviewParagraph);
+        let _ = app.update(Message::Undo);
+        assert!(!app.document.is_dirty());
+    }
+}

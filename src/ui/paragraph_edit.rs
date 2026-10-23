@@ -10,6 +10,9 @@ pub struct Draft {
     pub error: Option<&'static str>,
     /// 1-based Source line of this root paragraph, when authenticated.
     pub line: Option<usize>,
+    pub navigation_notice: Option<&'static str>,
+    /// `[previous, next]` eligible single-line roots at open/move time.
+    pub neighbors: [bool; 2],
 }
 pub fn input_id() -> text_input::Id {
     text_input::Id::new("hylite-paragraph-draft")
@@ -25,6 +28,27 @@ fn provenance_line(draft: &Draft) -> String {
         }
         None => "Source changes only on Apply · result must remain one root paragraph".into(),
     }
+}
+pub fn can_move(draft: &Draft, direction: crate::document::ParagraphDirection) -> bool {
+    use crate::document::ParagraphDirection as Direction;
+    draft.error.is_none()
+        && preview_paragraph::valid_value(&draft.value)
+        && draft.neighbors[match direction {
+            Direction::Previous => 0,
+            Direction::Next => 1,
+        }]
+}
+fn apply_adjacent_message(
+    draft: &Draft,
+    direction: crate::document::ParagraphDirection,
+) -> Option<Message> {
+    can_move(draft, direction).then_some(match direction {
+        crate::document::ParagraphDirection::Previous => Message::ApplyPreviewParagraphPrevious,
+        crate::document::ParagraphDirection::Next => Message::ApplyPreviewParagraphNext,
+    })
+}
+fn move_message(draft: &Draft, direction: crate::document::ParagraphDirection) -> Option<Message> {
+    can_move(draft, direction).then_some(Message::MovePreviewParagraph(direction))
 }
 pub fn view(draft: &Draft) -> Element<'_, Message> {
     let controls = column![
@@ -51,10 +75,46 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         ]
         .spacing(8)
         .height(32),
+        row![
+            button(text("Previous paragraph").size(14))
+                .width(160)
+                .height(32)
+                .on_press_maybe(move_message(
+                    draft,
+                    crate::document::ParagraphDirection::Previous
+                )),
+            button(text("Next paragraph").size(14))
+                .width(160)
+                .height(32)
+                .on_press_maybe(move_message(
+                    draft,
+                    crate::document::ParagraphDirection::Next
+                ))
+        ]
+        .spacing(8)
+        .height(32),
+        row![
+            button(text("Apply & Previous").size(14))
+                .width(160)
+                .height(32)
+                .on_press_maybe(apply_adjacent_message(
+                    draft,
+                    crate::document::ParagraphDirection::Previous
+                )),
+            button(text("Apply & Next").size(14))
+                .width(140)
+                .height(32)
+                .on_press_maybe(apply_adjacent_message(
+                    draft,
+                    crate::document::ParagraphDirection::Next
+                ))
+        ]
+        .spacing(8)
+        .height(32),
         text(
-            draft
-                .error
-                .unwrap_or("Enter = Apply and close · Esc = Cancel · not inline WYSIWYG")
+            draft.error.or(draft.navigation_notice).unwrap_or(
+                "Enter = Apply and close · Previous/Next = unchanged move · Esc = Cancel"
+            )
         )
         .size(13),
     ]
@@ -81,6 +141,8 @@ mod tests {
             value: "raw".into(),
             error: None,
             line: None,
+            navigation_notice: None,
+            neighbors: [false, false],
         };
         assert!(matches!(
             apply_message(&d),
@@ -105,6 +167,8 @@ mod tests {
             value: "raw".into(),
             error: None,
             line: Some(12),
+            navigation_notice: None,
+            neighbors: [false, false],
         };
         assert_eq!(
             provenance_line(&d),
@@ -120,5 +184,57 @@ mod tests {
             apply_message(&d),
             Some(Message::ApplyPreviewParagraph)
         ));
+    }
+    #[test]
+    fn navigation_and_apply_adjacent_affordances_require_neighbor_validity_and_no_error() {
+        use crate::document::ParagraphDirection::{Next, Previous};
+        let mut d = Draft {
+            target: preview_paragraph::Target {
+                snapshot: Default::default(),
+                block: 0..4,
+                payload: 0..3,
+            },
+            value: "raw".into(),
+            error: None,
+            line: None,
+            navigation_notice: Some("dirty move refused"),
+            neighbors: [false, true],
+        };
+        assert!(can_move(&d, Next));
+        assert!(!can_move(&d, Previous));
+        assert!(matches!(
+            apply_adjacent_message(&d, Next),
+            Some(Message::ApplyPreviewParagraphNext)
+        ));
+        assert!(move_message(&d, Previous).is_none());
+        d.value = "two\nlines".into();
+        assert!(!can_move(&d, Next));
+        d.value = "raw".into();
+        d.error = Some("parser refused");
+        assert!(!can_move(&d, Next));
+        assert!(apply_adjacent_message(&d, Next).is_none());
+    }
+    #[test]
+    fn navigation_notice_is_shown_only_without_an_authoritative_error() {
+        let mut d = Draft {
+            target: preview_paragraph::Target {
+                snapshot: Default::default(),
+                block: 0..4,
+                payload: 0..3,
+            },
+            value: "raw".into(),
+            error: None,
+            line: Some(3),
+            navigation_notice: Some("last supported single-line paragraph"),
+            neighbors: [true, false],
+        };
+        assert!(apply_message(&d).is_some());
+        assert_eq!(
+            d.error.or(d.navigation_notice),
+            Some("last supported single-line paragraph")
+        );
+        d.error = Some("invalid");
+        assert_eq!(d.error.or(d.navigation_notice), Some("invalid"));
+        assert!(apply_message(&d).is_none());
     }
 }

@@ -178,6 +178,9 @@ impl Hylite {
                 &message,
                 Message::PreviewParagraphChanged(_)
                     | Message::ApplyPreviewParagraph
+                    | Message::ApplyPreviewParagraphNext
+                    | Message::ApplyPreviewParagraphPrevious
+                    | Message::MovePreviewParagraph(_)
                     | Message::CancelPreviewParagraph
                     | Message::EndTypingGroup
                     | Message::FileOpened(..)
@@ -233,6 +236,9 @@ impl Hylite {
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
             Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
+            Message::ApplyPreviewParagraphPrevious => self.apply_preview_paragraph_previous(),
+            Message::ApplyPreviewParagraphNext => self.apply_preview_paragraph_next(),
+            Message::MovePreviewParagraph(direction) => self.move_preview_paragraph(direction),
             Message::ApplyPreviewParagraph => self.apply_preview_paragraph(),
             Message::CancelPreviewParagraph => self.cancel_preview_paragraph(),
             Message::OpenPreviewCell(target) => self.open_preview_cell(target),
