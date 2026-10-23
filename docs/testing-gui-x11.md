@@ -948,3 +948,43 @@ glyph mapping. Capacity/offscreen/128line/16KiB manual, disabled blur/keyboard/
 narrow window/accessibility/physical query focus/scroll, serta Arch/Hyprland/Wayland/
 portal/IME/RTL/HiDPI/GPU/visual review tetap manual. Full candidate copy/parse dan
 dua native buffer O(n) +memori ekstra, bukan speedup. [Kontrak7e](testing-stage7e.md).
+
+## Stage 7f: Apply & Previous multiline, suite privat kesembilan belas
+
+`--suite paragraph-apply-previous` private app/Xvfb/XDG/env/clipboard, alarm180s,
+step5menit sendiri, job45menit tetap. **28old exercise bodies AST-identical
+`bb37223`**; 18gate lama dipertahankan tanpa perubahan bytes/koordinat/oracle/
+deadline/refocus. Private DISPLAY guard kini19suite, tanpa retry/runtime hook.
+
+**Lulus** [CI 39892699395](https://github.com/Indrawan007/Hylite/actions/runs/39892699395),
+`0353f5e`, job120215906995, 23 Oktober2026 03:00:56–03:11:10 UTC /
+11:00:56–11:11:10 Makassar. Native format/Clippy/build/**903Cargo** dan 19suite
+**378GUI**. Iterasi sebelumnya (semua test-only setelah produk `2d33fea`): lint
+`unused_mut`, empat+ satu assertion tes baru, suite GUI berhenti setelah10checks
+karena Copy setelah klik disabled, dan satu assertion judul dirty; tidak ada
+pelonggaran gate.
+
+**378GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24+19+23+26**,
+**346clipboard =273Source+73draft**,12titles,20natural exits. Suite baru
+**26checks** =25Copy(10Source+15draft)+Close0: tiga root raw Unicode dengan heading/
+quote/fence/list; dua Next unchanged ke root ketiga; edit tiga baris lalu Apply &
+Previous mengganti hanya root ketiga dan membuka middle exact dengan focus/offsets
+baru; local Ctrl+Z kosong; unchanged Apply & Previous ke first tanpa Source edge;
+draft changed lalu klik boundary pertama disabled (Copy dilakukan sebelum klik karena
+disabled blur), Escape+Cancel menjaga Source; satu Source Undo/Redo; Split structural
+`one\n# heading` refusal lalu Cancel; Split final middle→Apply & Previous membuka
+first; Cancel lalu X membuktikan caret Source di akhir payload middle yang diterapkan;
+Undo bertahap kembali ke fixture lalu welcome clean; Close0.12klik hanya product
+Open/Next/Apply & Previous termasuk satu disabled boundary.
+
+Artifact `12475384207`,3.279.313bytes,SHA256
+`92636145659d325378e7c3073665a601d74c93bb1dcfa1bc6b1f95f4574b06a2`,unexpired;
+screenshot `paragraph-apply-previous-refused.png`/`-split.png` tidak direview
+visual dan bukan pixel oracle. Native count dari check annotations.
+
+Batas: Copy native membuktikan raw value/focus, bukan selection anchor/direction/
+glyph mapping; disabled blur tidak diklaim direfocus. Capacity/offscreen/128baris/
+16KiB manual, keyboard/narrow window/accessibility/physical query focus/scroll, serta
+Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU/visual review tetap manual. Copy full
+Source/parse/dua native buffer O(n) +memori ekstra, bukan speedup.
+[Kontrak7f](testing-stage7f.md).

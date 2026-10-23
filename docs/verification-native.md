@@ -684,8 +684,8 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
   dan [Tahap 4](testing-stage4.md) pada salinan dokumen dan konfigurasi sementara.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
-Gate build/lint/tes native baseline terpenuhi. Stage 7e: **886 Cargo / 294 strict core subset / 59 Python / 18 suite GUI 352 pemeriksaan** lulus [CI 39888436003](https://github.com/Indrawan007/Hylite/actions/runs/39888436003) (`8ba6602`); run `64cc13f` sebelumnya hanya gagal `unused_mut` test-only. **Tahap 4 belum dinyatakan selesai.**
+Gate build/lint/tes native baseline terpenuhi. Stage 7f: **903 Cargo / 294 strict core subset / 61 Python / 19 suite GUI 378 pemeriksaan** lulus [CI 39892699395](https://github.com/Indrawan007/Hylite/actions/runs/39892699395) (`0353f5e`); run-run sebelumnya pada stage ini hanya gagal assertion/lint test-only. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik tersedia; hasil dan batas terbaru ada di [catatan Stage 7e](testing-stage7e.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik tersedia; hasil dan batas terbaru ada di [catatan Stage 7f](testing-stage7f.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

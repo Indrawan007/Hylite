@@ -801,13 +801,15 @@ raw value/focus, controller selection tests aren't native anchor/pixel proof.
 [Contract/tests/evidence/manual limits7d](testing-stage7d.md), independent suite17;
 27old exercise bodies and all16gates preserved.
 
-## Two-phase multiline Apply & Next (Stage 7e)
+## Two-phase multiline Apply & Next/Previous (Stage 7e–7f)
 
-Opaque `MultilineNextPlan` dari read-only Document.prepare memuat anchor, original
+Opaque `MultilineMovePlan` (dahulu `MultilineNextPlan`) dari read-only
+Document.prepare memuat anchor, original
 payload/full Source, provisional next ranges/value/neighbor flags, optional native
 Source Content/candidate text/full parsed model. Exact warm root auth7b+nearest next
-7d, full candidate root preservation, byte-delta-shifted complete next root/payload
-unchanged; UTF8 grow/shrink/canonical bounds checked. Native Source content_at
+7d, full candidate root preservation, byte-delta-shifted complete forward root/payload
+unchanged, or — for Previous — an earlier root whose byte offsets cannot move and
+must still re-verify exact block/payload/model text; UTF8 grow/shrink/canonical bounds checked. Native Source content_at
 reconstruction verified at applied payload end; no mutation/barrier change at prepare.
 
 Controller builds exact native next Draft before calling commit. Commit rechecks
@@ -830,5 +832,7 @@ focus restored. No wrap/implicit creation/Apply & Previous/new Apply shortcut.
 Apply/Move paths/7b grammar/single-line/cell/Source helpers unchanged. Immutable Save/
 Export/search/logical Go-to/file/modal guards retained. Full buffers/copies/model/
 parse/reconstruction O(n) and extra memory, not speedup/process-RAM improvement.
-[Contract/tests/evidence/manual limits7e](testing-stage7e.md); suite18 independent,
-28old exercise bodies and all17gates preserved.
+[Contract/tests/evidence/manual limits7e](testing-stage7e.md) and
+[7f](testing-stage7f.md); suites18–19 independent, 28old exercise bodies and all18
+pre-7f gates preserved. Apply & Previous uses the same opaque plan/commit path with
+direction-parameterized neighbour offsets.

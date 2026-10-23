@@ -53,7 +53,7 @@ Tidak menambahkan Apply & Previous, shortcut Apply, block creation atau inline W
 
 ## Implementasi / tes
 
-`Document::prepare_multiline_paragraph_next` menghasilkan opaque `MultilineNextPlan`
+`Document::prepare_multiline_paragraph_next` menghasilkan opaque `MultilineNextPlan` (digeneralisasi menjadi `MultilineMovePlan` di [7f](testing-stage7f.md))
 dengan getter provisional target/value/neighbor flags. Private prepared edit owns
 verified Content/text/full blocks; controller verifies Draft before consuming plan.
 `commit_multiline_paragraph_next` checks current context again then shared native swap/
