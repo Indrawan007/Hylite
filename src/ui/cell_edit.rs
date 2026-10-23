@@ -173,31 +173,30 @@ mod tests {
             "Row 0 = header · body starts at 1 · Source changes only on Apply"
         );
     }
-}
-
-#[test]
-fn cell_draft_history_affordances_are_local_and_never_disable_navigation() {
-    let mut d = draft(0, 1);
-    assert!(!d.can_undo() && !d.can_redo());
-    assert!(undo_message(&d).is_none() && redo_message(&d).is_none());
-    let record = |value: &str| crate::multiline_draft_history::Record {
-        text: value.into(),
-        caret: value.len(),
-    };
-    assert!(d.history.record(record("b"), &record("b edited")));
-    d.value = "b edited".into();
-    assert!(matches!(
-        undo_message(&d),
-        Some(Message::CellDraftHistory(false))
-    ));
-    assert!(can_move(&d, Direction::Previous));
-    assert!(can_move(&d, Direction::Next));
-    d.value = "raw".into();
-    d.navigation_notice = Some("dirty");
-    assert!(undo_message(&d).is_some());
-    assert!(redo_message(&d).is_none());
-    assert_eq!(
-        context_line(&d),
-        "Row 0 = header · body starts at 1 · Source changes only on Apply"
-    );
+    #[test]
+    fn cell_draft_history_affordances_are_local_and_never_disable_navigation() {
+        let mut d = draft(0, 1);
+        assert!(!d.can_undo() && !d.can_redo());
+        assert!(undo_message(&d).is_none() && redo_message(&d).is_none());
+        let record = |value: &str| crate::multiline_draft_history::Record {
+            text: value.into(),
+            caret: value.len(),
+        };
+        assert!(d.history.record(record("b"), &record("b edited")));
+        d.value = "b edited".into();
+        assert!(matches!(
+            undo_message(&d),
+            Some(Message::CellDraftHistory(false))
+        ));
+        assert!(can_move(&d, Direction::Previous));
+        assert!(can_move(&d, Direction::Next));
+        d.value = "raw".into();
+        d.navigation_notice = Some("dirty");
+        assert!(undo_message(&d).is_some());
+        assert!(redo_message(&d).is_none());
+        assert_eq!(
+            context_line(&d),
+            "Row 0 = header · body starts at 1 · Source changes only on Apply"
+        );
+    }
 }
