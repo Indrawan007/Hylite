@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6n
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6o
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6n mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6o mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -621,3 +621,28 @@ Suite GUI kesebelas private mempertahankan sepuluh gate lama, no runtime hooks/
 retry/refocus workaround. [Kontrak, bukti dan batas6n](testing-stage6n.md). No-op/
 query/Go-to physical focus masih manual. Reconstruction/history +full parse O(n),
 bukan speedup. Bukan drag/bulk/resize/selection atau general inline WYSIWYG.
+
+## Bounded raw column duplication (Stage 6o)
+
+`preview_table_column::Action::Duplicate` reuse `can_insert` growth caps dan
+canonical outer-piped LF scanner6k. Selected raw segment beserta right separator
+disalin tepat setelah dirinya pada header/delimiter/semua body. Alignment/dash/
+whitespace/markup/Unicode/escaped pipes/entity disalin byte-exact; indent/trailing
+bytes/neighbor/prefix/suffix tidak berubah. Single/empty/header-only/identical
+payload boleh dan tetap effective;128row×3kolom→128×4 muat,128×4→128×5 ditolak.
+
+Document authentication memakai exact warm root snapshot/dimensions/header/marker
+dan `insertable_columns`, bukan lexical scanner sebagai provenance. Full candidate
+Source parser preflight same complete root/same rows/columns+1/canonical cells dan
+delimiters sebelum satu Atomic PreviewTable commit. Refusal preserve redo/cache/
+checkpoint/caret; commit invalidate old projection. Copied header payload caret
+resolved dari replacement, existing Split focus/modal/file/history/search handler
+tetap. Source typing berikut transaksi/barrier sendiri; copied body cell Apply
+butuh fresh target dan tidak mengubah original payload. No implicit Apply.
+
+Picker append Duplicate per real column **setelah entire prefix6n**; tidak
+memindah label/index lama. Suite GUI privat kedua belas mempertahankan sebelas
+gate lama tanpa retry/runtime hooks/refocus workaround. Physical query/Go-to focus,
+middle/3+kolom/header-only/empty/growth-bound UI dan compositor target tetap manual.
+Full parse/reconstruction/history O(n), bukan speedup. Bukan drag/bulk/resize atau
+inline WYSIWYG. [Kontrak, bukti dan batas6o](testing-stage6o.md).

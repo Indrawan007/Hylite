@@ -1,6 +1,41 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6n terbaru — bounded raw column moves with alignment
+## Stage 6o terbaru — duplicate raw columns with alignment
+
+[CI 39876692641](https://github.com/Indrawan007/Hylite/actions/runs/39876692641),
+`94654369f44fd06aa2c2bd585f112b2b144bfcd1`, **success**, watch exit0,
+job `120163898031`,23 Oktober2026 00:12:21–00:19:28 UTC /08:12:21–08:19:28 Makassar.
+Format/strict Clippy/native debug build, **759 Cargo**, **270 strict core**
+(subset), **47 Python**, dua belas suite Xvfb **116+9+9+9+14+16+11+11+11+11+11+11
+GUI** lulus. Total **239 GUI** =214 clipboard (205 Source +9 draft),12 title,
+13 natural exits. Artifact `12468243673`,2.532.220 bytes, belum expired saat
+diperiksa; screenshot belum direview visual.
+
+New suite membuktikan Preview Duplicate first column, Split Duplicate last column
+with alignment/raw header/delimiter/body copied together; Unicode/markup/escaped
+pipe/entity/indent/tab/prefix/suffix tetap. One-step Preview Undo/Redo, native X
+tanpa refocus tepat pada copied third header, separate typing/duplicate/paste
+history dan natural clean Close0.21 Rust baru mencakup first/last/middle copy,
+single/header-only/empty/identical payload, growth caps/exact512cells, warm target
+authentication/candidate full Source parser preflight, fresh copied-cell Apply,
+refusal preserving redo/cache/checkpoint/caret dan save/modal/file/search/logical
+Go-to. Existing22 exercise bodies AST-identical terhadap4e96cd2; no old oracle/
+geometry/deadline/refocus changes. Runner12 private, alarm180s/step5min/job45min.
+
+CI awal39876046796 pada074204d **failure**:758/759 Cargo lulus tetapi new capacity
+fixture memakai old helper hardcoded2×2 untuk128×3, panic; GUI skipped.9465436
+memperbaiki helper lokal tes baru dengan actual dimensions128×3/128×4 dan menambah
+exact copied prefix/dimensions assertions; tidak mengubah production/old tests.
+CI ulang penuh lulus. Docs6n39875502116 cancelled superseded push6o; feature6n
+39874500418 success dan seluruh old gates lulus lagi di6o.
+
+Full parse/reconstruction/history O(n), bukan speedup; no drag/bulk/multi-column
+selection/resize/inline WYSIWYG. Middle/3+kolom/single/header-only/empty/growth-bound
+UI/3spasi/trailing-tab, physical Find/Go-to focus, large menu keyboard/scroll,
+Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap manual.
+[Kontrak, bukti dan batas Stage6o](testing-stage6o.md).
+
+## Stage 6n — bounded raw column moves with alignment
 
 [CI 39874500418](https://github.com/Indrawan007/Hylite/actions/runs/39874500418),
 `46c89c632bef97018ca8633a4877569fe1528408`, **success**, watch exit0,
@@ -454,6 +489,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6n](testing-stage6n.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6o](testing-stage6o.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

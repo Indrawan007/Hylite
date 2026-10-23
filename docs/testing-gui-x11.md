@@ -691,3 +691,37 @@ glyph oracle. Middle/3+kolom/header-only/empty/12kolom/3spasi/trailing-tab UI,
 no-op/query/Go-to physical focus, large menu keyboard/scroll dan Arch/Hyprland/
 Wayland/portal/IME/RTL/HiDPI/GPU tetap manual. Bukan drag/bulk/resize atau inline
 WYSIWYG. [Kontrak dan batas Stage6n](testing-stage6n.md).
+
+## Stage 6o: raw column duplication with alignment, suite privat kedua belas
+
+`--suite table-column-duplicate` punya private Xvfb/app/XDG/env/clipboard sendiri,
+alarm180s/step5min dan job45min tetap. Semua22 old exercise bodies AST-identical
+terhadap4e96cd2; sebelas gate lama utuh tanpa perubahan bytes/koordinat/refocus/
+deadline/retry/runtime hooks. Dua helper baru mengunci independent full raw
+column copy/alignment/new-header caret/four-click/Undo/no-refocus/exit dan exclusive
+dispatch; private DISPLAY guard mencakup12suite sebelum subprocess.
+
+[CI 39876692641](https://github.com/Indrawan007/Hylite/actions/runs/39876692641),
+`9465436`, **success**, **759 Cargo /270 strict core (subset) /47 Python**,
+23 Oktober2026 00:19:28 UTC /08:19:28 Makassar. New suite **11 checks** =10 exact
+Source Copy +natural clean client Close0. Preview Column1 Duplicate menyalin
+header/delimiter/body kolom Name, raw alignment/dash/Unicode/markup/escaped pipe/
+entity/spacing/indent/tab/prefix/suffix utuh. One-step Preview Undo/Redo. Split
+Column2 Duplicate lalu native X masuk ke copied third Count header, bukan original,
+tanpa Source refocus. Undo typing/duplicate/paste terpisah sampai welcome clean.
+Empat klik picker/opsi produk; duplicate choices append setelah entire prefix6n,
+termasuk row/column moves. Single/empty/header-only/growth guard diuji unit,
+bukan pixel/menu absence proof.
+
+Total **239 GUI =116+9+9+9+14+16+11+11+11+11+11+11** =214 clipboard (205 Source
++9 draft),12 title,13 natural exits. Artifact `12468243673`,2.532.220 bytes, belum
+expired saat diperiksa; screenshot belum direview visual. Evidence
+`table-column-duplicate/column-duplicate-preview.png` / `column-duplicate-split.png`
+bukan pixel/glyph oracle. Initial39876046796 gagal satu new controller fixture
+(2×2 helper vs128×3), GUI skipped; helper test-only diperbaiki9465436, all12suite
+CI ulang success. Tidak mengubah production/refocus/oracle/deadline demi tes.
+
+Middle/3+kolom/single/empty/header-only/11→12kolom/3spasi/trailing-tab UI, physical
+Find/Go-to focus, large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/
+RTL/HiDPI/GPU tetap manual. Bukan drag/bulk/resize/implicit Apply atau general
+inline WYSIWYG. [Kontrak, bukti dan batas Stage6o](testing-stage6o.md).
