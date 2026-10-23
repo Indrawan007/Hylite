@@ -49,9 +49,6 @@ impl MultilineMovePlan {
     pub(crate) fn move_value(&self) -> &str {
         &self.value
     }
-    pub(crate) fn move_line(&self) -> usize {
-        self.line
-    }
     pub(crate) fn neighbors(&self) -> [bool; 2] {
         self.neighbors
     }
@@ -79,6 +76,11 @@ impl SingleMovePlan {
     }
     pub(crate) fn move_value(&self) -> &str {
         &self.value
+    }
+    /// One-based Source line of the provisional neighbour; a single-line
+    /// replacement never moves any neighbour's line.
+    pub(crate) fn move_line(&self) -> usize {
+        self.line
     }
     pub(crate) fn neighbors(&self) -> [bool; 2] {
         self.neighbors

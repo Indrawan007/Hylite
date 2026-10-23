@@ -266,7 +266,6 @@ fn sequential_apply_next_has_one_edge_each_and_typing_is_a_barrier() {
         doc.preview_paragraph_payload(&third).as_deref(),
         Some("third 🙂  ")
     );
-    let after_second = doc.buffer_text();
     assert!(doc.undo());
     assert_eq!(doc.buffer_text(), after_first);
     assert!(doc.undo());
