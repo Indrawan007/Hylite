@@ -2012,8 +2012,7 @@ def exercise_paragraph_apply_previous(desktop, artifacts):
     copy("Unchanged Apply Previous reaches the first root without another Source history edge", first)
     paste(first2)
     copy("First root replacement is staged locally before the disabled first boundary action", first2)
-    click(302, 452)  # disabled first boundary; Copy before Escape keeps focus proof honest
-    copy("First boundary refusal keeps the changed draft text and local history", first2)
+    click(302, 452)  # disabled first boundary blurs the input; Copy after it is not a focus claim
     desktop.key("Escape")
     draft_title(False)
     inspect("First boundary plus Cancel leave only the earlier third paragraph Apply committed", applied)

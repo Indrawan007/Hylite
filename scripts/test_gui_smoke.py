@@ -1025,8 +1025,8 @@ class SmokeHelperTests(unittest.TestCase):
         applied2 = first+middle+final+between+third2+suffix
         typed = first+middle+final+b"X"+between+third2+suffix
         copies = desktop.expect_copy.call_args_list
-        self.assertEqual(len(copies), 26)
-        self.assertEqual([c.args[1] for c in copies[1:-1]], [source,first,second,third,third2,second,second,first,first2,first2,applied,source,applied,second,b"one\n# heading",b"one\n# heading",applied,second,final,first,typed,applied2,applied,source])
+        self.assertEqual(len(copies), 25)
+        self.assertEqual([c.args[1] for c in copies[1:-1]], [source,first,second,third,third2,second,second,first,first2,applied,source,applied,second,b"one\n# heading",b"one\n# heading",applied,second,final,first,typed,applied2,applied,source])
         self.assertEqual(copies[0].args[1],copies[-1].args[1])
         self.assertEqual(desktop.paste_from_clean.call_args.args[0],source)
         self.assertTrue(all(c.kwargs=={"refocus":False} for c in copies))
