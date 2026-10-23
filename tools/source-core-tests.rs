@@ -55,3 +55,6 @@ mod preview_paragraph_multiline;
 
 #[path = "../src/multiline_draft_history.rs"]
 mod multiline_draft_history;
+
+#[path = "../src/workspace.rs"]
+mod workspace;

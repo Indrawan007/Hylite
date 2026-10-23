@@ -5,6 +5,7 @@ mod multiline_paragraph;
 mod navigation;
 mod paragraph_edit;
 mod tabs;
+mod workspace;
 
 use crate::commands::{Message, PendingAction};
 use crate::config::Config;
@@ -26,6 +27,9 @@ pub struct Hylite {
     /// because its `Document` is `Hylite::document`.
     pub tabs: Vec<tabs::Tab>,
     pub active_tab: usize,
+    /// Scanned workspace folder, if one is open. No watcher: F5 re-scans.
+    pub workspace: Option<crate::workspace::Workspace>,
+    workspace_seq: u64,
     pub search: crate::search::Search,
     pub go_to: crate::navigation::GoTo,
     pub multiline_draft: Option<crate::ui::multiline_paragraph::Draft>,
@@ -47,6 +51,12 @@ pub struct Hylite {
 /// ── Implementation ──────────────────────────────────────
 impl Hylite {
     pub fn new() -> (Self, Task<Message>) {
+        Self::with_launch_path(None)
+    }
+
+    /// `launch` is the optional command-line path: a folder opens a workspace,
+    /// a file is opened in the single startup buffer.
+    pub fn with_launch_path(launch: Option<std::path::PathBuf>) -> (Self, Task<Message>) {
         let loaded = Config::load();
         let config_warning = (!loaded.warnings.is_empty()).then(|| loaded.warnings.join("\n"));
         if let Some(warning) = &config_warning {
@@ -64,30 +74,34 @@ impl Hylite {
 
         let mode = config.editor.default_mode;
 
-        (
-            Self {
-                document: Document::new(include_str!("welcome.md")),
-                tabs: vec![tabs::Tab::active()],
-                active_tab: 0,
-                search: crate::search::Search::default(),
-                go_to: crate::navigation::GoTo::default(),
-                cell_draft: None,
-                paragraph_draft: None,
-                multiline_draft: None,
-                mode,
-                sidebar_open: true,
-                zen_mode: false,
-                status_message: status,
-                config,
-                hyprland,
-                operations: Operations::default(),
-                editor_font,
-                config_warning,
-                pending_action: None,
-                file_error: None,
-            },
-            Task::none(),
-        )
+        let mut app = Self {
+            document: Document::new(include_str!("welcome.md")),
+            tabs: vec![tabs::Tab::active()],
+            active_tab: 0,
+            workspace: None,
+            workspace_seq: 0,
+            search: crate::search::Search::default(),
+            go_to: crate::navigation::GoTo::default(),
+            cell_draft: None,
+            paragraph_draft: None,
+            multiline_draft: None,
+            mode,
+            sidebar_open: true,
+            zen_mode: false,
+            status_message: status,
+            config,
+            hyprland,
+            operations: Operations::default(),
+            editor_font,
+            config_warning,
+            pending_action: None,
+            file_error: None,
+        };
+        let task = match launch {
+            Some(path) => app.launch_path(path),
+            None => Task::none(),
+        };
+        (app, task)
     }
 
     pub fn title(&self) -> String {
@@ -102,7 +116,7 @@ impl Hylite {
         let zen = if self.zen_mode { " [zen]" } else { "" };
         let confirmation = match self.pending_action {
             Some(PendingAction::New) => " [confirm New]",
-            Some(PendingAction::Open) => " [confirm Open]",
+            Some(PendingAction::Open | PendingAction::OpenAt(_)) => " [confirm Open]",
             Some(PendingAction::Close(_)) => " [confirm Close]",
             None => "",
         };
@@ -145,6 +159,12 @@ impl Hylite {
                 | Message::OpenFind(_)
                 | Message::FindNext(_)
                 | Message::OpenGoTo
+                | Message::OpenWorkspace
+                | Message::RefreshWorkspace
+                | Message::ToggleWorkspaceDir(_)
+                | Message::SelectWorkspaceRow(_)
+                | Message::ActivateWorkspaceRow
+                | Message::OpenTreeFile(_)
                 | Message::ToggleSidebar
                 | Message::ToggleZenMode
                 | Message::CloseRequested(_)
@@ -279,6 +299,14 @@ impl Hylite {
             Message::MovePreviewParagraph(direction) => self.move_preview_paragraph(direction),
             Message::ApplyPreviewParagraph => self.apply_preview_paragraph(),
             Message::CancelPreviewParagraph => self.cancel_preview_paragraph(),
+            Message::OpenWorkspace => self.open_workspace(),
+            Message::WorkspacePicked(result) => self.on_workspace_picked(result),
+            Message::WorkspaceScanned(seq, result) => self.on_workspace_scanned(seq, result),
+            Message::RefreshWorkspace => self.refresh_workspace(),
+            Message::ToggleWorkspaceDir(path) => self.toggle_workspace_dir(path),
+            Message::SelectWorkspaceRow(delta) => self.select_workspace_row(delta),
+            Message::ActivateWorkspaceRow => self.activate_workspace_row(),
+            Message::OpenTreeFile(path) => self.open_tree_file(path),
             Message::NewTab => self.new_tab(),
             Message::SwitchTab(index) => self.switch_tab(index),
             Message::CycleTab(backward) => self.cycle_tab(backward),

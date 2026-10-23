@@ -9,6 +9,8 @@ fn app() -> Hylite {
         document: Document::new("Original\n"),
         tabs: vec![tabs::Tab::active()],
         active_tab: 0,
+        workspace: None,
+        workspace_seq: 0,
         search: crate::search::Search::default(),
         go_to: crate::navigation::GoTo::default(),
         cell_draft: None,
@@ -6881,5 +6883,204 @@ fn tab_shortcuts_are_exact_ctrl_and_bare_alt_only() {
             keyboard::Modifiers::ALT
         ),
         Some(Message::ConfirmSave)
+    ));
+}
+
+fn workspace_fixture(root: &Path) -> Hylite {
+    let mut app = app();
+    let tree = crate::workspace::scan(root).expect("scan fixture folder");
+    app.workspace = Some(crate::workspace::Workspace::new(
+        tree,
+        std::collections::BTreeSet::new(),
+    ));
+    app
+}
+
+fn write(root: &Path, name: &str, contents: &str) -> PathBuf {
+    let path = root.join(name);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    std::fs::write(&path, contents).unwrap();
+    path
+}
+
+#[test]
+fn workspace_rows_open_a_file_without_a_dialog_and_keep_the_snapshot_rule() {
+    let directory = tempfile::tempdir().unwrap();
+    let alpha = write(directory.path(), "alpha.md", "alpha tree");
+    write(directory.path(), "beta.md", "beta tree");
+    let mut app = workspace_fixture(directory.path());
+    assert_eq!(app.workspace.as_ref().unwrap().row_count(), 2);
+    assert_eq!(
+        app.workspace.as_ref().unwrap().selected_path(),
+        Some(alpha.clone())
+    );
+
+    let snapshot = app.document.snapshot();
+    let _ = app.update(Message::ActivateWorkspaceRow);
+    let active = app.operations.active().expect("tree open starts an Open");
+    assert_eq!(active.kind, OperationKind::Open);
+    assert_eq!(active.token.snapshot, snapshot);
+    assert_eq!(app.document.snapshot(), snapshot, "opening never edits");
+
+    let token = active.token;
+    let _ = app.update(Message::FileOpened(
+        token,
+        Ok(Some((alpha.clone(), "alpha tree".into()))),
+    ));
+    assert_eq!(app.document.path(), Some(alpha.as_path()));
+    assert_eq!(app.document.text(), "alpha tree");
+    assert!(app.operations.active().is_none());
+    assert!(app.status_message.contains("Opened:"));
+    assert_eq!(app.workspace_path_dirty(&alpha), Some(false));
+}
+
+#[test]
+fn a_dirty_buffer_makes_a_tree_open_wait_for_the_same_confirmation() {
+    let directory = tempfile::tempdir().unwrap();
+    let beta = write(directory.path(), "beta.md", "beta tree");
+    let mut app = workspace_fixture(directory.path());
+    edit(&mut app);
+    assert!(app.document.is_dirty());
+
+    let _ = app.update(Message::ActivateWorkspaceRow);
+    assert!(app.operations.active().is_none(), "nothing opens yet");
+    assert!(matches!(
+        app.pending_action,
+        Some(PendingAction::OpenAt(ref path)) if path == &beta
+    ));
+    assert!(app.status_message.contains("unsaved changes"));
+
+    let _ = app.update(Message::ConfirmDiscard);
+    assert!(matches!(
+        app.operations.active().map(|operation| operation.kind),
+        Some(OperationKind::Open)
+    ));
+    assert!(app.pending_action.is_none());
+}
+
+#[test]
+fn collapsing_a_folder_through_the_tree_removes_its_rows_from_selection() {
+    let directory = tempfile::tempdir().unwrap();
+    let notes = directory.path().join("notes");
+    write(directory.path(), "notes/nested.md", "nested");
+    let beta = write(directory.path(), "beta.md", "beta");
+    let mut app = workspace_fixture(directory.path());
+    let rows = app.workspace.as_ref().unwrap();
+    assert_eq!(rows.row_count(), 3);
+    assert_eq!(rows.rows()[1].name, "nested.md");
+
+    let _ = app.update(Message::ToggleWorkspaceDir(notes.clone()));
+    let collapsed = app.workspace.as_ref().unwrap();
+    assert_eq!(collapsed.row_count(), 2);
+    assert_eq!(collapsed.selected_path(), Some(beta.clone()));
+    assert!(app.status_message.starts_with("Collapsed"));
+
+    let _ = app.update(Message::SelectWorkspaceRow(-1));
+    assert_eq!(app.workspace.as_ref().unwrap().selected_path(), Some(notes));
+    let _ = app.update(Message::ActivateWorkspaceRow);
+    assert_eq!(app.workspace.as_ref().unwrap().row_count(), 3, "expanded");
+    let _ = app.update(Message::SelectWorkspaceRow(1));
+    let _ = app.update(Message::ActivateWorkspaceRow);
+    assert!(matches!(
+        app.operations.active().map(|operation| operation.kind),
+        Some(OperationKind::Open)
+    ));
+}
+
+#[test]
+fn a_late_workspace_scan_can_never_replace_a_newer_one() {
+    let first = tempfile::tempdir().unwrap();
+    write(first.path(), "one.md", "one");
+    let second = tempfile::tempdir().unwrap();
+    write(second.path(), "two.md", "two");
+    let mut app = app();
+    let _ = app.begin_workspace_scan(first.path().to_path_buf());
+    let stale = app.workspace_seq;
+    let _ = app.begin_workspace_scan(second.path().to_path_buf());
+    assert_ne!(app.workspace_seq, stale);
+
+    let stale_tree = crate::workspace::scan(first.path()).unwrap();
+    let _ = app.update(Message::WorkspaceScanned(stale, Ok(Some(stale_tree))));
+    assert!(app.workspace.is_none(), "the older scan is dropped");
+
+    let fresh_tree = crate::workspace::scan(second.path()).unwrap();
+    let _ = app.update(Message::WorkspaceScanned(
+        app.workspace_seq,
+        Ok(Some(fresh_tree)),
+    ));
+    let workspace = app.workspace.as_ref().expect("fresh scan accepted");
+    assert_eq!(workspace.tree.documents, 1);
+    assert_eq!(workspace.rows()[0].name, "two.md");
+    assert!(app.status_message.starts_with("Workspace:"));
+}
+
+#[test]
+fn refresh_and_navigation_report_instead_of_failing_silently() {
+    let mut app = app();
+    let _ = app.update(Message::RefreshWorkspace);
+    assert!(app.status_message.contains("No workspace folder"));
+    let _ = app.update(Message::SelectWorkspaceRow(1));
+    assert!(app.status_message.contains("No workspace folder"));
+
+    let empty = tempfile::tempdir().unwrap();
+    let mut app = workspace_fixture(empty.path());
+    assert_eq!(app.workspace.as_ref().unwrap().row_count(), 0);
+    let _ = app.update(Message::ActivateWorkspaceRow);
+    assert!(app.operations.active().is_none());
+    let _ = app.update(Message::SelectWorkspaceRow(1));
+    assert!(app.status_message.contains("no Markdown documents"));
+}
+
+#[test]
+fn workspace_shortcuts_are_exact_alt_and_altgr_never_moves_the_selection() {
+    use crate::commands::shortcut;
+    use iced::keyboard;
+    let alt = keyboard::Modifiers::ALT;
+    let ctrl = keyboard::Modifiers::CTRL;
+    assert!(matches!(
+        shortcut(keyboard::Key::Character("j".into()), alt),
+        Some(Message::SelectWorkspaceRow(1))
+    ));
+    assert!(matches!(
+        shortcut(keyboard::Key::Character("K".into()), alt),
+        Some(Message::SelectWorkspaceRow(-1))
+    ));
+    assert!(matches!(
+        shortcut(
+            keyboard::Key::Named(keyboard::key::Named::Enter),
+            keyboard::Modifiers::ALT
+        ),
+        Some(Message::ActivateWorkspaceRow)
+    ));
+    for modifiers in [
+        keyboard::Modifiers::empty(),
+        keyboard::Modifiers::SHIFT,
+        ctrl | alt,
+        keyboard::Modifiers::LOGO,
+    ] {
+        assert!(shortcut(keyboard::Key::Character("j".into()), modifiers).is_none());
+        assert!(shortcut(keyboard::Key::Character("k".into()), modifiers).is_none());
+        assert!(shortcut(keyboard::Key::Named(keyboard::key::Named::Enter), modifiers).is_none());
+    }
+    // Ctrl+O stays the single-file dialog; the folder dialog is Ctrl+Shift+O.
+    assert!(matches!(
+        shortcut(keyboard::Key::Character("o".into()), ctrl),
+        Some(Message::OpenFile)
+    ));
+    assert!(matches!(
+        shortcut(
+            keyboard::Key::Character("O".into()),
+            ctrl | keyboard::Modifiers::SHIFT
+        ),
+        Some(Message::OpenWorkspace)
+    ));
+    assert!(matches!(
+        shortcut(
+            keyboard::Key::Named(keyboard::key::Named::F5),
+            keyboard::Modifiers::empty()
+        ),
+        Some(Message::RefreshWorkspace)
     ));
 }

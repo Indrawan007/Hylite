@@ -29,12 +29,15 @@ mod source_focus;
 mod syntax;
 mod text_edit;
 mod ui;
+mod workspace;
 
 fn main() -> iced::Result {
+    // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
+    let launch = std::env::args_os().nth(1).map(std::path::PathBuf::from);
     iced::application(app::Hylite::title, app::Hylite::update, app::Hylite::view)
         .theme(app::Hylite::theme)
         .subscription(app::Hylite::subscription)
         .window_size((1200.0, 800.0))
         .exit_on_close_request(false)
-        .run_with(app::Hylite::new)
+        .run_with(move || app::Hylite::with_launch_path(launch))
 }

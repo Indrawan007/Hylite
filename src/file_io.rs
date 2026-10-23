@@ -27,7 +27,16 @@ pub async fn open() -> FileResult<(PathBuf, String)> {
     else {
         return Ok(None);
     };
-    let path = handle.path().to_path_buf();
+    read_path(handle.path().to_path_buf()).await
+}
+
+/// Open a path that was chosen without a dialog (the file tree, or a launch
+/// argument). Same UTF-8 and error contract as the dialog route.
+pub async fn open_path(path: PathBuf) -> FileResult<(PathBuf, String)> {
+    read_path(path).await
+}
+
+async fn read_path(path: PathBuf) -> FileResult<(PathBuf, String)> {
     blocking(move || {
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {} as UTF-8", path.display()))?;
@@ -35,6 +44,25 @@ pub async fn open() -> FileResult<(PathBuf, String)> {
     })
     .await
     .map(Some)
+}
+
+pub async fn pick_folder() -> FileResult<PathBuf> {
+    let Some(handle) = rfd::AsyncFileDialog::new()
+        .set_title("Open Workspace Folder")
+        .pick_folder()
+        .await
+    else {
+        return Ok(None);
+    };
+    Ok(Some(handle.path().to_path_buf()))
+}
+
+/// One-shot workspace snapshot on the blocking pool: the scan never runs on the
+/// UI thread and never follows symbolic links.
+pub async fn scan_workspace(root: PathBuf) -> FileResult<crate::workspace::Tree> {
+    blocking(move || crate::workspace::scan(&root).map_err(anyhow::Error::msg))
+        .await
+        .map(Some)
 }
 
 pub async fn save(

@@ -1282,5 +1282,63 @@ class SmokeHelperTests(unittest.TestCase):
             for probe in old:
                 probe.assert_not_called()
 
+    def test_workspace_probe_drives_the_tree_from_the_keyboard_only(self):
+        desktop = Mock(window="42")
+        with tempfile.TemporaryDirectory() as temp, patch.object(gui.time, "sleep"):
+            workspace = Path(temp) / "workspace"
+            gui.exercise_workspace(desktop, Path("/unused-evidence"), workspace)
+        welcome = (gui.ROOT / "src" / "welcome.md").read_bytes()
+        copies = [call.args[1] for call in desktop.expect_copy.call_args_list]
+        self.assertEqual(copies, [
+            welcome,
+            welcome,
+            "beta tree é".encode("utf-8"),
+            "beta tree é".encode("utf-8"),
+            "alpha tree 🙂".encode("utf-8"),
+            "nested tree ✓".encode("utf-8"),
+            "gamma tree ✓".encode("utf-8"),
+        ])
+        self.assertTrue(all(call.kwargs == {"refocus": False}
+                            for call in desktop.expect_copy.call_args_list))
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertEqual(keys.count("alt+Return"), 6)
+        self.assertEqual(keys.count("F5"), 1)
+        self.assertEqual(keys.count("alt+j"), 10 + 1 + 1 + 10)
+        self.assertEqual(keys.count("alt+k"), 3 + 1)
+        titles = [call.args[0] for call in desktop.title_ends_with.call_args_list]
+        self.assertEqual(titles, ["beta.md — Hylite\n", "alpha.md — Hylite\n",
+                                  "nested.md — Hylite\n", "gamma.md — Hylite\n"])
+        self.assertEqual(desktop.title_is_dirty.call_count, 2)
+        # No mouse: the whole tree walk is keyboard-only, so no row or sidebar
+        # coordinate can silently drift.
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_workspace_fixture_is_exact_utf8_and_creates_the_nested_folder(self):
+        with tempfile.TemporaryDirectory() as temp:
+            documents = gui.workspace_fixture(Path(temp) / "workspace")
+            for name, data in documents.items():
+                self.assertEqual((Path(temp) / "workspace" / name).read_bytes(), data)
+            self.assertEqual(documents[Path("beta.md")], "beta tree é".encode("utf-8"))
+            self.assertIn(Path("notes") / "nested.md", documents)
+
+    def test_workspace_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        names = ["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation","exercise_paragraph_apply_next","exercise_paragraph_apply_previous","exercise_paragraph_draft_shortcuts","exercise_single_paragraph_navigation","exercise_draft_history_single","exercise_draft_history_keys","exercise_tabs"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_workspace"))
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "workspace", Path("/unused/folder"))
+            new.assert_called_once_with(desktop, artifacts, Path("/unused/folder"))
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_workspace_suite_refuses_to_run_without_a_folder(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        with self.assertRaisesRegex(ValueError, "needs a workspace folder"):
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "workspace")
+
+
 if __name__ == "__main__":
     unittest.main()

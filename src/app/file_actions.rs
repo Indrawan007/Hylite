@@ -75,6 +75,16 @@ impl Hylite {
                     Message::FileOpened(token, result)
                 })
             }
+            PendingAction::OpenAt(path) => {
+                if !self.file_operation_available() {
+                    return Task::none();
+                }
+                let token = self.start_operation(OperationKind::Open);
+                self.status_message = format!("Opening {}…", path.display());
+                Task::perform(file_io::open_path(path), move |result| {
+                    Message::FileOpened(token, result)
+                })
+            }
             PendingAction::Close(id) => window::close(id),
         }
     }

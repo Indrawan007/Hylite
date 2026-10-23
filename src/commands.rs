@@ -11,6 +11,9 @@ use std::path::PathBuf;
 pub enum PendingAction {
     New,
     Open,
+    /// A document picked from the workspace tree or a launch argument. It needs
+    /// the same unsaved-changes confirmation as the dialog route.
+    OpenAt(PathBuf),
     Close(window::Id),
 }
 
@@ -100,6 +103,15 @@ pub enum Message {
     SaveAs,
     FileSaved(OperationToken, FileResult<PathBuf>),
     NewFile,
+    OpenWorkspace,
+    WorkspacePicked(FileResult<PathBuf>),
+    /// Generation number first so a late scan can never replace a newer one.
+    WorkspaceScanned(u64, FileResult<crate::workspace::Tree>),
+    RefreshWorkspace,
+    ToggleWorkspaceDir(PathBuf),
+    SelectWorkspaceRow(isize),
+    ActivateWorkspaceRow,
+    OpenTreeFile(PathBuf),
     ExportHtml,
     HtmlExported(OperationToken, FileResult<PathBuf>),
     CloseRequested(window::Id),
@@ -134,6 +146,17 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
             keyboard::Key::Character(ref c) if c == "d" || c == "D" => {
                 Some(Message::ConfirmDiscard)
             }
+            // Bare Alt+J/K/Enter walk the workspace tree. Exact Alt keeps AltGr
+            // (Ctrl+Alt) out, exactly like the tab digits above.
+            keyboard::Key::Character(ref c) if c == "j" || c == "J" => {
+                Some(Message::SelectWorkspaceRow(1))
+            }
+            keyboard::Key::Character(ref c) if c == "k" || c == "K" => {
+                Some(Message::SelectWorkspaceRow(-1))
+            }
+            keyboard::Key::Named(keyboard::key::Named::Enter) => {
+                Some(Message::ActivateWorkspaceRow)
+            }
             // Bare Alt+1..9 selects a tab. Exact Alt excludes AltGr (Ctrl+Alt),
             // which must never move the user to another buffer.
             keyboard::Key::Character(ref c) if c.len() == 1 => match c.as_bytes()[0] {
@@ -167,9 +190,13 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
             "s" | "S" => Some(Message::SaveAs),
             "m" | "M" => Some(Message::CycleMode),
             "e" | "E" => Some(Message::ExportHtml),
+            // Ctrl+Shift+O opens a workspace folder; Ctrl+O stays a single file.
+            "o" | "O" => Some(Message::OpenWorkspace),
             _ => None,
         },
         keyboard::Key::Named(keyboard::key::Named::F3) if !ctrl => Some(Message::FindNext(shift)),
+        // No watcher: F5 is the only way a change on disk reaches the tree.
+        keyboard::Key::Named(keyboard::key::Named::F5) => Some(Message::RefreshWorkspace),
         keyboard::Key::Named(keyboard::key::Named::F11) => Some(Message::ToggleZenMode),
         keyboard::Key::Named(keyboard::key::Named::Escape) => Some(Message::ExitZenMode),
         _ => None,

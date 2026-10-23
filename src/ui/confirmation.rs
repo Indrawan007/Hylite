@@ -12,7 +12,9 @@ pub fn view(
 ) -> Element<'_, Message> {
     let question = match action {
         PendingAction::New => "Save changes before creating a new document?",
-        PendingAction::Open => "Save changes before opening another file?",
+        PendingAction::Open | PendingAction::OpenAt(_) => {
+            "Save changes before opening another file?"
+        }
         PendingAction::Close(_) => "Save changes before closing Hylite?",
     };
     container(
