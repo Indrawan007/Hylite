@@ -1,6 +1,45 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6p terbaru — Apply & Previous raw cell drafts
+## Stage 7a terbaru — single-line root paragraph raw drafts
+
+[CI 39879922775](https://github.com/Indrawan007/Hylite/actions/runs/39879922775),
+`56865a77e4b57325151a6b5d9d122a788b4bb65b`, **success**, watch exit0,
+job `120174713822`,23 Oktober2026 00:45:10–00:53:15 UTC /08:45:10–08:53:15 Makassar.
+Format/strict Clippy/native debug build, **801 Cargo**, **277 strict core**
+(subset), **51 Python**, empat belas suite Xvfb **116+9+9+9+14+16+11+11+11+11+11+
+11+16+15 GUI** lulus. Total **270 GUI** =243 clipboard (225 Source +18 draft),12
+title,15 natural exits. Artifact `12470087487`,2.811.471 bytes, belum expired
+saat diperiksa; screenshot belum direview visual.
+
+New suite: root raw paragraph Open/native draft focus, Cancel preserves Source,
+Unicode clipboard staging/explicit Apply, final LF/neighbor/suffix untouched,
+one-step Preview Undo/Redo, Split unchanged Apply no edge, parser refuses
+paragraph→heading keeping raw draft, Cancel after rejection, Split final Apply
+then native X at applied-end caret without Source refocus. Separate typing/Apply/
+paste history sampai welcome clean; natural Close0.26 Rust baru:5 planner +2
+history +7 Document +3 action/model +8 controller +1 UI adapter, covering exact
+warm root/snapshot/ranges/cold/forged/stale/nested/EOF/indent/multiline/budget,
+full candidate parser structural preflight, no-op/redo/checkpoint/cache/caret,
+new PreviewParagraph scoped atomic history, file/modal/search/logical Go-to guards,
+immutable Save/Export snapshots/replies and Source barriers.
+
+Semua24 old exercise bodies AST-identical terhadap7c3f84d; tidak mengubah old
+bytes/koordinat/deadline/refocus/oracle. Runner14 private, alarm180s/step5min/job45min
+unchanged. New paragraph action136×24 append existing bar; paragraph Show block
+source Fill shrinks, height/content spacing and heading/table controls unchanged.
+Ini bukan klaim seluruh paragraph source hit regions lama identik. CI docs6p
+39879317480 cancelled superseded push7a; feature6p39878237851 success dan semua13
+old gates lulus lagi di7a. No retry/runtime hooks.
+
+Single-line unindented LF/nonempty/16KiB raw subset, Source authority, no AST
+serialization/normalization. Full parse/reconstruction/history O(n), bukan speedup.
+Multiple paragraphs/prefix/neighbors/trailing spaces/16KiB UI, structural refusal
+variants selain heading, physical query/Go-to focus, other source hit regions,
+accessibility/keyboard/narrow window dan Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/
+GPU tetap manual. Belum multiline/EOF edit, inline WYSIWYG/glyph mapping/scroll
+sync. [Kontrak dan batas Stage7a](testing-stage7a.md).
+
+## Stage 6p — Apply & Previous raw cell drafts
 
 [CI 39878237851](https://github.com/Indrawan007/Hylite/actions/runs/39878237851),
 `6caedff3615deedfb5217fcace6f8c7974595aad`, **success**, watch exit0,
@@ -526,6 +565,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6p](testing-stage6p.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 7a](testing-stage7a.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

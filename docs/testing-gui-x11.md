@@ -763,3 +763,41 @@ Header Apply Previous/EOF/empty/single/caps UI, physical Find/Go-to focus, narro
 window/accessibility/keyboard traversal dan Arch/Hyprland/Wayland/portal/IME/RTL/
 HiDPI/GPU tetap manual. Bukan inline WYSIWYG/implicit Apply/session Undo atau
 synchronized scrolling. [Kontrak dan batas Stage6p](testing-stage6p.md).
+
+## Stage 7a: single-line root paragraph drafts, suite privat keempat belas
+
+`--suite paragraph-draft` memakai private app/Xvfb/XDG/env/clipboard, alarm180s/
+step5min sendiri, job45min tetap. Semua24 old exercise bodies AST-identical terhadap
+7c3f84d. Seluruh13 old gates utuh tanpa perubahan bytes/koordinat/deadline/refocus/
+oracle. New Edit paragraph136×24 append existing eligible paragraph provenance
+bar; Show block source Fill shrinks, bar height/spacing dan heading/table controls
+unchanged. Ini bukan klaim semua paragraph source hit regions lama identik.
+Dua Python probe baru mengunci independent literal draft/Source/structural refusal/
+caret/click/Undo/no-refocus/close and exclusive dispatch; private DISPLAY guard
+14suite sebelum subprocess.
+
+[CI 39879922775](https://github.com/Indrawan007/Hylite/actions/runs/39879922775),
+`56865a7`, **success**, **801 Cargo /277 strict core (subset) /51 Python**,
+23 Oktober2026 00:53:15 UTC /08:53:15 Makassar. New suite **15 checks** =14 exact
+Copy (11 Source +3 draft) +natural clean client Close0. Root paragraph raw Unicode/
+markup/entity/escaped pipe/trailing spaces copied with native draft focus;
+Cancel exact Source/no history. Unicode paste remains staging, explicit Apply
+preserves LF/heading/neighbor/suffix/terminal tab. One-step Preview Undo/Redo.
+Split unchanged Apply closes no extra edge; Enter `# heading` parser refusal keeps
+exact raw draft/title, Cancel preserves Source. Split final Apply +native X at
+payload end (`finalX`) without Source refocus. Native typing/Apply/paste history
+separate to welcome clean, natural Close0.
+
+Lima klik hanya product Edit paragraph controls. No runtime hooks/retry/refocus
+workaround/oracle weakening. Total **270 GUI =116+9+9+9+14+16+11+11+11+11+11+11+
+16+15** =243 clipboard (225 Source +18 draft),12 title,15 natural exits. Artifact
+`12470087487`,2.811.471 bytes, belum expired saat diperiksa; screenshot belum
+direview visual. Evidence `paragraph-draft/paragraph-preview.png`,
+`paragraph-invalid.png`, `paragraph-split.png` bukan pixel/glyph oracle.
+
+Multiple root paragraphs/prefix/header neighbors/trailing spaces/16KiB UI,
+structural refusal variants selain heading, physical query/Go-to focus, narrow
+window/accessibility/keyboard traversal, other Source-bar hit regions dan target
+Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap manual. Belum multiline/EOF
+paragraph editing atau inline WYSIWYG/glyph mapping/scroll sync.
+[Kontrak, bukti dan batas Stage7a](testing-stage7a.md).

@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–6p
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–7a
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table 6a–6p mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table/paragraph 6a–7a mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -674,3 +674,34 @@ reopen workflow invalid lalu menilai Source. Suite privat ketiga belas menjaga
 23 old exercise bodies AST-identical dan dua belas gate lama; tanpa retry/runtime
 hooks. Full parse/reconstruction/history O(n), bukan speedup. Tidak ada general
 inline WYSIWYG/selection/scroll sync. [Kontrak dan batas6p](testing-stage6p.md).
+
+## Single-line root paragraph raw drafts (Stage 7a)
+
+`preview_paragraph` hanya bounded lexical scanner/Target/plan, bukan parser atau
+provenance. Eligibility payload raw nonempty unindented single physical LF line,
+no control chars,16KiB byte cap. `Block::paragraph_payload` diisi hanya root
+Kind::Paragraph depth0 dengan physical-line eligibility; nested/heading/literal/
+multiline/EOF/indent tidak mendapat metadata. Action136×24 di tail existing bar,
+Show block source Fill shrinks tetapi bar height dan heading/table geometry tetap.
+
+Document mengautentikasi exact warm root/snapshot/block/payload lalu full candidate
+Source parser preflight **complete Paragraph range** dan new canonical payload.
+Structural conversion/split/absorption ditolak sebelum mutation. Satu payload
+TextChange, final LF/prefix/suffix/neighbor untouched; satu PreviewParagraph atomic
+edge yang ikut scoped Preview history tanpa melintasi Source barrier. Caret pada
+applied raw payload end. Projection invalidated saat commit; target berikut fresh.
+No-op closes authenticated draft tanpa Source/cache/revision/history/redo mutation.
+Trailing spaces editable bagian payload, tidak ada AST serialization/normalization.
+
+Separate paragraph Draft/message/controller/UI modal mutually exclusive dengan
+cell draft; Source guard/title/view/whitelist/focus menanganinya. Existing file/
+confirmation/history/mode commands blocked selama draft, async replies allowed
+namun snapshot immutable dan draft tetap. Search refresh only effective Apply,
+logical Find/Go-to context preserved. Source authority dan history200entries/8MiB
+tidak ditambah. Cold/stale/forged target tidak rebase atau menghangatkan cache.
+
+Suite GUI privat keempat belas menjaga24 old exercise bodies AST-identical dan
+semua13 gate lama tanpa refocus/retry/runtime hooks/oracle changes. Full candidate
+parse/reconstruction/history O(n), bukan speedup. Multiline/EOF/inline typing/
+selection/glyph mapping/scroll sync dan desktop target tetap di luar scope.
+[Kontrak, bukti dan batas7a](testing-stage7a.md).
