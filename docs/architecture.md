@@ -1030,3 +1030,31 @@ tombol `›`. Strip tab dirender **di dalam baris toolbar yang sudah ada** (ting
 lebar tetap 330px, disisipkan sebelum `horizontal_space()`), jadi setiap koordinat
 editor — dan seluruh suite GUI lama — tidak bergeser. Bentuk judul jendela tidak
 berubah agar oracle title lama tetap valid. [Kontrak/tests/evidence/manual limits8a](testing-stage8a.md).
+
+## Workspace folder dan file tree (Stage 8b)
+
+`src/workspace.rs` adalah modul murni `std` (ikut strict-core harness): memindai
+satu folder menjadi `Tree`/`Entry` dengan batas eksplisit — `MAX_DEPTH = 8`,
+`MAX_ENTRIES = 512`, hanya `md`/`markdown`/`mdx`/`txt`, nama berawalan titik
+diabaikan, symlink tidak pernah diikuti (dihitung `skipped`), entry tak terbaca
+dihitung lalu dilewati. Urutan selalu folder dulu lalu file, case-insensitive.
+`Workspace` menyimpan `collapsed: BTreeSet<PathBuf>` dan `selected: usize`;
+`rows()` menurunkan baris yang terlihat, `move_selection` meng-clamp tanpa wrap,
+`activate` men-toggle folder atau mengembalikan baris dokumen.
+
+Controller (`src/app/workspace.rs`) menjalankan scan di blocking pool dengan nomor
+urut (`workspace_seq`), jadi hasil scan lama tidak bisa menimpa folder yang dipilih
+belakangan. Tidak ada watcher: `F5`/tombol Refresh memicu scan ulang, dan state
+`collapsed` serta path terpilih dipertahankan. Membuka baris dokumen memakai
+`PendingAction::OpenAt(path)` — jalur `Open` yang sama (token operasi, snapshot
+guard, konfirmasi unsaved changes), bukan jalur I/O kedua. Karena membawa
+`PathBuf`, `PendingAction` tidak lagi `Copy`.
+
+Sidebar hanya mengganti area isinya dengan `src/ui/workspace.rs`: header folder +
+tombol Refresh, baris yang semuanya tombol nyata (folder → `ToggleWorkspaceDir`,
+file → `OpenTreeFile`), footer hitungan dokumen/folder dan peringatan truncation.
+Lebar sidebar dan koordinat editor tidak berubah. Keyboard: `Alt+J`/`Alt+K`/
+`Alt+Enter` (Alt persis), dan `Ctrl+Shift+O` untuk memilih folder — `Ctrl+O` tetap
+file tunggal. Launch argumen `hylite <folder>`/`<file>` masuk lewat
+`Hylite::with_launch_path`, satu-satunya konstruktor.
+[Kontrak/tests/evidence/batas 8b](testing-stage8b.md).

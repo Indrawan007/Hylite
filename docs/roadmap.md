@@ -1,13 +1,13 @@
-# Roadmap Hylite — dari Stage 8a sampai rilis 1.0
+# Roadmap Hylite — dari Stage 8b sampai rilis 1.0
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `e6677d7`
-(**960 Cargo / 297 strict core / 71 Python / 24 suite GUI 471 pemeriksaan**, CI
-[39936002455](https://github.com/Indrawan007/Hylite/actions/runs/39936002455) hijau)
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `bd73dd9`
+(**975 Cargo / 306 strict core / 75 Python / 25 suite GUI 483 pemeriksaan**, CI
+[39941613766](https://github.com/Indrawan007/Hylite/actions/runs/39941613766) hijau)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
-> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8a, 36 stage) tidak
+> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8b, 37 stage) tidak
 > diulang di sini; rinciannya ada di [`progress-report.md`](progress-report.md).
-> Stage 8a juga sudah lulus CI (960 Cargo / 24 suite / 471 pemeriksaan).
+> Stage 8b juga sudah lulus CI (975 Cargo / 25 suite / 483 pemeriksaan).
 
 ---
 
@@ -24,7 +24,7 @@ Hylite 1.0 dinyatakan selesai bila **semua** ini benar:
 | 5 | **Math + gambar** tampil di Preview | Golden test render; gambar tidak pernah dieksekusi/di-upload otomatis |
 | 6 | **Berjalan dan divalidasi di Arch + Hyprland/Wayland** (portal, IME, HiDPI, RTL) | Checklist manual tercentang di mesin target, bukan Xvfb |
 | 7 | **Terpasang**: PKGBUILD/AUR, build release reproducible | `makepkg` sukses + checksum |
-| 8 | Semua gate lama (24 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
+| 8 | Semua gate lama (25 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
 
 **Yang eksplisit TIDAK termasuk 1.0** (supaya tidak ada klaim berlebih):
 kolaborasi/CRDT, cloud sync, plugin system, mobile, WYSIWYG penuh untuk semua
@@ -46,7 +46,7 @@ Tujuannya: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF".
 | Stage | Isi | Kenapa sekarang | Usaha | Risiko |
 |---|---|---|---|---|
 | **8a** ✅ | **Multi-buffer + tab**: tab memarkir seluruh `Document` (bukan `Vec<Buffer>` terpisah); strip di dalam baris toolbar; perpindahan mempertahankan teks, caret, seleksi, snapshot, path, dirty, dan **stack history masing-masing**; `Ctrl+T`/`Ctrl+W`/`Alt+1..9` + `＋`/`×`/`›` | Prasyarat teknis untuk 8b; menyentuh `Hylite` jadi lebih baik sebelum lapisan WYSIWYG menempel | **selesai** — [catatan](testing-stage8a.md) | sedang — refactor state luas (dipilih: park `Document`, bukan buffer kedua) |
-| **8b** | **File tree + workspace folder**: panel kiri folder, buka file dari tree, indikator dirty per file; tetap tanpa watcher (re-scan manual + tombol refresh) | Melengkapi 8a menjadi alur kerja nyata | sedang | rendah |
+| **8b** ✅ | **File tree + workspace folder**: `hylite <folder>`, `Ctrl+Shift+O`, scan sekali tanpa watcher (F5/Refresh), batas 512 entri & kedalaman 8, symlink tidak diikuti, buka file dari tree lewat jalur Open yang sudah ada, `•` per file kotor, `Alt+J/K/Enter` | Melengkapi 8a menjadi alur kerja nyata | **selesai** — [catatan](testing-stage8b.md) | rendah — batas scan dideklarasikan; tanpa watcher |
 | **8c** | **Gambar read-only di Preview**: inline image dari path relatif/absolut, `alt` sebagai fallback, batas ukuran file dan dimensi, **tidak** memuat URL jaringan. Paste gambar ke disk = stage terpisah nanti | `iced` sudah mengaktifkan fitur `image`/`svg`, jadi biayanya rendah dan dampak visualnya besar | kecil–sedang | rendah — keamanan path harus ketat |
 | **8d** | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | sedang | sedang — pilih crate murni-Rust, tanpa browser |
 | **8e** | **Math read-only (subset)**: `$…$` dan `$$…$$` dikenali sebagai blok math dan dirender dengan **subset** operator/struktur yang dideklarasikan (pecahan, sup/sub, akar, operator umum), sisanya jatuh ke teks mentah yang ditandai | Menutup gap yang paling terlihat tanpa berpura-pura jadi KaTeX penuh | sedang–besar | tinggi — jangan mengklaim paritas KaTeX |

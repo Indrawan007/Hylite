@@ -1223,3 +1223,33 @@ sandbox ini). [Kontrak8a](testing-stage8a.md).
 Batas: tutup tab kotor ditolak dengan pesan status (belum ada dialog konfirmasi),
 tidak ada drag-reorder/split pane/session restore, dan `Ctrl+Tab` sengaja tidak
 dipakai karena editor Source bisa menangkap Tab bermodifier.
+
+## Stage 8b: suite ke-25 `workspace` (file tree, keyboard-only)
+
+Suite ini adalah satu-satunya yang boot dengan **argumen**: `hylite <folder>`,
+sebuah folder fixture yang dibuat suite sendiri di dalam direktori sementara. File
+`gamma.md` sengaja ditulis ke disk **saat aplikasi berjalan** untuk membuktikan
+tidak ada watcher — file itu baru bisa dibuka setelah `F5`.
+
+Semua gerak pohon memakai keyboard: `Alt+J` (turun, clamp di baris terakhir),
+`Alt+K` (naik), `Alt+Enter` (aktifkan baris). Tidak ada satu klik pun, jadi tidak
+ada koordinat baris/sidebar yang bisa bergeser diam-diam. Oracle-nya byte
+clipboard persis + title jendela persis (`beta.md`, `alpha.md`, `nested.md`,
+`gamma.md`), ditambah fakta bahwa collapse benar-benar menyembunyikan baris anak
+dari navigasi dan expand mengembalikannya.
+
+12 pemeriksaan: 7 `expect_copy` (semua `refocus: False`), 4 title, 22 `alt+j`,
+4 `alt+k`, 6 `alt+Enter`, 1 `F5`, 0 klik, 1 `request_close` + 1
+`expect_native_exit`.
+
+**Lulus** [CI 39941613766](https://github.com/Indrawan007/Hylite/actions/runs/39941613766),
+`bd73dd9`, job `120374147972`, 23 Oktober 2026 10:47:52–11:00:15 UTC.
+**975 Cargo**, **25 suite / 483 pemeriksaan GUI** (441 clipboard, 16 title,
+26 exit). Artifact `12496547458`,
+3.659.862 bytes, expires 2026-10-30T11:00:12Z, digest SHA256
+`17c88ad1…c9eb37` (zip tidak dapat diunduh dari sandbox ini).
+[Kontrak 8b](testing-stage8b.md).
+
+Batas: baris pohon bisa diklik di UI tetapi tidak diuji lewat mouse; penanda
+dirty per file hanya diuji di Rust; tidak ada watcher, rename/delete/create,
+drag, atau filter.
