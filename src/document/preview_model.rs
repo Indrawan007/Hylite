@@ -24,6 +24,10 @@ pub struct Run {
     pub text: String,
     pub source: Range<usize>,
     pub style: Style,
+    /// Set only on the single literal run produced by `![alt](src)`. The text is
+    /// still the inert `[image not loaded: …]` marker; the renderer decides
+    /// whether that one run becomes a picture or stays marker text.
+    pub image: Option<crate::images::Spec>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,6 +113,26 @@ fn skip(events: &mut Events<'_>) {
     }
 }
 
+/// Consume the image subtree and keep its alt text (Text/Code only).
+fn image_alt(events: &mut Events<'_>) -> String {
+    let mut depth = 1;
+    let mut alt = String::new();
+    for (event, _) in events {
+        match event {
+            Event::Start(_) => depth += 1,
+            Event::End(_) => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            Event::Text(text) | Event::Code(text) => alt.push_str(&text),
+            _ => {}
+        }
+    }
+    alt
+}
+
 fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) -> Block {
     Block {
         kind,
@@ -138,6 +162,21 @@ impl Inline {
             text,
             source: range,
             style,
+            image: None,
+        });
+    }
+
+    /// An image stays one literal run so unrelated preview behaviour (tasks,
+    /// tables, reveal, history) is unchanged; only a paragraph that is *just*
+    /// this run is rendered as a picture.
+    fn push_image(&mut self, marker: String, range: Range<usize>, spec: crate::images::Spec) {
+        let mut style = self.style.clone();
+        style.code = true;
+        self.runs.push(Run {
+            text: marker,
+            source: range,
+            style,
+            image: Some(spec),
         });
     }
 
@@ -149,12 +188,17 @@ impl Inline {
         source: &str,
     ) {
         match event {
-            Event::Start(Tag::Image { .. }) => {
-                skip(events);
-                self.push(
+            Event::Start(Tag::Image { dest_url, .. }) => {
+                // Alt text is the only part of the skipped subtree worth
+                // keeping: it becomes the picture's tooltip.
+                let alt = image_alt(events);
+                self.push_image(
                     format!("[image not loaded: {}]", raw(source, &range)),
                     range,
-                    true,
+                    crate::images::Spec {
+                        src: dest_url.to_string(),
+                        alt,
+                    },
                 );
             }
             Event::Start(tag) => {

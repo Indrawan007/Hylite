@@ -1340,5 +1340,59 @@ class SmokeHelperTests(unittest.TestCase):
             gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "workspace")
 
 
+    def test_images_probe_renders_local_pictures_and_keeps_rejected_markers_inert(self):
+        desktop = Mock(window="42")
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.images_fixture(Path(temp) / "images")
+            source = document.read_bytes()
+            with patch.object(gui.time, "sleep"):
+                gui.exercise_images(desktop, Path("/unused-evidence"), document)
+        self.assertEqual(source, gui.IMAGE_DOCUMENT)
+        copies = [call.args[1] for call in desktop.expect_copy.call_args_list]
+        self.assertEqual(copies, [source, source, source])
+        self.assertTrue(all(call.kwargs == {"refocus": False}
+                            for call in desktop.expect_copy.call_args_list))
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+shift+m"), 6)
+        self.assertEqual(keys.count("ctrl+v"), 1)
+        self.assertEqual(desktop.title_ends_with.call_count, 1)
+        self.assertEqual(desktop.title_is_dirty.call_count, 2)
+        self.assertEqual(desktop.screenshot.call_count, 2)
+        # Keyboard-only apart from the initial window focus in find_window.
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_images_fixture_writes_a_decodable_png_and_an_oversized_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.images_fixture(Path(temp) / "images")
+            png = (document.parent / "pic.png").read_bytes()
+            self.assertTrue(png.startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertEqual(gui.tiny_png()[1:4], b"PNG")
+            self.assertGreater((document.parent / "big.png").stat().st_size,
+                               4 * 1024 * 1024)
+            self.assertFalse((document.parent / "gone.png").exists())
+            self.assertIn(b"https://example.invalid/x.png", gui.IMAGE_DOCUMENT)
+            self.assertIn("before ![inline](pic.png) after".encode("utf-8"),
+                          gui.IMAGE_DOCUMENT)
+
+    def test_images_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        names = ["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation","exercise_paragraph_apply_next","exercise_paragraph_apply_previous","exercise_paragraph_draft_shortcuts","exercise_single_paragraph_navigation","exercise_draft_history_single","exercise_draft_history_keys","exercise_tabs","exercise_workspace"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_images"))
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "images",
+                               None, Path("/unused/doc.md"))
+            new.assert_called_once_with(desktop, artifacts, Path("/unused/doc.md"))
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_images_suite_refuses_to_run_without_a_document(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        with self.assertRaisesRegex(ValueError, "needs a document path"):
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "images")
+
+
 if __name__ == "__main__":
     unittest.main()

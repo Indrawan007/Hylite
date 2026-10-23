@@ -845,3 +845,64 @@ fn nested_ragged_extra_missing_edge_pipes_and_fallback_have_no_cell_payload_meta
     );
     check(&parse(&wide));
 }
+
+#[test]
+fn an_image_run_carries_its_exact_destination_and_alt_text() {
+    let source = "![a café picture](img/pic%20one.png)";
+    let blocks = parse(source);
+    let runs = &blocks[0].runs;
+    assert_eq!(runs.len(), 1);
+    // The inert marker text is unchanged: old oracles keep their exact bytes.
+    assert_eq!(text(&blocks[0]), format!("[image not loaded: {source}]"));
+    assert!(runs[0].style.code);
+    let spec = runs[0].image.as_ref().expect("image spec");
+    assert_eq!(spec.src, "img/pic%20one.png");
+    assert_eq!(spec.alt, "a café picture");
+}
+
+#[test]
+fn images_mixed_with_text_stay_one_literal_marker_run() {
+    let blocks = parse("before ![alt](x.png) after");
+    assert_eq!(
+        text(&blocks[0]),
+        "before [image not loaded: ![alt](x.png)] after"
+    );
+    assert_eq!(
+        blocks[0]
+            .runs
+            .iter()
+            .filter(|run| run.image.is_some())
+            .count(),
+        1
+    );
+    assert!(blocks[0]
+        .runs
+        .iter()
+        .filter(|run| run.image.is_none())
+        .all(|run| !run.text.contains("image not loaded")));
+}
+
+#[test]
+fn an_empty_alt_text_stays_empty_instead_of_borrowing_the_source() {
+    let blocks = parse("![](x.png)");
+    let spec = blocks[0].runs[0].image.as_ref().expect("image spec");
+    assert_eq!(spec.src, "x.png");
+    assert!(spec.alt.is_empty());
+}
+
+#[test]
+fn nested_images_in_lists_and_quotes_keep_their_own_spec_and_ranges() {
+    let source = "> - ![quoted](q.png)\n\n1. ![listed](l.png)\n";
+    let blocks = parse(source);
+    validate(&blocks, source, 0..source.len());
+    let quoted = &blocks[0].children[0].children[0].runs[0];
+    assert_eq!(
+        quoted.image.as_ref().map(|spec| spec.src.as_str()),
+        Some("q.png")
+    );
+    let listed = &blocks[1].children[0].children[0].runs[0];
+    assert_eq!(
+        listed.image.as_ref().map(|spec| spec.src.as_str()),
+        Some("l.png")
+    );
+}

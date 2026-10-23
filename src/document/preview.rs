@@ -8,6 +8,12 @@ use iced::widget::{
     button, checkbox, column, container, horizontal_rule, pick_list, rich_text, row, text, tooltip,
 };
 use iced::{font, Border, Color, Element, Font, Length, Theme};
+use std::path::Path;
+
+/// Displayed picture bounds. These bound layout, not decoding: the decode-cost
+/// gate is the byte/pixel check in `crate::images`.
+const MAX_RENDER_WIDTH: f32 = 560.0;
+const MAX_RENDER_HEIGHT: f32 = 420.0;
 
 #[path = "preview_table_view.rs"]
 mod table;
@@ -35,16 +41,19 @@ impl Colors {
     }
 }
 
+/// `base_dir` is the document's folder: the only root a relative image path is
+/// ever resolved against. `None` (unsaved document) keeps relative images inert.
 pub fn render_preview<'a>(
     blocks: &'a [Block],
     theme: &Theme,
     snapshot: Snapshot,
+    base_dir: Option<&Path>,
 ) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot)
+        render_blocks(blocks, colors, snapshot, base_dir)
     };
     column![
         text("Task / heading / table controls edit Source · links and other text inert")
@@ -94,18 +103,60 @@ fn styled_span(run: &Run, heading: bool, colors: Colors) -> text::Span<'_, Messa
     span
 }
 
-fn render_blocks(blocks: &[Block], colors: Colors, snapshot: Snapshot) -> Element<'_, Message> {
+fn render_blocks<'a>(
+    blocks: &'a [Block],
+    colors: Colors,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot)),
+            .map(|block| render_block(block, colors, snapshot, base_dir)),
     )
     .spacing(10)
     .width(Length::Fill)
     .into()
 }
 
-fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_, Message> {
+/// A resolved local picture, or the same inert marker line the model carries.
+fn render_image<'a>(
+    spec: &crate::images::Spec,
+    base_dir: Option<&Path>,
+    colors: Colors,
+) -> Element<'a, Message> {
+    match crate::images::load(spec, base_dir) {
+        Ok((path, dimensions)) => {
+            let picture = iced::widget::image(iced::widget::image::Handle::from_path(path));
+            let bounded: Element<'a, Message> = container(picture)
+                .max_width(MAX_RENDER_WIDTH)
+                .max_height(MAX_RENDER_HEIGHT)
+                .into();
+            let label = if spec.alt.is_empty() {
+                spec.src.clone()
+            } else {
+                spec.alt.clone()
+            };
+            let label = format!("{label} · {}×{}", dimensions.width, dimensions.height);
+            tooltip(bounded, text(label).size(11), tooltip::Position::Bottom).into()
+        }
+        Err(error) => text(format!(
+            "[image not loaded: {}: {}]",
+            error.label(),
+            spec.src
+        ))
+        .size(12)
+        .color(colors.text)
+        .into(),
+    }
+}
+
+fn render_block<'a>(
+    block: &'a Block,
+    colors: Colors,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+) -> Element<'a, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
@@ -114,6 +165,13 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
         match &block.kind {
             Kind::Paragraph | Kind::Heading(_) => {
                 let heading = matches!(block.kind, Kind::Heading(_));
+                // Only a paragraph that is *just* one image becomes a picture;
+                // inline images mixed with text stay their inert marker.
+                if let [run] = block.runs.as_slice() {
+                    if let Some(spec) = run.image.as_ref() {
+                        return render_image(spec, base_dir, colors);
+                    }
+                }
                 let size = match block.kind {
                     Kind::Heading(1) => 32,
                     Kind::Heading(2) => 27,
@@ -129,7 +187,7 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                     .collect();
                 rich_text(spans).size(size).width(Length::Fill).into()
             }
-            Kind::Quote => container(render_blocks(&block.children, colors, snapshot))
+            Kind::Quote => container(render_blocks(&block.children, colors, snapshot, base_dir))
                 .padding([8, 16])
                 .width(Length::Fill)
                 .style(move |_| container::Style {
@@ -160,13 +218,16 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                                     }
                                     prefix = prefix.push(control);
                                 }
-                                row![prefix, render_blocks(&item.children, colors, snapshot)]
-                                    .spacing(8)
-                                    .into()
+                                row![
+                                    prefix,
+                                    render_blocks(&item.children, colors, snapshot, base_dir)
+                                ]
+                                .spacing(8)
+                                .into()
                             }
                             _ => row![
                                 text(marker).color(colors.text),
-                                render_block(item, colors, snapshot)
+                                render_block(item, colors, snapshot, base_dir)
                             ]
                             .spacing(8)
                             .into(),
@@ -693,6 +754,7 @@ mod tests {
             let run = Run {
                 text: "label".into(),
                 source: 0..5,
+                image: None,
                 style: Style {
                     strike: true,
                     link: Some("javascript:alert(1)".into()),
@@ -712,15 +774,55 @@ mod tests {
         for theme in [Theme::Dark, Theme::Light] {
             let source = "# **Title**\n\n> - [x] item\n>   - child\n\n```rs\na\n\n```\n\n|a|b|\n|-|-|\n|c|d|\n\n<script>inert</script>\n";
             let blocks = super::super::preview_model::parse(source);
-            let _view = render_preview(&blocks, &theme, Snapshot::default());
+            let _view = render_preview(&blocks, &theme, Snapshot::default(), None);
         }
     }
+    #[test]
+    fn a_single_image_paragraph_builds_a_bounded_picture_or_an_inert_marker() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+        png.extend_from_slice(&13_u32.to_be_bytes());
+        png.extend_from_slice(b"IHDR");
+        png.extend_from_slice(&32_u32.to_be_bytes());
+        png.extend_from_slice(&16_u32.to_be_bytes());
+        png.extend_from_slice(&[8, 6, 0, 0, 0]);
+        std::fs::write(directory.path().join("pic.png"), &png).unwrap();
+
+        for source in [
+            "![local](pic.png)",
+            "![missing](gone.png)",
+            "![remote](https://example.invalid/x.png)",
+            "![escape](../outside.png)",
+            "before ![inline](pic.png) after",
+            "![](pic.png)",
+        ] {
+            let blocks = super::super::preview_model::parse(source);
+            for theme in [Theme::Dark, Theme::Light] {
+                // Building the widget must never panic, and it must not need a
+                // renderer: decoding stays inside the iced image pipeline.
+                let _view =
+                    render_preview(&blocks, &theme, Snapshot::default(), Some(directory.path()));
+                let _unsaved = render_preview(&blocks, &theme, Snapshot::default(), None);
+            }
+        }
+    }
+
+    #[test]
+    fn picture_bounds_are_smaller_than_the_decode_gate() {
+        assert!(MAX_RENDER_WIDTH > 0.0 && MAX_RENDER_HEIGHT > 0.0);
+        assert!(
+            f64::from(MAX_RENDER_WIDTH) * f64::from(MAX_RENDER_HEIGHT)
+                < crate::images::MAX_PIXELS as f64
+        );
+    }
+
     #[test]
     fn native_span_borrows_cached_text_instead_of_cloning_the_string() {
         let run = Run {
             text: "café🙂 cached".into(),
             source: 0..15,
             style: Style::default(),
+            image: None,
         };
         let span = styled_span(&run, false, Colors::new(&Theme::Dark));
         assert!(matches!(span.text, std::borrow::Cow::Borrowed(_)));

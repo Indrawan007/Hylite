@@ -58,3 +58,6 @@ mod multiline_draft_history;
 
 #[path = "../src/workspace.rs"]
 mod workspace;
+
+#[path = "../src/images.rs"]
+mod images;

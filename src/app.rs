@@ -627,6 +627,9 @@ impl Hylite {
             self.document.preview_blocks(),
             &self.theme(),
             self.document.snapshot(),
+            // Relative image paths resolve against the document's own folder,
+            // never against the process working directory.
+            self.document.path().and_then(|path| path.parent()),
         );
 
         container(
