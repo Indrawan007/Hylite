@@ -161,17 +161,10 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
     }
 }
 
-/// Shared parser for Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z. Only uncaptured events
-/// with exact Ctrl (or Ctrl+Shift for redo) are accepted: AltGr, Logo, bare
-/// Shift selection and text entry stay with the focused widget.
-fn history_direction(
-    key: &keyboard::Key,
-    modifiers: keyboard::Modifiers,
-    status: iced::event::Status,
-) -> Option<bool> {
-    if status != iced::event::Status::Ignored {
-        return None;
-    }
+/// Shared parser for Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z. Exact Ctrl (or Ctrl+Shift
+/// for redo) is required: AltGr, Logo, bare Shift selection and text entry stay
+/// with the focused widget.
+fn history_keys(key: &keyboard::Key, modifiers: keyboard::Modifiers) -> Option<bool> {
     if modifiers != keyboard::Modifiers::CTRL
         && modifiers != (keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT)
     {
@@ -192,7 +185,10 @@ pub fn preview_history_shortcut(
     modifiers: keyboard::Modifiers,
     status: iced::event::Status,
 ) -> Option<Message> {
-    history_direction(key, modifiers, status).map(Message::PreviewHistory)
+    if status != iced::event::Status::Ignored {
+        return None;
+    }
+    history_keys(key, modifiers).map(Message::PreviewHistory)
 }
 
 /// Which single-line draft panel owns the keyboard history keys. Only one
@@ -205,16 +201,17 @@ pub enum DraftHistoryPanel {
 }
 
 /// Keyboard Undo/Redo shared by the two `text_input` draft panels and by
-/// Preview/Source history. Iced 0.13 `text_input` has no native undo stack, so
-/// these events reach the subscription uncaptured; `event::listen_with` accepts
-/// only a fn pointer, so the message stays neutral and the controller routes it
-/// to the open single-line panel or falls back to Preview history.
+/// Preview/Source history. A focused `text_input` reports the key press as
+/// captured even though it has no undo stack, so this route must not look at
+/// the event status; `event::listen_with` accepts only a fn pointer, so the
+/// message stays neutral and the controller routes it to the open single-line
+/// panel or falls back to Preview history (a no-op outside Preview mode, where
+/// the focused Source editor performs its own Undo).
 pub fn draft_history_shortcut(
     key: &keyboard::Key,
     modifiers: keyboard::Modifiers,
-    status: iced::event::Status,
 ) -> Option<Message> {
-    history_direction(key, modifiers, status).map(Message::DraftHistory)
+    history_keys(key, modifiers).map(Message::DraftHistory)
 }
 
 /// Exact-modifier shortcuts for an open multiline draft panel. Only Ctrl is
@@ -463,7 +460,7 @@ mod tests {
         }
     }
     #[test]
-    fn draft_history_shortcuts_need_exact_ctrl_and_an_uncaptured_event() {
+    fn draft_history_shortcuts_need_exact_ctrl_and_preview_history_keeps_its_gate() {
         use iced::event::Status;
         let z = keyboard::Key::Character("z".into());
         let y = keyboard::Key::Character("y".into());
@@ -473,26 +470,17 @@ mod tests {
             _ => panic!("history key produced a panel-specific message"),
         };
         assert_eq!(
-            routed(draft_history_shortcut(
-                &z,
-                keyboard::Modifiers::CTRL,
-                Status::Ignored
-            )),
+            routed(draft_history_shortcut(&z, keyboard::Modifiers::CTRL)),
             Some(false)
         );
         assert_eq!(
-            routed(draft_history_shortcut(
-                &y,
-                keyboard::Modifiers::CTRL,
-                Status::Ignored
-            )),
+            routed(draft_history_shortcut(&y, keyboard::Modifiers::CTRL)),
             Some(true)
         );
         assert_eq!(
             routed(draft_history_shortcut(
                 &z,
-                keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
-                Status::Ignored
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT
             )),
             Some(true)
         );
@@ -503,22 +491,22 @@ mod tests {
             keyboard::Modifiers::CTRL | keyboard::Modifiers::ALT,
             keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
         ] {
-            assert!(routed(draft_history_shortcut(&z, rejected, Status::Ignored)).is_none());
-            assert!(routed(draft_history_shortcut(&y, rejected, Status::Ignored)).is_none());
+            assert!(routed(draft_history_shortcut(&z, rejected)).is_none());
+            assert!(routed(draft_history_shortcut(&y, rejected)).is_none());
         }
-        // Shift+Z is redo, but Shift+Y is not, and a captured event belongs to
-        // the focused widget, never to a draft stack.
+        // Shift+Z is redo, but Shift+Y is not.
         assert!(routed(draft_history_shortcut(
             &y,
-            keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
-            Status::Ignored
+            keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT
         ))
         .is_none());
-        assert!(routed(draft_history_shortcut(
-            &z,
-            keyboard::Modifiers::CTRL,
-            Status::Captured
-        ))
-        .is_none());
+        // Preview/Source history keeps its own uncaptured-event gate.
+        assert!(
+            preview_history_shortcut(&z, keyboard::Modifiers::CTRL, Status::Captured).is_none()
+        );
+        assert!(matches!(
+            preview_history_shortcut(&z, keyboard::Modifiers::CTRL, Status::Ignored),
+            Some(Message::PreviewHistory(false))
+        ));
     }
 }
