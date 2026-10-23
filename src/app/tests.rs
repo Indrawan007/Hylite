@@ -148,7 +148,7 @@ fn new_open_and_close_prompt_before_losing_changes() {
         let mut app = app();
         edit(&mut app);
         let before = app.document.text();
-        let _ = app.request_action(action);
+        let _ = app.request_action(action.clone());
         assert_eq!(app.pending_action, Some(action));
         assert!(app.operations.active().is_none());
         assert_eq!(app.document.text(), before);
@@ -220,7 +220,7 @@ fn failed_or_cancelled_save_does_not_continue_a_destructive_action() {
             let mut app = app();
             edit(&mut app);
             let before = app.document.text();
-            let _ = app.request_action(action);
+            let _ = app.request_action(action.clone());
             let _ = app.update(Message::ConfirmSave);
             let token = token(&app);
             let _ = app.update(Message::FileSaved(token, result));
