@@ -209,12 +209,10 @@ mod tests {
             keyboard::key::Named::PageUp,
             keyboard::key::Named::PageDown,
         ] {
-            let command = draft_commit_shortcut(
-                &keyboard::Key::Named(key.clone()),
-                keyboard::Modifiers::CTRL,
-            );
+            let command =
+                draft_commit_shortcut(&keyboard::Key::Named(key), keyboard::Modifiers::CTRL);
             assert!(matches!(
-                (key.clone(), command),
+                (key, command),
                 (
                     keyboard::key::Named::Enter,
                     Some(Message::ApplyMultilineParagraph)
@@ -234,9 +232,7 @@ mod tests {
                 keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
                 keyboard::Modifiers::ALT,
             ] {
-                assert!(
-                    draft_commit_shortcut(&keyboard::Key::Named(key.clone()), rejected).is_none()
-                );
+                assert!(draft_commit_shortcut(&keyboard::Key::Named(key), rejected).is_none());
             }
         }
         assert!(draft_commit_shortcut(
