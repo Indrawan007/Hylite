@@ -204,24 +204,28 @@ mod tests {
 
     #[test]
     fn draft_commit_shortcuts_require_exact_ctrl_and_never_take_altgr_or_logo() {
-        for (key, expected) in [
-            (
-                keyboard::key::Named::Enter,
-                Message::ApplyMultilineParagraph,
-            ),
-            (
-                keyboard::key::Named::PageUp,
-                Message::ApplyMultilineParagraphPrevious,
-            ),
-            (
-                keyboard::key::Named::PageDown,
-                Message::ApplyMultilineParagraphNext,
-            ),
+        for key in [
+            keyboard::key::Named::Enter,
+            keyboard::key::Named::PageUp,
+            keyboard::key::Named::PageDown,
         ] {
-            assert_eq!(
-                draft_commit_shortcut(&keyboard::Key::Named(key), keyboard::Modifiers::CTRL),
-                Some(expected)
+            let command = draft_commit_shortcut(
+                &keyboard::Key::Named(key.clone()),
+                keyboard::Modifiers::CTRL,
             );
+            assert!(matches!(
+                (key.clone(), command),
+                (
+                    keyboard::key::Named::Enter,
+                    Some(Message::ApplyMultilineParagraph)
+                ) | (
+                    keyboard::key::Named::PageUp,
+                    Some(Message::ApplyMultilineParagraphPrevious)
+                ) | (
+                    keyboard::key::Named::PageDown,
+                    Some(Message::ApplyMultilineParagraphNext)
+                )
+            ));
             for rejected in [
                 keyboard::Modifiers::empty(),
                 keyboard::Modifiers::SHIFT,
@@ -230,7 +234,9 @@ mod tests {
                 keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
                 keyboard::Modifiers::ALT,
             ] {
-                assert!(draft_commit_shortcut(&keyboard::Key::Named(key), rejected).is_none());
+                assert!(
+                    draft_commit_shortcut(&keyboard::Key::Named(key.clone()), rejected).is_none()
+                );
             }
         }
         assert!(draft_commit_shortcut(
