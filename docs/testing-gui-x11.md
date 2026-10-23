@@ -725,3 +725,41 @@ Middle/3+kolom/single/empty/header-only/11→12kolom/3spasi/trailing-tab UI, phy
 Find/Go-to focus, large menu keyboard/scroll dan Arch/Hyprland/Wayland/portal/IME/
 RTL/HiDPI/GPU tetap manual. Bukan drag/bulk/resize/implicit Apply atau general
 inline WYSIWYG. [Kontrak, bukti dan batas Stage6o](testing-stage6o.md).
+
+## Stage 6p: Apply & Previous raw cell drafts, suite privat ketiga belas
+
+`--suite cell-apply-previous` memakai private app/Xvfb/XDG/env/clipboard sendiri,
+alarm180s/step5min/job45min tetap. Semua23 old exercise bodies AST-identical
+terhadap803ff5c. Dua belas gate lama, menu dan koordinat input/Apply/Cancel/tiga
+navigation button lama tidak diubah. Fourth button160×32 di tail navigation row,
+tanpa shortcut. Dua Python probe baru mengunci independent exact raw draft/Source/
+alignment/new selected target/caret/click/Undo/no-refocus/close dan exclusive
+dispatch; private DISPLAY guard13suite sebelum subprocess.
+
+[CI 39878237851](https://github.com/Indrawan007/Hylite/actions/runs/39878237851),
+`6caedff`, **success**, **775 Cargo /270 strict core (subset) /49 Python**,
+23 Oktober2026 00:36:51 UTC /08:36:51 Makassar. New suite **16 checks** =15 exact
+Copy (9 Source +6 draft) +natural clean Close0. Last raw body draft exact, invalid
+input copy sebelum disabled click, title tetap draft; Cancel+Source membuktikan
+no partial Apply. Reopen via picker, valid Unicode Apply Previous membuka preceding
+raw body payload dengan focus. Unchanged Apply Previous body→header Count→Name
+tanpa history. Modified first-header draft sebelum disabled boundary, title tetap
+first; Cancel Source membuktikan tidak commit first draft. Ini tidak mengklaim
+input focus setelah disabled click: Iced dapat melepasnya, tidak dipulihkan lewat
+klik workaround. Cancel/reopen adalah workflow produk eksplisit, bukan retry.
+
+Preview one-step Undo/Redo memulihkan exact Source. Split Apply Previous, Cancel,
+native X tanpa Source refocus masuk pada applied payload end (`finalX`), bukan
+previous payload. Separate typing/Apply/paste Undo sampai welcome clean, natural
+Close0. Source alignment/indent/Unicode/markup/escaped pipe/entity/spacing/tab/suffix
+utuh. No runtime hooks/oracle weakening/refocus/deadline changes untuk old gates.
+Total **255 GUI =116+9+9+9+14+16+11+11+11+11+11+11+16** =229 clipboard (214 Source
++15 draft),12 title,14 natural exits. Artifact `12469403519`,2.622.926 bytes,
+belum expired saat diperiksa; screenshot belum direview visual. Evidence
+`cell-apply-previous/cell-apply-previous-draft.png` / `cell-apply-previous-split.png`
+bukan pixel/glyph oracle.
+
+Header Apply Previous/EOF/empty/single/caps UI, physical Find/Go-to focus, narrow
+window/accessibility/keyboard traversal dan Arch/Hyprland/Wayland/portal/IME/RTL/
+HiDPI/GPU tetap manual. Bukan inline WYSIWYG/implicit Apply/session Undo atau
+synchronized scrolling. [Kontrak dan batas Stage6p](testing-stage6p.md).

@@ -1,6 +1,43 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 6o terbaru — duplicate raw columns with alignment
+## Stage 6p terbaru — Apply & Previous raw cell drafts
+
+[CI 39878237851](https://github.com/Indrawan007/Hylite/actions/runs/39878237851),
+`6caedff3615deedfb5217fcace6f8c7974595aad`, **success**, watch exit0,
+job `120169213439`,23 Oktober2026 00:28:12–00:36:51 UTC /08:28:12–08:36:51 Makassar.
+Format/strict Clippy/native debug build, **775 Cargo**, **270 strict core**
+(subset), **49 Python**, tiga belas suite Xvfb **116+9+9+9+14+16+11+11+11+11+11+
+11+16 GUI** lulus. Total **255 GUI** =229 clipboard (214 Source +15 draft),12
+confirmation title,14 natural exits. Artifact `12469403519`,2.622.926 bytes,
+belum expired saat diperiksa; screenshot belum direview visual.
+
+New suite membuktikan explicit Apply & Previous pada body kedua, fresh preceding
+raw body payload dengan native input focus sesudah Unicode offset change, no-op
+body→header→first-header, invalid/first-cell disabled tanpa partial Apply lewat
+Cancel+exact Source, Preview one-step Undo/Redo dan Split Cancel lalu native X
+pada applied payload end tanpa Source refocus. Typing/Apply/paste history terpisah
+hingga welcome clean, natural client Close0. Disabled-click input focus bukan
+oracle; Cancel/reopen adalah workflow invalid-draft eksplisit, bukan retry.
+
+16 Rust baru:7 Document +7 controller +2 UI adapter. Raw/header backward sequence,
+full candidate parse/current warm root auth/fresh Snapshot/cache, no-op/first
+boundary preserving revision/caret/cache/redo/checkpoint, cold/12forged/stale/
+replace/invalid/oversized/nested/literal/ragged/fallback, header-only/empty/single/
+renderer caps, delayed save ack/branch/Source barrier, modal/file/search/logical
+Go-to dan UI affordance. Shared direction-parametrized transition tetap menjaga
+existing Apply & Next API/status/semantics dan kontrol tiga tombol/input lama.
+Semua23 old exercise bodies AST-identical terhadap803ff5c; old oracle/geometry/
+deadline/refocus utuh. Runner13 private, alarm180s/step5min/job45min tetap.
+CI docs6o39877584000 cancelled superseded push6p; feature6o39876692641 success,
+seluruh dua belas old gates lulus lagi di6p.
+
+Full parse/reconstruction/history O(n), bukan speedup. Header Apply Previous/EOF/
+empty/single/caps UI, physical Find/Go-to focus, narrow window/accessibility/
+keyboard traversal/glyph/selection/scroll visuals, Arch/Hyprland/Wayland/portal/
+IME/RTL/HiDPI/GPU tetap manual. Tidak ada inline WYSIWYG/implicit Apply/draft-session
+Undo/glyph mapping/scroll sync. [Kontrak dan batas Stage6p](testing-stage6p.md).
+
+## Stage 6o — duplicate raw columns with alignment
 
 [CI 39876692641](https://github.com/Indrawan007/Hylite/actions/runs/39876692641),
 `94654369f44fd06aa2c2bd585f112b2b144bfcd1`, **success**, watch exit0,
@@ -489,6 +526,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom root terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6o](testing-stage6o.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 6p](testing-stage6p.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.
