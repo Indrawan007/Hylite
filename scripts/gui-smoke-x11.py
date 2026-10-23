@@ -2885,12 +2885,32 @@ def exercise_inline_spike(desktop, artifacts, document):
     desktop.title_ends_with("inline-spike.md [Stage 9a caret 0] — Hylite\n")
     desktop.screenshot(artifacts / "inline-spike-before.png")
 
-    # Click only to focus the one-line editor; Home then resets the caret so
-    # the probe does not rely on the click's glyph hit-testing. Seven visible-
-    # character moves place it between `o` and `l` in the bold run.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                    "600", "170", "click", "1")
+    # Locate a safe click point in the one-line editor by observing its visible
+    # caret byte in the title. Each click is followed by Home+Right; Home resets
+    # click hit-testing before the probe's seven deterministic character moves.
+    focused = False
+    for y in range(120, 401, 8):
+        desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                        "600", str(y), "click", "1")
+        desktop.key("Home")
+        desktop.key("Right")
+        try:
+            desktop.wait(
+                "Inline spike accepts a native caret move",
+                lambda: desktop.command("xdotool", "getwindowname", desktop.window)
+                .decode("utf-8")
+                .endswith("[Stage 9a caret 1] — Hylite\n"),
+                seconds=0.5,
+            )
+        except TimeoutError:
+            continue
+        focused = True
+        break
+    if not focused:
+        title = desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")
+        raise AssertionError(f"Inline spike did not accept keyboard focus; title={title!r}")
     desktop.key("Home")
+    desktop.title_ends_with("inline-spike.md [Stage 9a caret 0] — Hylite\n")
     for _ in range(7):
         desktop.key("Right")
     desktop.title_ends_with("inline-spike.md [Stage 9a caret 7] — Hylite\n")

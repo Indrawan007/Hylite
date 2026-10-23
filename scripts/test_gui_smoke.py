@@ -1593,16 +1593,17 @@ class SmokeHelperTests(unittest.TestCase):
             ],
         )
         keys = [item.args[0] for item in desktop.key.call_args_list]
-        self.assertEqual(keys[:8], ["Home", *["Right"] * 7])
-        self.assertEqual(keys[8:], ["Escape", "ctrl+shift+m", "ctrl+z",
-                                    "ctrl+shift+z", "ctrl+z"])
+        self.assertEqual(keys[:10], ["Home", "Right", "Home", *["Right"] * 7])
+        self.assertEqual(keys[10:], ["Escape", "ctrl+shift+m", "ctrl+z",
+                                     "ctrl+shift+z", "ctrl+z"])
         desktop.command.assert_any_call(
-            "xdotool", "mousemove", "--window", "42", "600", "170", "click", "1"
+            "xdotool", "mousemove", "--window", "42", "600", "120", "click", "1"
         )
         self.assertEqual(desktop.screenshot.call_count, 4)
         self.assertEqual(
             [call.args[0] for call in desktop.title_ends_with.call_args_list],
             [
+                "inline-spike.md [Stage 9a caret 0] — Hylite\n",
                 "inline-spike.md [Stage 9a caret 0] — Hylite\n",
                 "inline-spike.md [Stage 9a caret 7] — Hylite\n",
             ],
