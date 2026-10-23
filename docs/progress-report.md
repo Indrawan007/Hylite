@@ -87,6 +87,8 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | Selection arah/anchor, mapping glyph, drag, multi-cell | **belum** |
 | Sinkronisasi scroll Preview↔Source | **belum** |
 | WYSIWYG inline bebas ala MarkText | **belum** (masih panel draft terbatas) |
+| Multi-dokumen (tab + file tree) | **ya, terbatas** — tanpa watcher/split pane/session restore |
+| Gambar di Preview | **ya, terbatas** — PNG/GIF/BMP/JPEG lokal ≤4 MiB & ≤8192 px; tanpa oracle piksel, SVG/WebP, atau jaringan |
 | PDF dan math subset | **belum** — jadwal Fase A 8d–8e di [roadmap](roadmap.md) |
 | Incremental parsing / klaim performa | **belum** — semua jalur O(n) salin+parse |
 | Packaging/AUR/release build | **belum** |
