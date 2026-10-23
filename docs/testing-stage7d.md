@@ -3,6 +3,8 @@
 Melanjutkan [draft lokal7c](testing-stage7c.md): tombol **Previous multiline / Next
 multiline** menelusuri paragraf multiline root yang didukung. Bukan glyph mapping,
 block conversion, implicit Apply, atau navigasi seluruh jenis blok.
+Historical7d limits: [7e](testing-stage7e.md) menambahkan tombol Apply & Next
+terpisah; Previous/Next unchanged-only dan Apply-and-close tetap sama.
 
 ## Kontrak
 

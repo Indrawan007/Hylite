@@ -910,3 +910,41 @@ Capacity/offscreen/more unsupported cases/selection direction/traversal/disabled
 blur/narrow-window/accessibility/physical query focus/Arch/Hyprland/Wayland/portal/
 IME/RTL/HiDPI/GPU remain manual. Full root walk/raw copies O(n), not speedup.
 [Contract/evidence/limits7d](testing-stage7d.md).
+
+## Stage 7e: Apply & Next multiline, suite privat kedelapan belas
+
+`--suite paragraph-apply-next` memakai private app/Xvfb/XDG/env/clipboard, alarm
+180s, step5menit sendiri dan job45menit tetap. Seluruh **28old exercise bodies
+AST-identical `bb37223`**; 17gate lama dipertahankan tanpa perubahan bytes/
+koordinat/oracle/deadline/refocus. Private DISPLAY guard kini18suite. No retry/
+runtime hook. Apply Next memakai satu buffer Source baru + record atomic, sesi next
+native baru, dan dua fase preflight sebelum mutasi.
+
+**Lulus** [CI 39888436003](https://github.com/Indrawan007/Hylite/actions/runs/39888436003),
+`8ba6602`, job120202070235, 23 Oktober2026 02:13:55–02:25:14 UTC /
+10:13:55–10:25:14 Makassar. Native format/Clippy/build/**886Cargo** dan 18suite
+**352GUI**. Run pertama `64cc13f` berhenti di `unused_mut` tes baru sebelum build/
+GUI; perbaikan test-only `8ba6602` tanpa melonggarkan lint, tanpa perubahan produk/
+bytes/oracle/deadline.
+
+**352GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24+19+23**,
+**321clipboard =263Source+58draft**,12titles,19natural exits. Suite baru **23checks**
+=22Copy(11Source+11draft)+Close0: raw first focused; tiga baris Unicode staged lalu
+Apply & Next mengganti hanya first dan membuka second exact dengan native focus/
+offsets baru; local Ctrl+Z kosong; previous grown first; unchanged Next tanpa Source
+edge; last changed/disabled boundary→Cancel; satu Preview Undo/Redo; Split
+`one\n# heading` refusal tanpa partial; Cancel lalu native X membuktikan caret di
+akhir payload first yang diterapkan (bukan second); Undo Source bertahap dan welcome
+clean. Sembilan klik hanya product Open/Previous/Apply Next (termasuk disabled last).
+
+Artifact `12474580471`,3.158.202bytes,SHA256
+`4d02ac3bb9d5e751d93f0f448488d2ccca9e8a348461f6a9af540a8d8bc3f214`,
+unexpired; screenshot `paragraph-apply-next/paragraph-apply-next-refused.png` dan
+`paragraph-apply-next-split.png` tidak direview visual/bukan pixel oracle. Native
+count dari check annotations, bukan full archive.
+
+Batas: native Copy membuktikan raw value/focus, bukan selection anchor/direction/
+glyph mapping. Capacity/offscreen/128line/16KiB manual, disabled blur/keyboard/
+narrow window/accessibility/physical query focus/scroll, serta Arch/Hyprland/Wayland/
+portal/IME/RTL/HiDPI/GPU/visual review tetap manual. Full candidate copy/parse dan
+dua native buffer O(n) +memori ekstra, bukan speedup. [Kontrak7e](testing-stage7e.md).

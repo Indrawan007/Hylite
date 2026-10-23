@@ -800,3 +800,35 @@ mapping, cross-kind/EOF editing, block creation/sync scroll. Native Copy proves
 raw value/focus, controller selection tests aren't native anchor/pixel proof.
 [Contract/tests/evidence/manual limits7d](testing-stage7d.md), independent suite17;
 27old exercise bodies and all16gates preserved.
+
+## Two-phase multiline Apply & Next (Stage 7e)
+
+Opaque `MultilineNextPlan` dari read-only Document.prepare memuat anchor, original
+payload/full Source, provisional next ranges/value/neighbor flags, optional native
+Source Content/candidate text/full parsed model. Exact warm root auth7b+nearest next
+7d, full candidate root preservation, byte-delta-shifted complete next root/payload
+unchanged; UTF8 grow/shrink/canonical bounds checked. Native Source content_at
+reconstruction verified at applied payload end; no mutation/barrier change at prepare.
+
+Controller builds exact native next Draft before calling commit. Commit rechecks
+warm anchor snapshot/ranges and full Source equality, then single native buffer swap
+and shared record_edit(PreviewParagraph)/identity/caps/barriers, installs candidate
+model warm, stamps next snapshot from actual commit. No predicted revision/state_id,
+no fallible parse/next buffer initialization after Source changed. Opaque fields/
+consumed plan prevent callers forging candidate; context read-only except caret/
+Save ack can interleave, text/revision/replace/cold mismatch refuses unchanged.
+
+Unchanged returns no-edit plan: fresh session but Source identity/caret/cache pointer/
+checkpoint/redo/search unchanged. Changed opens native caret0/fresh local history;
+Source caret remains previous applied payload end. Cancel next restores Source
+focus there, does not Undo previous Apply. Each Apply its own atomic edge; local
+empty Undo cannot reach Source. Dirty notice doesn't disable valid Apply & Next;
+last-boundary/invalid/parser/stale/native-prefill refusal keeps draft/history, scope
+focus restored. No wrap/implicit creation/Apply & Previous/new Apply shortcut.
+
+160×32button appended to same Previous/Next row, old geometry unchanged. Existing
+Apply/Move paths/7b grammar/single-line/cell/Source helpers unchanged. Immutable Save/
+Export/search/logical Go-to/file/modal guards retained. Full buffers/copies/model/
+parse/reconstruction O(n) and extra memory, not speedup/process-RAM improvement.
+[Contract/tests/evidence/manual limits7e](testing-stage7e.md); suite18 independent,
+28old exercise bodies and all17gates preserved.
