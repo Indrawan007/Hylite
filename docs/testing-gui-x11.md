@@ -1088,3 +1088,19 @@ SHA256 tidak dapat diunduh dari sandbox ini. [Kontrak7j](testing-stage7j.md).
 
 Batas tetap: bukan bukti Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU, screenshot bukan
 oracle piksel, dan navigasi hanya paragraf satu baris ↔ paragraf satu baris.
+
+## Stage 7k: teks provenance sel tabel, 21 suite dijalankan ulang tanpa suite baru
+
+Stage7k hanya mengubah teks satu baris petunjuk pada panel sel tabel (tinggi tetap
+20px), sehingga input dan kedua baris tombol sel tetap pada koordinat yang sama.
+**Tidak ada suite ke-22**: seluruh 21 gate dijalankan ulang utuh pada commit ini dan
+lulus, termasuk `table-cells` (14), `cell-navigation` (16), dan
+`cell-apply-previous` (16). 28 badan exercise lama tetap AST-identical `bb37223`;
+bytes/koordinat/oracle/deadline/refocus tidak berubah.
+
+**Lulus** [CI 39908608710](https://github.com/Indrawan007/Hylite/actions/runs/39908608710),
+`c8be824`, job120266166695, 23 Oktober2026 05:57:06–06:08:15 UTC /
+13:57:06–14:08:15 Makassar. **943 Cargo**, **21 suite / 419 pemeriksaan GUI**
+(385 clipboard — 289 Source + 96 draft input; 12 title; 22 exit native normal).
+Artifact `12482570864`, 3.316.700bytes, expires 2026-10-30T06:08:08Z; SHA256 tidak
+dapat diunduh dari sandbox ini. [Kontrak7k](testing-stage7k.md).

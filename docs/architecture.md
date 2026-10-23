@@ -917,3 +917,21 @@ saat fokus, tidak ada shortcut baru — hanya dua baris tombol tambahan di bawah
 `Apply`/`Cancel`, sehingga koordinat suite GUI lama tidak berubah.
 [Kontrak/tests/evidence/manual limits7j](testing-stage7j.md); suite21 independen,
 28old exercise bodies dan 20 gate sebelumnya preserved.
+
+## Baris Source pada draft sel tabel (Stage 7k)
+
+Panel sel7a hanya menyebut baris tabel. `Document::cell_line` kini memberi baris
+Source1-based untuk payload sel, dengan otentikasi warm yang sama seperti edit sel:
+`preview_cell_payload` lebih dulu memeriksa snapshot, blok tabel yang dirender,
+`rows`/`columns`, dan rentang `payload` persis; setelah itu offset byte diperiksa
+(`is_char_boundary`) sebelum menghitung `\n`+1. Target basi/forged/blok non-tabel
+menghasilkan `None` dan panel kembali ke teks petunjuk lama.
+
+`ui::cell_edit::Draft` mendapat `line: Option<usize>` yang diisi saat sesi dibuka
+(`open_preview_cell`), dipindah (`move_preview_cell`), dan setelah
+`apply_preview_cell_adjacent` (memakai target hasil transisi). Teks provenance
+disalin sekali dan **tidak** dihitung ulang; Apply tetap menolak target basi, jadi
+provenance tidak pernah menjadi otorisasi. Baris petunjuk tetap tinggi20px sehingga
+input dan kedua baris tombol sel tidak bergeser — cukup teks yang berubah.
+[Kontrak/tests/evidence/manual limits7k](testing-stage7k.md); tanpa suite ke-22,
+21 suite lama dijalankan ulang utuh.
