@@ -26,12 +26,12 @@ impl Draft {
         ));
         (crate::document::buffer_text(&content) == projection.visible()
             && content.cursor_position() == (0, 0))
-        .then_some(Self {
-            target,
-            content,
-            projection,
-            generation: 0,
-        })
+            .then_some(Self {
+                target,
+                content,
+                projection,
+                generation: 0,
+            })
     }
 
     pub fn value(&self) -> String {
@@ -41,8 +41,7 @@ impl Draft {
     pub fn caret(&self) -> Option<usize> {
         let value = self.value();
         let (line, column) = self.content.cursor_position();
-        (line == 0 && column <= value.len() && value.is_char_boundary(column))
-            .then_some(column)
+        (line == 0 && column <= value.len() && value.is_char_boundary(column)).then_some(column)
     }
 
     pub fn replace_projection(&mut self, target: Target, projection: Projection) {
@@ -93,8 +92,10 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
     if press.status != text_editor::Status::Focused {
         return None;
     }
-    if matches!(press.key.as_ref(), keyboard::Key::Named(keyboard::key::Named::Escape))
-        && !press.modifiers.control()
+    if matches!(
+        press.key.as_ref(),
+        keyboard::Key::Named(keyboard::key::Named::Escape)
+    ) && !press.modifiers.control()
         && !press.modifiers.alt()
         && !press.modifiers.logo()
     {
@@ -103,9 +104,7 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
     if press.modifiers.control() || press.modifiers.alt() || press.modifiers.logo() {
         return None;
     }
-    if press.modifiers.shift()
-        && !matches!(press.key.as_ref(), keyboard::Key::Character(_))
-    {
+    if press.modifiers.shift() && !matches!(press.key.as_ref(), keyboard::Key::Character(_)) {
         return None;
     }
     text_editor::Binding::from_key_press(press)
@@ -227,7 +226,9 @@ mod tests {
         assert_eq!(settings.spans, vec![(bold..bold + 4, Style::Strong)]);
         let mut highlighter = InlineHighlighter::new(&settings);
         assert_eq!(
-            highlighter.highlight_line(draft.projection.visible()).collect::<Vec<_>>(),
+            highlighter
+                .highlight_line(draft.projection.visible())
+                .collect::<Vec<_>>(),
             vec![(bold..bold + 4, Style::Strong)]
         );
         assert_eq!(highlighter.current_line(), 1);

@@ -48,10 +48,8 @@ fn main() -> iced::Result {
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
     // The separate flag is an opt-in Stage 9a probe and never changes the
     // default Preview or any existing draft workflow.
-    let inline_spike = arguments
-        .first()
-        .and_then(|argument| argument.to_str())
-        == Some("--inline-edit-spike");
+    let inline_spike =
+        arguments.first().and_then(|argument| argument.to_str()) == Some("--inline-edit-spike");
     if inline_spike && arguments.len() != 2 {
         eprintln!("usage: hylite --inline-edit-spike <file>");
         std::process::exit(2);

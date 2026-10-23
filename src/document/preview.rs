@@ -243,18 +243,18 @@ fn render_block<'a>(
                 base_dir,
                 spike,
             ))
-                .padding([8, 16])
-                .width(Length::Fill)
-                .style(move |_| container::Style {
-                    background: Some(colors.surface.into()),
-                    border: Border {
-                        color: colors.accent,
-                        width: 1.0,
-                        ..Border::default()
-                    },
-                    ..container::Style::default()
-                })
-                .into(),
+            .padding([8, 16])
+            .width(Length::Fill)
+            .style(move |_| container::Style {
+                background: Some(colors.surface.into()),
+                border: Border {
+                    color: colors.accent,
+                    width: 1.0,
+                    ..Border::default()
+                },
+                ..container::Style::default()
+            })
+            .into(),
             Kind::List(start) => {
                 let items = block.children.iter().enumerate().map(
                     |(index, item)| -> Element<'_, Message> {
@@ -275,7 +275,13 @@ fn render_block<'a>(
                                 }
                                 row![
                                     prefix,
-                                    render_blocks(&item.children, colors, snapshot, base_dir, spike)
+                                    render_blocks(
+                                        &item.children,
+                                        colors,
+                                        snapshot,
+                                        base_dir,
+                                        spike
+                                    )
                                 ]
                                 .spacing(8)
                                 .into()

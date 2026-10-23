@@ -235,7 +235,10 @@ pub fn project(source: &str, range: Range<usize>) -> Result<Projection, Error> {
     if projection.visible.is_empty() {
         return Err(Error::Empty);
     }
-    debug_assert_eq!(projection.source_offsets.len(), projection.visible.len() + 1);
+    debug_assert_eq!(
+        projection.source_offsets.len(),
+        projection.visible.len() + 1
+    );
     debug_assert_eq!(projection.caret_styles.len(), projection.visible.len() + 1);
     Ok(projection)
 }
@@ -278,7 +281,11 @@ fn scan_runs(raw: &str) -> Result<Vec<(Range<usize>, Style)>, Error> {
             if strong && bytes.get(cursor + 2) == Some(&b'*') {
                 return Err(Error::UnsupportedMarkup);
             }
-            let style = if strong { Style::Strong } else { Style::Emphasis };
+            let style = if strong {
+                Style::Strong
+            } else {
+                Style::Emphasis
+            };
             let content_start = cursor + marker;
             let Some(relative) = bytes[content_start..]
                 .iter()
@@ -328,19 +335,12 @@ fn scan_runs(raw: &str) -> Result<Vec<(Range<usize>, Style)>, Error> {
     Ok(runs)
 }
 
-fn append_segment(
-    projection: &mut Projection,
-    text: &str,
-    source: Range<usize>,
-    style: Style,
-) {
+fn append_segment(projection: &mut Projection, text: &str, source: Range<usize>, style: Style) {
     let visible_start = projection.visible.len();
     if projection.source_offsets.is_empty() {
         projection.source_offsets.push(source.start);
         projection.caret_styles.push(style);
-    } else if style != Style::Plain
-        || projection.caret_styles[visible_start] == Style::Plain
-    {
+    } else if style != Style::Plain || projection.caret_styles[visible_start] == Style::Plain {
         // At a delimiter boundary, prefer the formatted run. Inserting at a
         // bold span's visible edge therefore stays inside its source markers.
         projection.source_offsets[visible_start] = source.start;
@@ -454,9 +454,7 @@ mod tests {
         let caret = 2;
         let mut inserted = projection.visible().to_owned();
         inserted.insert(caret, 'a');
-        let change = projection
-            .plan_edit(&inserted, caret, caret + 1)
-            .unwrap();
+        let change = projection.plan_edit(&inserted, caret, caret + 1).unwrap();
         assert_eq!(change.range, 4..4);
         assert_eq!(change.replacement, "a");
 
@@ -472,9 +470,15 @@ mod tests {
         let source = "x **bold** y";
         let projection = project(source, 0..source.len()).unwrap();
         let bold = projection.visible().find("bold").unwrap();
-        assert_eq!(projection.source_offset_at(bold), Some(source.find("bold").unwrap()));
+        assert_eq!(
+            projection.source_offset_at(bold),
+            Some(source.find("bold").unwrap())
+        );
         assert_eq!(projection.caret_style_at(bold), Some(Style::Strong));
-        assert_eq!(projection.source_offset_at(bold + 4), Some(source.find("bold").unwrap() + 4));
+        assert_eq!(
+            projection.source_offset_at(bold + 4),
+            Some(source.find("bold").unwrap() + 4)
+        );
         assert_eq!(projection.caret_style_at(bold + 4), Some(Style::Strong));
     }
 
@@ -526,7 +530,10 @@ mod tests {
         assert_eq!(project("one\ntwo", 0..7), Err(Error::MultipleLines));
         assert_eq!(project("a\tb", 0..3), Err(Error::ControlCharacter));
         let oversized = "x".repeat(MAX_BYTES + 1);
-        assert_eq!(project(&oversized, 0..oversized.len()), Err(Error::TooLarge));
+        assert_eq!(
+            project(&oversized, 0..oversized.len()),
+            Err(Error::TooLarge)
+        );
     }
 
     #[test]

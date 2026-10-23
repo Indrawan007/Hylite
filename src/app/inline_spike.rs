@@ -279,9 +279,9 @@ fn projection_at_root(
     block_start: usize,
 ) -> Option<(std::ops::Range<usize>, std::ops::Range<usize>, Projection)> {
     let blocks = preview_model::parse(source);
-    let block = blocks.iter().find(|block| {
-        block.source.start == block_start && matches!(block.kind, Kind::Paragraph)
-    })?;
+    let block = blocks
+        .iter()
+        .find(|block| block.source.start == block_start && matches!(block.kind, Kind::Paragraph))?;
     let target = target_for_block(block, source, Snapshot::default())?;
     let projection = authenticated_projection(block, source, &target, Snapshot::default())?;
     Some((block.source.clone(), target.payload, projection))

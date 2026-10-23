@@ -7112,7 +7112,10 @@ fn inline_spike_moves_visible_caret_and_writes_the_exact_bold_source_delta() {
     let mut app = app();
     enable_inline_spike(&mut app, source);
     let _ = app.open_first_inline_spike();
-    let draft = app.inline_spike.as_ref().expect("eligible paragraph opened");
+    let draft = app
+        .inline_spike
+        .as_ref()
+        .expect("eligible paragraph opened");
     assert_eq!(draft.projection.visible(), "left bold right");
     assert_eq!(draft.caret(), Some(0));
 
@@ -7124,7 +7127,10 @@ fn inline_spike_moves_visible_caret_and_writes_the_exact_bold_source_delta() {
     let before = app.document.snapshot();
     let _ = app.update(Message::InlineSpikeAction(Action::Edit(Edit::Insert('X'))));
     assert_eq!(app.document.buffer_text(), "left **boXld** right\n");
-    assert_eq!(app.inline_spike.as_ref().unwrap().value(), "left boXld right");
+    assert_eq!(
+        app.inline_spike.as_ref().unwrap().value(),
+        "left boXld right"
+    );
     assert_ne!(app.document.snapshot(), before);
     assert!(app.document.can_undo());
 
@@ -7148,11 +7154,14 @@ fn inline_spike_refuses_unsupported_input_without_touching_source_or_draft() {
     enable_inline_spike(&mut app, source);
     let _ = app.open_first_inline_spike();
     let _ = app.update(Message::InlineSpikeAction(Action::Move(Motion::End)));
-    let _ = app.update(Message::InlineSpikeAction(Action::Edit(Edit::Paste(Arc::new(
-        "pasted".into(),
-    )))));
+    let _ = app.update(Message::InlineSpikeAction(Action::Edit(Edit::Paste(
+        Arc::new("pasted".into()),
+    ))));
     assert_eq!(app.document.buffer_text(), source);
-    assert_eq!(app.inline_spike.as_ref().unwrap().value(), "left bold right");
+    assert_eq!(
+        app.inline_spike.as_ref().unwrap().value(),
+        "left bold right"
+    );
     assert!(app.status_message.contains("one safe character"));
 }
 
@@ -7184,7 +7193,11 @@ fn inline_spike_is_opt_in_and_skips_non_ascii_or_unsupported_paragraphs() {
     assert!(disabled.inline_spike.is_none());
     assert_eq!(disabled.document.buffer_text(), source);
 
-    for source in ["café **bold**\n", "left [label](url) right\n", "plain only\n"] {
+    for source in [
+        "café **bold**\n",
+        "left [label](url) right\n",
+        "plain only\n",
+    ] {
         let mut app = app();
         enable_inline_spike(&mut app, source);
         let _ = app.open_first_inline_spike();
