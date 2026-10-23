@@ -2310,9 +2310,9 @@ def exercise_draft_history_single(desktop, artifacts):
     inspect("Paragraph Apply commits the restored local value as one Source edge", applied)
     desktop.key("ctrl+z")
     copy("One Source Undo removes only that paragraph edge", para_source)
-    back_to_split()
     paste(table)  # Whole-document replace keeps one Source edge for phase two.
     copy("Table fixture replaces the paragraph document byte for byte", table)
+    back_to_split()
     open_cell()
     copy("Cell draft opens with the exact raw cell payload and native focus", cell_initial)
     paste(cell_a)
