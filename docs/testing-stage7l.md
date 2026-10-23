@@ -134,6 +134,10 @@ Artifact `12484788441`, **3.329.395 bytes**, expires 2026-10-30T07:13:41Z; diges
 SHA256 yang dilaporkan API: `bb80e4a53e3a5cc0161dd365d1f0d5bef71b4969eb15ba4fd2f2d1447f7e6de2`
 (zip artefak sendiri tidak dapat diunduh dari sandbox ini).
 
+Commit dokumentasi ini sendiri juga lulus CI
+[39916771054](https://github.com/Indrawan007/Hylite/actions/runs/39916771054)
+(`601ba8d`, perubahan hanya pada `*.md`).
+
 Percobaan CI sebelumnya gagal pada **suite GUI**, bukan pada gate: (1) copy
 dilakukan saat fokus masih di Preview/Split sehingga balasan clipboard berupa
 sentinels `hylite-copy-not-acknowledged-…`; (2) `paste_from_clean(table)` dipanggil
