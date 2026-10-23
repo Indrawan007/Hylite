@@ -7118,12 +7118,14 @@ fn inline_spike_moves_visible_caret_and_writes_the_exact_bold_source_delta() {
         .expect("eligible paragraph opened");
     assert_eq!(draft.projection.visible(), "left bold right");
     assert_eq!(draft.caret(), Some(0));
+    assert!(app.title().ends_with("[Stage 9a caret 0] — Hylite"));
 
     let _ = app.update(Message::InlineSpikeAction(Action::Move(Motion::End)));
     for _ in 0..8 {
         let _ = app.update(Message::InlineSpikeAction(Action::Move(Motion::Left)));
     }
     assert_eq!(app.inline_spike.as_ref().unwrap().caret(), Some(7));
+    assert!(app.title().ends_with("[Stage 9a caret 7] — Hylite"));
     let before = app.document.snapshot();
     let _ = app.update(Message::InlineSpikeAction(Action::Edit(Edit::Insert('X'))));
     assert_eq!(app.document.buffer_text(), "left **boXld** right\n");

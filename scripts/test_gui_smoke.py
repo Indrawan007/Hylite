@@ -1600,6 +1600,13 @@ class SmokeHelperTests(unittest.TestCase):
             "xdotool", "mousemove", "--window", "42", "600", "170", "click", "1"
         )
         self.assertEqual(desktop.screenshot.call_count, 4)
+        self.assertEqual(
+            [call.args[0] for call in desktop.title_ends_with.call_args_list],
+            [
+                "inline-spike.md [Stage 9a caret 0] — Hylite\n",
+                "inline-spike.md [Stage 9a caret 7] — Hylite\n",
+            ],
+        )
         desktop.find_window.assert_called_once_with(initial_click=False)
         self.assertTrue(all(item.kwargs == {"refocus": False}
                             for item in desktop.expect_copy.call_args_list))

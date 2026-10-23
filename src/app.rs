@@ -157,7 +157,18 @@ impl Hylite {
         } else {
             ""
         };
-        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline} — Hylite")
+        let inline_spike = self
+            .inline_spike
+            .as_ref()
+            .map_or_else(String::new, |draft| {
+                format!(
+                    " [Stage 9a caret {}]",
+                    draft
+                        .caret()
+                        .map_or_else(|| "unmapped".to_owned(), |caret| caret.to_string())
+                )
+            });
+        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline}{inline_spike} — Hylite")
     }
 
     /// A blocked gesture must not look like a dead click. Only user commands that

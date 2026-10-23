@@ -2882,7 +2882,7 @@ def exercise_inline_spike(desktop, artifacts, document):
         raise AssertionError(f"Inline spike fixture changed unexpectedly: {source!r}")
     desktop.find_window(initial_click=False)
     desktop.title_is_dirty(False)
-    desktop.title_ends_with("inline-spike.md — Hylite\n")
+    desktop.title_ends_with("inline-spike.md [Stage 9a caret 0] — Hylite\n")
     desktop.screenshot(artifacts / "inline-spike-before.png")
 
     # Click only to focus the one-line editor; Home then resets the caret so
@@ -2893,6 +2893,7 @@ def exercise_inline_spike(desktop, artifacts, document):
     desktop.key("Home")
     for _ in range(7):
         desktop.key("Right")
+    desktop.title_ends_with("inline-spike.md [Stage 9a caret 7] — Hylite\n")
     desktop.screenshot(artifacts / "inline-spike-caret-in-bold.png")
     desktop.type_ascii("X")
     desktop.title_is_dirty(True)
