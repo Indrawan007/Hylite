@@ -1020,3 +1020,22 @@ Batas: shortcut nyata di Hyprland bisa diambil compositor; IME/keyboard non-US d
 aksesibilitas keyboard-only manual. Ctrl+Alt/Logo/Shift sengaja ditolak di unit
 test, tetapi perilaku compositor nyata belum diuji. Arch/Hyprland/Wayland/portal/
 RTL/HiDPI/GPU tetap manual. [Kontrak7g](testing-stage7g.md).
+
+## Stage 7h: hardening properti, 20 suite dijalankan ulang tanpa perubahan produk
+
+Stage7h hanya menambah property test native (910 Cargo). Tidak ada perubahan kode
+produk, skrip GUI, atau workflow, sehingga **tidak ada suite ke-21**: ke-20 gate GUI
+dijalankan ulang utuh pada commit ini sebagai regresi dan seluruhnya lulus.
+28 badan exercise lama tetap AST-identical `bb37223`; bytes/koordinat/oracle/deadline/
+refocus tidak berubah.
+
+**Lulus** [CI 39898595716](https://github.com/Indrawan007/Hylite/actions/runs/39898595716),
+`c2af096`, job120234676767, 23 Oktober2026 04:07:10–04:17:50 UTC /
+12:07:10–12:17:50 Makassar. **910Cargo**, **394GUI** pada 20 suite
+(361clipboard,12titles,21natural exits), artifact `12477769679`,
+3.253.627bytes, SHA256
+`11c3fd76f5e200e24e196271113e81a580f6ff842a238ee72e5b60cff9143934`, unexpired.
+
+Temuan yang dicatat: `text_input` Iced 0.13 menangkap Enter/PageUp/PageDown/Escape
+saat fokus, sehingga shortcut commit7g hanya mungkin untuk draft `text_editor`.
+[Kontrak7h](testing-stage7h.md).

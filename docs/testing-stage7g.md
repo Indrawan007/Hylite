@@ -100,6 +100,9 @@ tidak `PartialEq`); `39894782748` gagal `clippy::clone_on_copy` (`Named` adalah
 karena fokus Source belum pulih pada keypress berikutnya. Perbaikan ketiganya
 test-only, tanpa melonggarkan lint/oracle/byte/koordinat/deadline.
 
+Catatan: batas capture `text_input` yang membuat shortcut ini khusus draft
+`text_editor` dijelaskan di [7h](testing-stage7h.md).
+
 ## Manual / limits
 
 - [ ]Konflik shortcut nyata di Hyprland (compositor dapat mengambil Ctrl+Enter

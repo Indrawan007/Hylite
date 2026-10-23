@@ -854,3 +854,20 @@ dan panel sel/paragraf satu baris tidak mendapat shortcut baru; tata letak tombo
 tidak berubah, hanya teks bantuan footer.
 [Kontrak/tests/evidence/manual limits7g](testing-stage7g.md); suite20 independen,
 28old exercise bodies dan 19 gate sebelumnya preserved.
+
+## Hardening properti draft multiline (Stage 7h)
+
+Tanpa perubahan kode produk, `preview_multiline_property_tests` menambahkan xorshift
+deterministik dan korpus blok untuk membandingkan setiap commit 7e/7f dengan
+transformasi acuan `replace_range(payload, value)` pada Source asli: buffer native
+identik, caret di akhir payload, hasil tetap satu root multiline dengan offset tepat,
+neighbour mempertahankan payload, satu edge Undo/Redo, dan unchanged move tanpa
+identitas/history berubah. Refusal (nilai tidak valid, plan basi) wajib
+byte-identical termasuk pointer cache preview. History lokal diuji tetap dalam batas
+16KiB/1MiB/100 record di bawah 300 operasi acak.
+
+Temuan Iced 0.13: `text_input` menangkap `Enter`/`PageUp`/`PageDown`/`Escape` saat
+fokus, jadi hanya draft `text_editor` yang dapat memakai shortcut commit7g; panel
+paragraf satu-baris dan sel tetap mengandalkan `on_submit`. Batasan ini
+didokumentasikan di helper agar tidak menjadi klaim fitur yang hilang.
+[Kontrak/tests/evidence7h](testing-stage7h.md).

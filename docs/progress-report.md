@@ -1,8 +1,8 @@
-# Laporan Progress — Hylite (snapshot Stage 7g)
+# Laporan Progress — Hylite (snapshot Stage 7h)
 
 **Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD:** `0539b02`
-**Basis:** commit `0539b02` lulus [CI 39895925701](https://github.com/Indrawan007/Hylite/actions/runs/39895925701)
-Status kerja: **belum di-merge ke `main`**; dokumentasi 7g ditulis setelah fitur lulus CI.
+**Basis:** commit `c2af096` lulus [CI 39898595716](https://github.com/Indrawan007/Hylite/actions/runs/39898595716)
+Status kerja: **belum di-merge ke `main`**; dokumentasi 7h ditulis setelah CI lulus.
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -12,10 +12,10 @@ Status kerja: **belum di-merge ke `main`**; dokumentasi 7g ditulis setelah fitur
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–7g) | **≈ 84 %** | 28 dari 28 stage yang direncanakan sudah diimplementasi + diverifikasi otomatis |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–7h) | **≈ 85 %** | 29 dari 29 stage yang direncanakan sudah diimplementasi + diverifikasi otomatis |
 | **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 42 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum |
 
-Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 84 % tinggi
+Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 85 % tinggi
 karena scope yang dideklarasikan memang sengaja sempit: editor native + prototipe
 editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
@@ -46,7 +46,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | 6n / 6o | Pindah kolom / duplikasi kolom |
 | 6p | Apply & Previous sel |
 
-### Paragraf root & draft multiline (Stage 7a–7g) — selesai 100 %
+### Paragraf root & draft multiline (Stage 7a–7h) — selesai 100 %
 
 | Stage | Isi |
 |---|---|
@@ -57,12 +57,13 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 | 7e | Apply & Next atomik dengan preflight kandidat penuh |
 | 7f | Apply & Previous atomik, offset root sebelumnya tetap diverifikasi ulang |
 | 7g | Shortcut commit eksplisit draft: Ctrl+Enter, Ctrl+PageUp/PageDown |
+| 7h | Hardening properti/diferensial draft multiline (tanpa perubahan produk) |
 
 ### Verifikasi otomatis — selesai 100 % dari yang dirancang
 
 | Metrik | Nilai |
 |---|---|
-| Tes Cargo | **905** lulus |
+| Tes Cargo | **910** lulus |
 | Tes core mandiri (subset) | **294** |
 | Helper Python | **63** |
 | Suite GUI X11 | **20 suite / 394 pemeriksaan** (361 clipboard, 12 title, 21 exit native) |
@@ -120,7 +121,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 6. Basis perhitungan persentase
 
-- **84 % roadmap**: 28 stage dideklarasikan (5a–5e, 6a–6p, 7a–7g); semuanya
+- **85 % roadmap**: 29 stage dideklarasikan (5a–5e, 6a–6p, 7a–7h); semuanya
   diimplementasi dan lulus CI dengan gate lama utuh. Sisa ~16 % adalah kategori
   desktop/WYSIWYG/performa yang sengaja ditandai di luar scope stage.
 - **42 % kesiapan rilis**: taksiran kualitatif. Fitur inti stabil dan teruji otomatis,
@@ -131,9 +132,9 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- Riwayat CI terakhir: `39895925701` (`0539b02`) **success** — 905 Cargo / 394 GUI,
-  artefak `12476433906`, 3.253.935 bytes, SHA256
-  `aa7def659290d7b336bc7b0860bbea4db9396b1968e4349391789539d294a138`.
+- Riwayat CI terakhir: `39898595716` (`c2af096`) **success** — 910 Cargo / 394 GUI,
+  artefak `12477769679`, 3.253.627 bytes, SHA256
+  `11c3fd76f5e200e24e196271113e81a580f6ff842a238ee72e5b60cff9143934`.
