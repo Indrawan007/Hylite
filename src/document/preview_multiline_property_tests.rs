@@ -310,8 +310,12 @@ fn property_local_draft_history_stays_bounded_under_random_edits() {
             0 => draft.edit(ied(Edit::Insert(*rng.pick(&alphabet)))),
             1 => draft.edit(ied(Edit::Enter)),
             2 => draft.edit(ied(Edit::Backspace)),
-            3 => draft.undo_redo(false),
-            4 => draft.undo_redo(true),
+            3 => {
+                draft.undo_redo(false);
+            }
+            4 => {
+                draft.undo_redo(true);
+            }
             _ => {
                 draft.edit(text_editor::Action::Move(Motion::DocumentEnd));
             }
