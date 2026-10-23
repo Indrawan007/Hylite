@@ -6527,3 +6527,33 @@ fn cell_draft_history_undo_restores_the_raw_cell_and_apply_commits_it() {
     let _ = app.update(Message::CellDraftHistory(false));
     assert!(app.cell_draft.is_none());
 }
+
+#[test]
+fn draft_history_keys_route_only_to_the_one_open_single_line_panel() {
+    use crate::commands::DraftHistoryPanel;
+    let mut app = single_paragraph_app();
+    assert_eq!(app.draft_history_panel(), None);
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    assert_eq!(
+        app.draft_history_panel(),
+        Some(DraftHistoryPanel::Paragraph)
+    );
+    let _ = app.update(Message::CancelPreviewParagraph);
+    assert_eq!(app.draft_history_panel(), None);
+
+    let mut cell = cell_app();
+    let target = cell_target(&cell, 1, 0);
+    let _ = cell.update(Message::OpenPreviewCell(target));
+    assert_eq!(cell.draft_history_panel(), Some(DraftHistoryPanel::Cell));
+    let _ = cell.update(Message::CancelPreviewCell);
+    assert_eq!(cell.draft_history_panel(), None);
+
+    // The multiline panel owns its own key binding and never shares the
+    // single-line routing, so Ctrl+Z there can never reach a local stack.
+    let mut multi = multiline_app();
+    let target = multiline_target(&multi);
+    let _ = multi.update(Message::OpenMultilineParagraph(target));
+    assert!(multi.multiline_draft.is_some());
+    assert_eq!(multi.draft_history_panel(), None);
+}

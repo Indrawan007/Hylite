@@ -158,13 +158,14 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
     }
 }
 
-/// Separate from global app shortcuts and Source key bindings. Subscription
-/// considers these only for uncaptured events; controller still requires Preview.
-pub fn preview_history_shortcut(
+/// Shared parser for Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z. Only uncaptured events
+/// with exact Ctrl (or Ctrl+Shift for redo) are accepted: AltGr, Logo, bare
+/// Shift selection and text entry stay with the focused widget.
+fn history_direction(
     key: &keyboard::Key,
     modifiers: keyboard::Modifiers,
     status: iced::event::Status,
-) -> Option<Message> {
+) -> Option<bool> {
     if status != iced::event::Status::Ignored {
         return None;
     }
@@ -175,10 +176,46 @@ pub fn preview_history_shortcut(
     }
     let shift = modifiers.shift();
     match key.as_ref() {
-        keyboard::Key::Character("z" | "Z") => Some(Message::PreviewHistory(shift)),
-        keyboard::Key::Character("y" | "Y") if !shift => Some(Message::PreviewHistory(true)),
+        keyboard::Key::Character("z" | "Z") => Some(shift),
+        keyboard::Key::Character("y" | "Y") if !shift => Some(true),
         _ => None,
     }
+}
+
+/// Separate from global app shortcuts and Source key bindings. Subscription
+/// considers these only for uncaptured events; controller still requires Preview.
+pub fn preview_history_shortcut(
+    key: &keyboard::Key,
+    modifiers: keyboard::Modifiers,
+    status: iced::event::Status,
+) -> Option<Message> {
+    history_direction(key, modifiers, status).map(Message::PreviewHistory)
+}
+
+/// Which single-line draft panel owns the keyboard history keys. Only one
+/// single-line panel can be open at a time, and the multiline panel never
+/// coexists with them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DraftHistoryPanel {
+    Paragraph,
+    Cell,
+}
+
+/// Keyboard Undo/Redo for the two `text_input` draft panels. Iced 0.13
+/// `text_input` has no native undo stack, so these events reach the
+/// subscription uncaptured; the controller still requires the exact panel to
+/// be open before a local snapshot moves.
+pub fn draft_history_shortcut(
+    key: &keyboard::Key,
+    modifiers: keyboard::Modifiers,
+    status: iced::event::Status,
+    panel: DraftHistoryPanel,
+) -> Option<Message> {
+    let redo = history_direction(key, modifiers, status)?;
+    Some(match panel {
+        DraftHistoryPanel::Paragraph => Message::ParagraphDraftHistory(redo),
+        DraftHistoryPanel::Cell => Message::CellDraftHistory(redo),
+    })
 }
 
 /// Exact-modifier shortcuts for an open multiline draft panel. Only Ctrl is
@@ -188,8 +225,8 @@ pub fn preview_history_shortcut(
 /// This route exists only for the native `text_editor` draft. Iced 0.13
 /// `text_input` (single-line paragraph and table-cell drafts) captures
 /// `Enter`/`PageUp`/`PageDown` itself, so those panels keep their existing
-/// `on_submit` Apply and cannot add subscription-level shortcuts without
-/// replacing their widget.
+/// `on_submit` Apply and cannot add commit shortcuts this way. Their local
+/// Undo/Redo keys are uncaptured and go through `draft_history_shortcut`.
 pub fn draft_commit_shortcut(
     key: &keyboard::Key,
     modifiers: keyboard::Modifiers,
@@ -424,6 +461,86 @@ mod tests {
                 keyboard::Modifiers::CTRL
             )
             .is_none());
+        }
+    }
+    #[test]
+    fn draft_history_shortcuts_need_exact_ctrl_and_an_uncaptured_event() {
+        use iced::event::Status;
+        let z = keyboard::Key::Character("z".into());
+        let y = keyboard::Key::Character("y".into());
+        for panel in [DraftHistoryPanel::Paragraph, DraftHistoryPanel::Cell] {
+            let routed = |message: Option<Message>| match (panel, message) {
+                (DraftHistoryPanel::Paragraph, Some(Message::ParagraphDraftHistory(redo))) => {
+                    Some(redo)
+                }
+                (DraftHistoryPanel::Cell, Some(Message::CellDraftHistory(redo))) => Some(redo),
+                (_, None) => None,
+                _ => panic!("history key routed to the wrong panel"),
+            };
+            assert_eq!(
+                routed(draft_history_shortcut(
+                    &z,
+                    keyboard::Modifiers::CTRL,
+                    Status::Ignored,
+                    panel
+                )),
+                Some(false)
+            );
+            assert_eq!(
+                routed(draft_history_shortcut(
+                    &y,
+                    keyboard::Modifiers::CTRL,
+                    Status::Ignored,
+                    panel
+                )),
+                Some(true)
+            );
+            assert_eq!(
+                routed(draft_history_shortcut(
+                    &z,
+                    keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
+                    Status::Ignored,
+                    panel
+                )),
+                Some(true)
+            );
+            for rejected in [
+                keyboard::Modifiers::empty(),
+                keyboard::Modifiers::SHIFT,
+                keyboard::Modifiers::ALT,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::ALT,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
+            ] {
+                assert!(
+                    routed(draft_history_shortcut(&z, rejected, Status::Ignored, panel)).is_none()
+                );
+                assert!(
+                    routed(draft_history_shortcut(&y, rejected, Status::Ignored, panel)).is_none()
+                );
+            }
+            // Shift+Z is redo, but Shift+Y is not, and a captured event belongs
+            // to the focused widget, never to the draft stack.
+            assert!(routed(draft_history_shortcut(
+                &y,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
+                Status::Ignored,
+                panel
+            ))
+            .is_none());
+            assert!(routed(draft_history_shortcut(
+                &z,
+                keyboard::Modifiers::CTRL,
+                Status::Captured,
+                panel
+            ))
+            .is_none());
+            assert!(routed(draft_history_shortcut(
+                &z,
+                keyboard::Modifiers::CTRL,
+                Status::Ignored,
+                panel
+            ))
+            .is_some());
         }
     }
 }

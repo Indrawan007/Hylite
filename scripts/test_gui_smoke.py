@@ -1201,5 +1201,50 @@ class SmokeHelperTests(unittest.TestCase):
             for probe in old:
                 probe.assert_not_called()
 
+    def test_draft_history_keys_probe_drives_only_the_local_stacks(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_draft_history_keys(desktop, Path("/unused-evidence"))
+        welcome = (gui.ROOT / "src" / "welcome.md").read_bytes()
+        payload = "café🙂 **raw** &amp;  ".encode("utf-8")
+        para_source = payload + b"\n\n# untouched\n\ntail \xf0\x9f\x99\x82\n\t"
+        first = "first edited 🙂".encode("utf-8")
+        table = ("| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+        cell_initial = "café🙂 **raw**".encode("utf-8")
+        cell_a = "café🙂 **raw** A".encode("utf-8")
+        copies = [c.args[1] for c in desktop.expect_copy.call_args_list]
+        self.assertEqual(copies, [welcome, para_source, payload, first, payload, first, first, payload,
+                                  para_source, table, cell_initial, cell_a, cell_initial, cell_a,
+                                  table, para_source, welcome])
+        self.assertTrue(all(c.kwargs == {"refocus": False} for c in desktop.expect_copy.call_args_list))
+        clicks = [c.args for c in desktop.command.call_args_list if c.args[-2:] == ("click", "1")]
+        def at(x, y):
+            return ("xdotool", "mousemove", "--window", "42", str(x), str(y), "click", "1")
+        self.assertEqual(clicks, [at(984,151), at(984,151), at(900,354)])
+        keys = [c.args[0] for c in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+z"), 7)
+        self.assertEqual(keys.count("ctrl+y"), 1)
+        self.assertEqual(keys.count("ctrl+shift+z"), 2)
+        self.assertEqual(keys.count("ctrl+shift+m"), 5)
+        self.assertEqual(keys.count("Escape"), 2)
+        self.assertEqual(keys.count("Return"), 0)
+        self.assertEqual(keys.count("ctrl+a"), 3)
+        self.assertEqual(keys.count("ctrl+v"), 3)
+        self.assertEqual([c.args[0] for c in desktop.paste_from_clean.call_args_list], [para_source])
+        self.assertEqual(desktop.title_is_dirty.call_count, 2)
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_draft_history_keys_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        names = ["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation","exercise_paragraph_apply_next","exercise_paragraph_apply_previous","exercise_paragraph_draft_shortcuts","exercise_single_paragraph_navigation","exercise_draft_history_single"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_draft_history_keys"))
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "draft-history-keys")
+            new.assert_called_once_with(desktop, artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

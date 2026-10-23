@@ -147,6 +147,18 @@ impl Hylite {
             format!("{panel} is open: Apply or press Esc to Cancel before another action");
     }
 
+    /// The single-line draft panel that owns the keyboard history keys, if any.
+    /// Two single-line panels never open together, so a keystroke can never be
+    /// routed to the wrong local stack.
+    fn draft_history_panel(&self) -> Option<crate::commands::DraftHistoryPanel> {
+        use crate::commands::DraftHistoryPanel;
+        match (self.paragraph_draft.is_some(), self.cell_draft.is_some()) {
+            (true, false) => Some(DraftHistoryPanel::Paragraph),
+            (false, true) => Some(DraftHistoryPanel::Cell),
+            _ => None,
+        }
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         if self.multiline_draft.is_some() {
             if matches!(&message, Message::ExitZenMode) {
@@ -596,7 +608,8 @@ impl Hylite {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let editing_events = event::listen_with(|event, status, _window| {
+        let draft_history_panel = self.draft_history_panel();
+        let editing_events = event::listen_with(move |event, status, _window| {
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
@@ -605,6 +618,16 @@ impl Hylite {
                 return None;
             };
 
+            // Draft-local history first: while a single-line panel is open,
+            // Ctrl+Z/Y/Shift+Z belong to that panel and must never reach the
+            // Source/Preview history shortcut below.
+            if let Some(panel) = draft_history_panel {
+                if let Some(message) =
+                    crate::commands::draft_history_shortcut(&key, modifiers, status, panel)
+                {
+                    return Some(message);
+                }
+            }
             if let Some(message) =
                 crate::commands::preview_history_shortcut(&key, modifiers, status)
             {
