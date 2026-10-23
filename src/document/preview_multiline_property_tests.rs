@@ -89,7 +89,7 @@ fn reference(source: &str, anchor: &Target, value: &str) -> String {
 fn mutated_value(rng: &mut Rng, original: &str) -> String {
     let mut lines: Vec<String> = original.split('\n').map(str::to_owned).collect();
     match rng.below(8) {
-        0 => format!("{original}"),
+        0 => original.to_owned(),
         1 => format!("{original}\nedited line"),
         2 => {
             if lines.len() > 1 {
@@ -219,7 +219,7 @@ fn property_commit_matches_reference_source_for_both_directions() {
             );
         }
         let _ = doc.preview.take();
-        assert!(roots(&Document::new(&doc.buffer_text())).len() >= 1);
+        assert!(!roots(&Document::new(&doc.buffer_text())).is_empty());
     }
     assert!(commits > 20, "expected many commits, got {commits}");
     assert!(refusals > 0, "expected some refusals");
