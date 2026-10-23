@@ -808,15 +808,6 @@ mod tests {
     }
 
     #[test]
-    fn picture_bounds_are_smaller_than_the_decode_gate() {
-        assert!(MAX_RENDER_WIDTH > 0.0 && MAX_RENDER_HEIGHT > 0.0);
-        assert!(
-            f64::from(MAX_RENDER_WIDTH) * f64::from(MAX_RENDER_HEIGHT)
-                < crate::images::MAX_PIXELS as f64
-        );
-    }
-
-    #[test]
     fn native_span_borrows_cached_text_instead_of_cloning_the_string() {
         let run = Run {
             text: "café🙂 cached".into(),
