@@ -230,12 +230,14 @@ impl Hylite {
             return Task::none();
         };
         let Some(target) = draft.history.target(redo).cloned() else {
-            return Task::none();
+            draft.navigation_notice = Some(super::paragraph_edit::empty_history_notice(redo));
+            return self.restore_input_focus();
         };
         if target.text.len() > preview_cell::MAX_BYTES
             || draft.history.step(record_of(&draft.value), redo).is_none()
         {
-            return Task::none();
+            draft.navigation_notice = Some(super::paragraph_edit::REFUSED_HISTORY_NOTICE);
+            return self.restore_input_focus();
         }
         draft.value = target.text;
         draft.error = (!preview_cell::valid_value(&draft.value))

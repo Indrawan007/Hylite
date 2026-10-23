@@ -6597,3 +6597,126 @@ fn draft_history_key_falls_back_to_preview_history_and_never_touches_source() {
         )
     );
 }
+
+#[test]
+fn empty_draft_history_gesture_reports_and_never_mutates_anything() {
+    let mut para = single_paragraph_app();
+    let t = single_targets(&para);
+    let before = (
+        para.document.buffer_text(),
+        para.document.snapshot(),
+        para.document.can_undo(),
+        para.document.can_redo(),
+    );
+    let _ = para.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let _ = para.update(Message::DraftHistory(false));
+    let draft = para.paragraph_draft.as_ref().unwrap();
+    assert_eq!(
+        draft.navigation_notice,
+        Some("Nothing to undo in this draft; Source is unchanged.")
+    );
+    assert!(draft.error.is_none());
+    assert_eq!(draft.value, "café🙂 **first**  ");
+    let _ = para.update(Message::DraftHistory(true));
+    assert_eq!(
+        para.paragraph_draft.as_ref().unwrap().navigation_notice,
+        Some("Nothing to redo in this draft; Source is unchanged.")
+    );
+    // An effective local change and its Undo clear the notice again.
+    set_paragraph_value(&mut para, "edited 🙂");
+    assert!(para
+        .paragraph_draft
+        .as_ref()
+        .unwrap()
+        .navigation_notice
+        .is_none());
+    let _ = para.update(Message::DraftHistory(false));
+    let draft = para.paragraph_draft.as_ref().unwrap();
+    assert_eq!(draft.value, "café🙂 **first**  ");
+    assert!(draft.navigation_notice.is_none());
+    assert_eq!(
+        before,
+        (
+            para.document.buffer_text(),
+            para.document.snapshot(),
+            para.document.can_undo(),
+            para.document.can_redo()
+        )
+    );
+    let _ = para.update(Message::CancelPreviewParagraph);
+
+    let mut cell = cell_app();
+    let target = cell_target(&cell, 1, 0);
+    let source = cell.document.buffer_text();
+    let _ = cell.update(Message::OpenPreviewCell(target));
+    let _ = cell.update(Message::CellDraftHistory(false));
+    assert_eq!(
+        cell.cell_draft.as_ref().unwrap().navigation_notice,
+        Some("Nothing to undo in this draft; Source is unchanged.")
+    );
+    let _ = cell.update(Message::CellDraftHistory(true));
+    assert_eq!(
+        cell.cell_draft.as_ref().unwrap().navigation_notice,
+        Some("Nothing to redo in this draft; Source is unchanged.")
+    );
+    let _ = cell.update(Message::PreviewCellChanged("café🙂 A".into()));
+    let _ = cell.update(Message::CellDraftHistory(false));
+    assert!(cell
+        .cell_draft
+        .as_ref()
+        .unwrap()
+        .navigation_notice
+        .is_none());
+    assert_eq!(cell.document.buffer_text(), source);
+    assert!(!cell.document.can_undo());
+}
+
+#[test]
+fn generated_draft_history_messages_never_touch_source_or_its_history() {
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let original = app.document.buffer_text();
+    let baseline = (
+        original.clone(),
+        app.document.snapshot(),
+        app.document.caret_offset(),
+        app.document.can_undo(),
+        app.document.can_redo(),
+    );
+    let values = [
+        "first A",
+        "first AB",
+        "café🙂 **first**  ",
+        "two",
+        "# heading",
+        "tail 🙂",
+    ];
+    for round in 0..6_usize {
+        set_paragraph_value(&mut app, values[round % values.len()]);
+        let _ = app.update(Message::DraftHistory(round % 3 == 0));
+        let _ = app.update(Message::ParagraphDraftHistory(round % 2 == 0));
+        let draft = app.paragraph_draft.as_ref().unwrap();
+        assert!(draft.value.len() <= crate::preview_paragraph::MAX_BYTES);
+        assert_eq!(
+            baseline,
+            (
+                app.document.buffer_text(),
+                app.document.snapshot(),
+                app.document.caret_offset(),
+                app.document.can_undo(),
+                app.document.can_redo()
+            ),
+            "round {round} mutated Source or its history"
+        );
+    }
+    // Only the explicit Apply crosses into Source, and only for a value that
+    // differs from the authenticated payload.
+    set_paragraph_value(&mut app, "final é🙂");
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert!(app.paragraph_draft.is_none());
+    assert!(app.document.buffer_text().starts_with("final é🙂"));
+    assert!(app.document.can_undo());
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), original);
+}

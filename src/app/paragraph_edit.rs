@@ -36,6 +36,17 @@ enum AdjacentDecision {
     },
 }
 
+/// Deterministic feedback for a local history gesture that cannot move. The
+/// draft, Source bytes, and both history stacks stay untouched.
+pub(super) const REFUSED_HISTORY_NOTICE: &str =
+    "That draft snapshot is too large to restore; draft kept. Source unchanged.";
+pub(super) fn empty_history_notice(redo: bool) -> &'static str {
+    if redo {
+        "Nothing to redo in this draft; Source is unchanged."
+    } else {
+        "Nothing to undo in this draft; Source is unchanged."
+    }
+}
 fn record_of(value: &str) -> crate::multiline_draft_history::Record {
     crate::multiline_draft_history::Record {
         text: value.to_owned(),
@@ -60,6 +71,9 @@ impl Hylite {
     }
     pub(super) fn change_preview_paragraph(&mut self, value: String) -> Task<Message> {
         if let Some(draft) = &mut self.paragraph_draft {
+            // Typing (even an oversized paste) makes the last blocked history
+            // gesture stale, exactly like the cell panel does.
+            draft.navigation_notice = None;
             if value.len() > preview_paragraph::MAX_BYTES {
                 draft.error = Some("Paragraph draft exceeds 16 KiB; shorten input before Apply.");
             } else {
@@ -279,17 +293,20 @@ impl Hylite {
     }
     /// Draft-local Undo/Redo. Source, document identity, and Source history are
     /// never touched; an invalid restored value only re-arms the same error.
+    /// A gesture with nothing to restore reports instead of dying silently.
     pub(super) fn history_preview_paragraph(&mut self, redo: bool) -> Task<Message> {
         let Some(draft) = &mut self.paragraph_draft else {
             return Task::none();
         };
         let Some(target) = draft.history.target(redo).cloned() else {
-            return Task::none();
+            draft.navigation_notice = Some(empty_history_notice(redo));
+            return self.restore_input_focus();
         };
         if target.text.len() > preview_paragraph::MAX_BYTES
             || draft.history.step(record_of(&draft.value), redo).is_none()
         {
-            return Task::none();
+            draft.navigation_notice = Some(REFUSED_HISTORY_NOTICE);
+            return self.restore_input_focus();
         }
         draft.value = target.text;
         draft.error = (!preview_paragraph::valid_value(&draft.value))

@@ -280,4 +280,240 @@ mod tests {
             check(&h);
         }
     }
+    /// Deterministic LCG so failures are reproducible from the printed seed.
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            self.0 >> 33
+        }
+        fn pick(&mut self, bound: u64) -> u64 {
+            self.next() % bound
+        }
+        fn text(&mut self, seed: u64) -> String {
+            let size = match self.pick(10) {
+                0..=5 => (self.pick(40) as usize) + 1,
+                6..=8 => (self.pick(2_000) as usize) + 1,
+                _ => (self.pick(MAX_BYTES as u64) as usize) + 1,
+            };
+            let mut text = String::with_capacity(size);
+            while text.len() < size {
+                if self.pick(9) == 0 {
+                    text.push('\n');
+                } else {
+                    text.push(char::from(b'a' + (seed % 26) as u8));
+                }
+            }
+            text
+        }
+    }
+
+    /// Independent reference for the documented policy. It recomputes the byte
+    /// total from scratch instead of maintaining a running counter, so it
+    /// catches accounting drift rather than repeating the production bookkeeping.
+    #[derive(Default)]
+    struct Model {
+        undo: Vec<Record>,
+        redo: Vec<Record>,
+    }
+    impl Model {
+        fn bytes(&self) -> usize {
+            self.undo
+                .iter()
+                .chain(&self.redo)
+                .map(|r| r.text.len())
+                .sum()
+        }
+        fn record(&mut self, before: Record, after: &Record) -> bool {
+            if !before.valid() || !after.valid() || before.text == after.text {
+                return false;
+            }
+            self.redo.clear();
+            self.undo.push(before);
+            self.trim();
+            true
+        }
+        fn step(&mut self, current: Record, redo: bool) -> Option<Record> {
+            if !current.valid() {
+                return None;
+            }
+            let (from, to) = if redo {
+                (&mut self.redo, &mut self.undo)
+            } else {
+                (&mut self.undo, &mut self.redo)
+            };
+            let target = from.pop()?;
+            to.push(current);
+            self.trim();
+            Some(target)
+        }
+        fn trim(&mut self) {
+            while self.undo.len() + self.redo.len() > MAX_RECORDS || self.bytes() > MAX_TEXT_BYTES {
+                if self.undo.is_empty() && self.redo.is_empty() {
+                    return;
+                }
+                if self.undo.is_empty() {
+                    self.redo.remove(0);
+                } else {
+                    self.undo.remove(0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn generated_history_matches_an_independently_bookkept_reference() {
+        for seed in [1_u64, 7, 42, 99, 2026] {
+            let mut rng = Rng(seed);
+            let mut h = History::default();
+            let mut model = Model::default();
+            let mut current = r(&format!("seed {seed}\ntext"));
+            for step in 0..400 {
+                match rng.pick(10) {
+                    0..=4 => {
+                        let next = r(&rng.text(step));
+                        assert_eq!(
+                            h.record(current.clone(), &next),
+                            model.record(current.clone(), &next),
+                            "record diverged at seed {seed} step {step}"
+                        );
+                        if h.undo.back() == Some(&current) {
+                            current = next;
+                        }
+                    }
+                    5..=7 => {
+                        let expected = model.step(current.clone(), false);
+                        assert_eq!(
+                            h.step(current.clone(), false),
+                            expected,
+                            "undo diverged at seed {seed} step {step}"
+                        );
+                        if let Some(target) = expected {
+                            current = target;
+                        }
+                    }
+                    _ => {
+                        let expected = model.step(current.clone(), true);
+                        assert_eq!(
+                            h.step(current.clone(), true),
+                            expected,
+                            "redo diverged at seed {seed} step {step}"
+                        );
+                        if let Some(target) = expected {
+                            current = target;
+                        }
+                    }
+                }
+                assert_eq!(h.can_undo(), !model.undo.is_empty());
+                assert_eq!(h.can_redo(), !model.redo.is_empty());
+                assert_eq!(h.bytes, model.bytes(), "byte drift at seed {seed}");
+                assert_eq!(h.undo.len(), model.undo.len());
+                assert_eq!(h.redo.len(), model.redo.len());
+                check(&h);
+            }
+            assert!(h.undo.len() + h.redo.len() <= MAX_RECORDS);
+        }
+    }
+
+    #[test]
+    fn eviction_always_takes_the_oldest_undo_then_the_farthest_redo() {
+        let mut rng = Rng(11);
+        let mut h = History::default();
+        let mut model = Model::default();
+        let mut current = r("start\ntext");
+        for n in 0..MAX_RECORDS {
+            let next = r(&format!("full {n}\ntext"));
+            assert!(h.record(current.clone(), &next));
+            assert!(model.record(current.clone(), &next));
+            current = next;
+        }
+        assert_eq!(h.undo.len(), MAX_RECORDS);
+        // Build a redo stack, then force eviction while both stacks are full.
+        for _ in 0..40 {
+            let target = h.step(current.clone(), false).unwrap();
+            assert_eq!(Some(target.clone()), model.step(current.clone(), false));
+            current = target;
+        }
+        assert_eq!(h.redo.len(), 40);
+        for n in 0..60 {
+            let next = r(&rng.text(n as u64));
+            assert_eq!(
+                h.record(current.clone(), &next),
+                model.record(current.clone(), &next)
+            );
+            current = next;
+            check(&h);
+        }
+        // Entries are ordered oldest-first, so the retained windows must match
+        // the reference exactly, not only in size.
+        assert_eq!(
+            h.undo.iter().map(|r| r.text.clone()).collect::<Vec<_>>(),
+            model
+                .undo
+                .iter()
+                .map(|r| r.text.clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            h.redo.iter().map(|r| r.text.clone()).collect::<Vec<_>>(),
+            model
+                .redo
+                .iter()
+                .map(|r| r.text.clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(h.bytes, model.bytes());
+    }
+
+    #[test]
+    fn refused_records_and_steps_leave_both_stacks_byte_identical() {
+        let mut rng = Rng(5);
+        let mut h = History::default();
+        let mut current = r("base\ntext");
+        for _ in 0..20 {
+            let next = r(&rng.text(3));
+            h.record(current.clone(), &next);
+            current = next;
+        }
+        h.step(current.clone(), false);
+        let snapshot = (
+            h.undo.iter().cloned().collect::<Vec<_>>(),
+            h.redo.iter().cloned().collect::<Vec<_>>(),
+            h.bytes,
+        );
+        let oversized = "x".repeat(MAX_BYTES + 1);
+        let invalid_caret = Record {
+            text: "é\n🙂".into(),
+            caret: 1,
+        };
+        let out_of_bounds = Record {
+            text: "short".into(),
+            caret: usize::MAX,
+        };
+        for bad in [
+            Record {
+                text: oversized,
+                caret: 5,
+            },
+            invalid_caret,
+            out_of_bounds,
+        ] {
+            assert!(!h.record(bad.clone(), &r("fine\ntext")));
+            assert!(!h.record(r("fine\ntext"), &bad));
+            assert_eq!(h.step(bad.clone(), false), None);
+            assert_eq!(h.step(bad, true), None);
+            assert_eq!(
+                (
+                    h.undo.iter().cloned().collect::<Vec<_>>(),
+                    h.redo.iter().cloned().collect::<Vec<_>>(),
+                    h.bytes,
+                ),
+                snapshot
+            );
+        }
+        check(&h);
+    }
 }
