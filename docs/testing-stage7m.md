@@ -103,6 +103,10 @@ Artifact `12488168397`, **3.334.806 bytes**, expires 2026-10-30T08:19:41Z; diges
 SHA256 yang dilaporkan API: `745dfeffea59a0ea523f063977816d1b806d8716bed981f65638e894b8f6c6ec`
 (zip artefak tidak dapat diunduh dari sandbox ini).
 
+Commit dokumentasi ini sendiri juga lulus CI
+[39924092281](https://github.com/Indrawan007/Hylite/actions/runs/39924092281)
+(`7fcf454`, hanya `*.md`).
+
 Percobaan CI sebelumnya gagal pada **kompilasi**, bukan pada gate: (1) rute draft
 dibuat dengan closure yang menangkap state padahal `event::listen_with` hanya
 menerima *fn pointer* → diganti pesan netral + routing di controller; (2) parameter
