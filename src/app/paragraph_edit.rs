@@ -17,10 +17,12 @@ impl Hylite {
             self.status_message = "Paragraph target is stale or unsupported; document kept".into();
             return Task::none();
         };
+        let line = self.document.paragraph_line(&target);
         self.paragraph_draft = Some(Draft {
             target,
             value,
             error: None,
+            line,
         });
         self.restore_input_focus()
     }

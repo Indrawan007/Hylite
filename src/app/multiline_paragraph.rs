@@ -37,7 +37,8 @@ impl Hylite {
             .document
             .adjacent_multiline_paragraph(&target, Direction::Next)
             .is_some();
-        Draft::new(target, &value).map(|d| d.with_neighbors(previous, next))
+        let context = self.document.multiline_context(&target);
+        Draft::new(target, &value).map(|d| d.with_neighbors(previous, next).with_context(context))
     }
     pub(super) fn move_multiline_paragraph(
         &mut self,
@@ -175,7 +176,10 @@ impl Hylite {
             draft.error = Some("Multiline transition became stale. Draft and Source kept.");
             return self.restore_input_focus();
         };
-        let mut moved = next_draft.with_neighbors(previous, next);
+        let context = self.document.multiline_context(&target);
+        let mut moved = next_draft
+            .with_neighbors(previous, next)
+            .with_context(context);
         moved.target = target;
         self.multiline_draft = Some(moved);
         self.status_message = if changed {
@@ -236,7 +240,10 @@ impl Hylite {
             draft.error = Some("Multiline transition became stale. Draft and Source kept.");
             return self.restore_input_focus();
         };
-        let mut next_draft = next_draft.with_neighbors(previous, next);
+        let context = self.document.multiline_context(&target);
+        let mut next_draft = next_draft
+            .with_neighbors(previous, next)
+            .with_context(context);
         next_draft.target = target;
         self.multiline_draft = Some(next_draft);
         self.status_message = if changed {

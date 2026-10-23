@@ -118,6 +118,35 @@ impl Hylite {
         format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline} — Hylite")
     }
 
+    /// A blocked gesture must not look like a dead click. Only user commands that
+    /// would otherwise act on the document report; keystrokes, typing boundaries
+    /// and async replies stay silent so they cannot overwrite a real status.
+    fn report_blocked_draft_action(&mut self, message: &Message, panel: &'static str) {
+        if !matches!(
+            message,
+            Message::SaveFile
+                | Message::SaveAs
+                | Message::NewFile
+                | Message::OpenFile
+                | Message::ExportHtml
+                | Message::SwitchMode(_)
+                | Message::CycleMode
+                | Message::Undo
+                | Message::Redo
+                | Message::PreviewHistory(_)
+                | Message::OpenFind(_)
+                | Message::FindNext(_)
+                | Message::OpenGoTo
+                | Message::ToggleSidebar
+                | Message::ToggleZenMode
+                | Message::CloseRequested(_)
+        ) {
+            return;
+        }
+        self.status_message =
+            format!("{panel} is open: Apply or press Esc to Cancel before another action");
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         if self.multiline_draft.is_some() {
             if matches!(&message, Message::ExitZenMode) {
@@ -137,6 +166,7 @@ impl Hylite {
                     | Message::FileSaved(..)
                     | Message::HtmlExported(..)
             ) {
+                self.report_blocked_draft_action(&message, "A multiline paragraph draft");
                 return Task::none();
             }
         }
@@ -154,6 +184,7 @@ impl Hylite {
                     | Message::FileSaved(..)
                     | Message::HtmlExported(..)
             ) {
+                self.report_blocked_draft_action(&message, "A paragraph draft");
                 return Task::none();
             }
         }
@@ -174,6 +205,7 @@ impl Hylite {
                     | Message::FileSaved(..)
                     | Message::HtmlExported(..)
             ) {
+                self.report_blocked_draft_action(&message, "A cell draft");
                 return Task::none();
             }
         }

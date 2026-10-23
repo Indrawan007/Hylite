@@ -5908,3 +5908,198 @@ fn multiline_apply_previous_preserves_immutable_save_export_and_refreshes_logica
         assert!(!app.document.is_dirty());
     }
 }
+
+fn draft_line_of(app: &Hylite, target: &crate::preview_paragraph::Target) -> usize {
+    app.document.buffer_text()[..target.payload.start]
+        .bytes()
+        .filter(|b| *b == b'\n')
+        .count()
+        + 1
+}
+fn draft_last_line_of(app: &Hylite, target: &crate::preview_paragraph::Target) -> usize {
+    draft_line_of(app, target)
+        + app.document.buffer_text()[target.payload.clone()]
+            .bytes()
+            .filter(|b| *b == b'\n')
+            .count()
+}
+#[test]
+fn multiline_draft_opens_in_preview_and_split_with_authenticated_line_and_root_context() {
+    use crate::document::ParagraphDirection::Next;
+    for mode in [EditMode::Preview, EditMode::Split] {
+        let mut app = multiline_navigation_app();
+        app.mode = mode;
+        let t = multiline_target(&app);
+        let (first, last) = (draft_line_of(&app, &t), draft_last_line_of(&app, &t));
+        let _ = app.update(Message::OpenMultilineParagraph(t));
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().context,
+            Some((first, last, 1, 2))
+        );
+        let _ = app.update(Message::MoveMultilineParagraph(Next));
+        let moved = app.multiline_draft.as_ref().unwrap().target.clone();
+        let (first, last) = (
+            draft_line_of(&app, &moved),
+            draft_last_line_of(&app, &moved),
+        );
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().context,
+            Some((first, last, 2, 2))
+        );
+    }
+}
+#[test]
+fn multiline_context_keeps_native_bytes_and_history_untouched() {
+    let mut app = multiline_navigation_app();
+    let t = multiline_target(&app);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.buffer_text(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.buffer_text(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+}
+#[test]
+fn multiline_context_refreshes_after_apply_next_and_previous() {
+    let mut app = multiline_navigation_app();
+    app.mode = EditMode::Split;
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    multiline_replace(&mut app, "grown é🙂\nsecond");
+    let _ = app.update(Message::ApplyMultilineParagraphNext);
+    let draft = app.multiline_draft.as_ref().unwrap();
+    let target = draft.target.clone();
+    let expected = (
+        draft_line_of(&app, &target),
+        draft_last_line_of(&app, &target),
+        2,
+        2,
+    );
+    assert_eq!(draft.context, Some(expected));
+    assert_eq!(
+        app.document.buffer_text().lines().nth(expected.0 - 1),
+        Some("second é🙂")
+    );
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    let draft = app.multiline_draft.as_ref().unwrap();
+    let target = draft.target.clone();
+    assert_eq!(
+        draft.context,
+        Some((
+            draft_line_of(&app, &target),
+            draft_last_line_of(&app, &target),
+            1,
+            2
+        ))
+    );
+}
+#[test]
+fn multiline_context_survives_invalid_drafts_and_requires_authentication() {
+    let mut app = multiline_navigation_app();
+    let t = multiline_target(&app);
+    let _ = app.update(Message::OpenMultilineParagraph(t.clone()));
+    let context = app.multiline_draft.as_ref().unwrap().context;
+    multiline_replace(&mut app, "one\n# heading");
+    // Provenance is copied at open time, never recomputed from draft bytes.
+    assert_eq!(app.multiline_draft.as_ref().unwrap().context, context);
+    assert!(app.document.multiline_context(&t).is_some());
+    let mut forged = t.clone();
+    forged.snapshot.revision += 1;
+    assert!(app.document.multiline_context(&forged).is_none());
+    assert!(app.document.paragraph_line(&t).is_none());
+}
+#[test]
+fn single_line_paragraph_draft_reports_its_authenticated_source_line() {
+    let mut app = paragraph_app();
+    let t = paragraph_target(&app);
+    let line = draft_line_of(&app, &t);
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().line, Some(line));
+    assert_eq!(line, 1);
+}
+#[test]
+fn blocked_save_close_and_mode_switch_report_the_open_draft_instead_of_going_silent() {
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    multiline_replace(&mut app, "changed\ntext");
+    let before = (
+        app.document.snapshot(),
+        app.mode,
+        app.operations.active().is_some(),
+        app.title(),
+    );
+    for message in [
+        Message::SaveFile,
+        Message::SwitchMode(EditMode::Source),
+        Message::NewFile,
+        Message::ExportHtml,
+        Message::Undo,
+        Message::ToggleSidebar,
+    ] {
+        let _ = app.update(message);
+        assert!(
+            app.status_message.contains("multiline paragraph draft"),
+            "{}",
+            app.status_message
+        );
+        assert!(app.status_message.contains("Esc"));
+    }
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.mode,
+            app.operations.active().is_some(),
+            app.title()
+        ),
+        before
+    );
+    assert_eq!(
+        app.multiline_draft.as_ref().unwrap().value(),
+        "changed\ntext"
+    );
+}
+#[test]
+fn blocked_close_request_keeps_the_draft_and_reports_instead_of_closing() {
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let _ = app.update(Message::CloseRequested(iced::window::Id::unique()));
+    assert!(app.pending_action.is_none());
+    assert!(app.status_message.contains("multiline paragraph draft"));
+    assert!(app.multiline_draft.is_some());
+}
+#[test]
+fn paragraph_and_cell_panels_report_their_own_blocked_actions() {
+    let mut app = paragraph_app();
+    let _ = app.update(Message::OpenPreviewParagraph(paragraph_target(&app)));
+    let _ = app.update(Message::SaveFile);
+    assert!(app.status_message.contains("paragraph draft"));
+    assert!(app.status_message.contains("Esc"));
+    let mut app = cell_app();
+    let t = cell_target(&app, 0, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::SaveFile);
+    assert!(app.status_message.contains("cell draft"));
+    assert!(app.paragraph_draft.is_none());
+}
+#[test]
+fn async_replies_and_typing_do_not_overwrite_status_with_a_blocked_notice() {
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let token = app
+        .operations
+        .start(OperationKind::Save, app.document.snapshot())
+        .unwrap();
+    let _ = app.update(Message::FileSaved(token, Ok(Some("stale.md".into()))));
+    assert!(!app.status_message.contains("Apply or press Esc"));
+    let _ = app.update(Message::EndTypingGroup);
+    assert!(!app.status_message.contains("Apply or press Esc"));
+}

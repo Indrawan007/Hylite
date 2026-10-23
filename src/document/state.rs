@@ -500,6 +500,59 @@ impl Document {
         })
     }
 
+    /// Read-only Source context for a draft header. Authenticates the warm
+    /// exact target first, then derives 1-based inclusive line span plus the
+    /// root's 1-based position among eligible multiline roots.
+    pub(crate) fn multiline_context(
+        &self,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<(usize, usize, usize, usize)> {
+        self.multiline_paragraph_payload(target)?;
+        let text = self.buffer_text();
+        let (start, end) = (target.payload.start, target.payload.end);
+        if start > end
+            || end > text.len()
+            || !text.is_char_boundary(start)
+            || !text.is_char_boundary(end)
+        {
+            return None;
+        }
+        let mut index = 0;
+        let mut total = 0;
+        for block in self.preview.get()? {
+            if block.multiline_paragraph_payload.is_some() {
+                total += 1;
+                if block.source.start == target.block.start {
+                    index = total;
+                }
+            }
+        }
+        if index == 0 {
+            return None;
+        }
+        let first = text[..start].bytes().filter(|byte| *byte == b'\n').count() + 1;
+        let last = first
+            + text[start..end]
+                .bytes()
+                .filter(|byte| *byte == b'\n')
+                .count();
+        Some((first, last, index, total))
+    }
+
+    /// Same read-only provenance for a single-line root paragraph draft.
+    pub(crate) fn paragraph_line(
+        &self,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<usize> {
+        self.preview_paragraph_payload(target)?;
+        let text = self.buffer_text();
+        let start = target.payload.start;
+        if start > text.len() || !text.is_char_boundary(start) {
+            return None;
+        }
+        Some(text[..start].bytes().filter(|byte| *byte == b'\n').count() + 1)
+    }
+
     pub(crate) fn prepare_multiline_paragraph_next(
         &self,
         target: &crate::preview_paragraph::Target,

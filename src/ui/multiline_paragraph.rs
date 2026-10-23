@@ -13,6 +13,9 @@ pub struct Draft {
     history: History,
     neighbors: [bool; 2],
     pub navigation_notice: Option<&'static str>,
+    /// `(first_line, last_line, root_index, root_total)` in Source, both
+    /// 1-based. Copy only; the panel never recomputes it from candidate bytes.
+    pub context: Option<(usize, usize, usize, usize)>,
 }
 impl Draft {
     pub fn new(target: Target, value: &str) -> Option<Self> {
@@ -31,10 +34,15 @@ impl Draft {
             history: History::default(),
             neighbors: [false, false],
             navigation_notice: None,
+            context: None,
         })
     }
     pub fn with_neighbors(mut self, previous: bool, next: bool) -> Self {
         self.neighbors = [previous, next];
+        self
+    }
+    pub fn with_context(mut self, context: Option<(usize, usize, usize, usize)>) -> Self {
+        self.context = context;
         self
     }
     pub fn can_move(&self, direction: Direction) -> bool {
@@ -172,14 +180,24 @@ fn apply_message(draft: &Draft) -> Option<Message> {
     (draft.error.is_none() && preview_paragraph_multiline::valid_value(&draft.value()))
         .then_some(Message::ApplyMultilineParagraph)
 }
+/// Fixed single-line header so the panel height (and every button position)
+/// stays identical whether or not provenance is available.
+fn provenance_line(draft: &Draft) -> String {
+    match draft.context {
+        Some((first, last, index, total)) if first == last => {
+            format!("Source line {first} · root {index} of {total} · changes only on Apply")
+        }
+        Some((first, last, index, total)) => {
+            format!("Source lines {first}–{last} · root {index} of {total} · changes only on Apply")
+        }
+        None => "Source changes only on Apply · result must remain one root paragraph".into(),
+    }
+}
 pub fn view(draft: &Draft) -> Element<'_, Message> {
     let controls =
         column![
         container(text("Edit multiline root paragraph — raw Markdown draft").size(20)).height(28),
-        container(
-            text("Source changes only on Apply · result must remain one root paragraph").size(13)
-        )
-        .height(20),
+        container(text(provenance_line(draft)).size(13)).height(20),
         container(
             text("2–128 nonempty unindented lines · 16 KiB · Enter = newline · Esc = Cancel")
                 .size(13)
@@ -630,5 +648,27 @@ mod tests {
                 Message::MultilineDraftHistory(false)
             ))
         ));
+    }
+    #[test]
+    fn provenance_line_uses_single_or_multi_line_wording_and_a_stable_fallback() {
+        let mut d = draft();
+        assert_eq!(
+            provenance_line(&d),
+            "Source changes only on Apply · result must remain one root paragraph"
+        );
+        d.context = Some((12, 12, 2, 5));
+        assert_eq!(
+            provenance_line(&d),
+            "Source line 12 · root 2 of 5 · changes only on Apply"
+        );
+        d.context = Some((12, 15, 2, 5));
+        assert_eq!(
+            provenance_line(&d),
+            "Source lines 12–15 · root 2 of 5 · changes only on Apply"
+        );
+        // Context is display-only: every affordance is unchanged.
+        assert!(apply_message(&d).is_some());
+        d.error = Some("invalid");
+        assert!(apply_message(&d).is_none());
     }
 }
