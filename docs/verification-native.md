@@ -1,6 +1,49 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 7b terbaru — native multiline root paragraph raw drafts
+## Stage 7c terbaru — bounded multiline draft-local Undo/Redo
+
+[CI 39884654030](https://github.com/Indrawan007/Hylite/actions/runs/39884654030),
+`125365525c5d6a51e4e952d549940c516b144326`, **success**,watcher exit0,
+job `120189875625`,23 Oktober2026 01:33:21–01:42:33 UTC /09:33:21–09:42:33 Makassar.
+Native format/strict Clippy/debug build/**852Cargo**,all16privateGUI suites pass:
+**116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24 =310GUI**,
+281clipboard(244Source+37draft),12titles,17natural exits. Local294strict core
+(subset852),55Python, corresponding CI steps pass too. Native counts from check
+annotations; not full archived-log inspection. Artifact `12472357915`,
+3.003.957bytes,unexpired when checked; screenshots not visually reviewed.
+
+New24check probe proves focused Ctrl+Z/Y/Shift+Z (empty stack captured), raw Unicode/
+hard-break3line paste one local step, invalid blank/final-tab snapshots retained,
+branch discards local redo, enabled Undo draft button restores input focus without
+refocus, Cancel leaves Source exact and new session has empty history; Split local
+Undo/Redo→Apply then X at payload end, Source typing/Apply Undo separately and
+Preview Redo restores only commit, welcome clean/natural Close0.23newRust
+=12pure history+6native UI+5controller. All26old exercise bodies AST-identical
+91386ee; all15old gates intact, no old byte/coordinate/oracle/deadline/refocus change.
+
+Initial39883632691/52e77a0 failed new probe's final mode sequence only (852Rust+
+all15oldGUI pass,21new Copies pass). New script attempted Copy in Preview; test-
+only1253655 enters Preview **before** Redo then Split for exact Copy, Python locks
+mode sequence. No application-code fix/byte oracle weakening/retry/runtime hooks.
+Fresh complete39884654030 passes all16. Previous docs7b39882726245 success.
+
+Session snapshots100records total/1MiB retained raw text/record16KiB, one effective
+native edit one step (no coalescing), logical UTF8 caret/selection collapse, no
+anchor/scroll restore. Raw invalid snapshots editable; effective restore revalidates
+lexical error, full authenticated root structural Apply still required. No-op/
+selection/navigation/oversized refusal preserve local redo; branch clears only
+local redo. Local messages cannot change Document bytes/identity/cache/checkpoint/
+caret/search/dirty/redo. Cancel/Apply/no-op close discards session; effective Apply
+still one PreviewParagraph edge. Source Undo/Redo remain blocked inside modal,
+single-line/cell panels unchanged. `content_at` Source helper body unchanged.
+
+Capacity UI/other native variants/narrow-window/accessibility/physical query focus/
+visual scroll/layout, Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU remain manual.
+Full snapshots/rebuild O(n), not performance proof. No single-line/cell local
+history/coalescing/persistence/rich selection/glyph mapping/sync scroll/EOF edit.
+[Contract/evidence/manual limits7c](testing-stage7c.md).
+
+## Stage 7b — native multiline root paragraph raw drafts
 
 [CI 39881731180](https://github.com/Indrawan007/Hylite/actions/runs/39881731180),
 `5d9cca1e6f4968b26fde59106aa6fb1c931d2543`, **success**, watcher exit0,
@@ -602,6 +645,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native baseline terpenuhi. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 7b](testing-stage7b.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal draft multiline terbatas tersedia; hasil dan batas terbaru ada di [catatan Stage 7c](testing-stage7c.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

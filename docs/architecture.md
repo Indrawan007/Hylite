@@ -738,3 +738,36 @@ no runtime hooks/retry/oracle/refocus workaround/deadline changes. Full parse/
 reconstruction/history O(n), not speedup. EOF/indent/blank-separated blocks,
 inline WYSIWYG/selection/glyph mapping/sync scroll and target compositor remain
 out of scope. [Contract/evidence/manual limits7b](testing-stage7b.md).
+
+## Multiline draft-local snapshot history (Stage 7c)
+
+`multiline_draft_history` pure bounded raw Record{text,caret}, without Document/
+Snapshot/state_id/save/file/operation identity. Draft owns a fresh History per Open;
+100records total Undo+Redo /1MiB retained raw text /record16KiB. One effective native
+edit one step, no coalescing; no-op/selection/motion/refused large paste no record/
+redo truncation. Branch clears draft redo; oldest Undo then farthest Redo eviction,
+including unequal-size transfers. This is not total allocation/process RAM bound.
+
+Record byte caret native (line,column UTF8 bytes); Source `content_at` reexported
+internally with body unchanged preflights exact native reconstruction before
+history transfer. Restore collapses selection at captured caret, does not restore
+anchor/direction/scroll. Raw invalid intermediate/final LF/tab/Unicode retained;
+lexical validation refreshed after effective restore, no structural/auth bypass at
+Apply. Empty stack leaves parser error intact. Full snapshots/rebuild O(n), no
+incremental/performance claim.
+
+Focused `session_key_binding` wraps old7b base binding, converts exact Ctrl+Z/Y/
+Shift+Z into separate `MultilineDraftHistory` custom binding. Even empty captured
+stack does not leak global Preview history. Controller only permits this contextual
+message inside multiline modal; Source Undo/Redo/PreviewHistory remain blocked,
+single-line/cell modals unchanged. Enabled appended Undo draft/Redo draft controls
+restore named scope focus, no focus_next; old Apply/Cancel geometry retained.
+Unfocused keys and disabled-click focus are not promised history actions.
+
+Cancel/Apply/no-op close drops entire local stack, reopen fresh. Local restoration
+never Document mutation/cache/search/caret/revision/checkpoint/dirty/redo change;
+full authenticated root Apply is still one PreviewParagraph edge. Save/Export
+immutable/checkpoint and file/modal guards unchanged. Does supersede7b's explicit
+no draft-session Undo limitation only for multiline native panel. New independent
+private GUI suite16 preserves26old exercise bodies and all15gates. See
+[contract/tests/evidence/manual limits7c](testing-stage7c.md).

@@ -3,6 +3,8 @@
 Successor [single-line root paragraph7a](testing-stage7a.md). Adds a separate native
 multiline draft editor; the single-line grammar/panel/APIs remain unchanged.
 Not free inline Preview typing, block conversion or a second document authority.
+Historical7b behavior: [7c](testing-stage7c.md) now adds bounded local Undo/Redo
+to the multiline panel only;7b's no draft-session Undo restriction is superseded.
 
 ## Product contract
 

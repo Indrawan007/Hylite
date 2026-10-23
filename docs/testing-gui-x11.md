@@ -835,3 +835,41 @@ structural errors/other hit regions/physical Find-Go-to focus/accessibility/keyb
 narrow-window and Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU remain manual.
 No free inline WYSIWYG/glyph mapping/scroll sync/performance proof.
 [Contract/evidence/limits7b](testing-stage7b.md).
+
+## Stage 7c: multiline draft-local Undo/Redo, suite privat keenam belas
+
+`--suite paragraph-draft-history` private app/Xvfb/XDG/env/clipboard,180s runner,
+5min own step/45min job unchanged. All26old exercise bodies AST-identical91386ee;
+15old gates preserved, no old byte/coordinate/refocus/oracle/deadline change.
+Private DISPLAY guard now16suites. No retry/runtime hooks.
+
+**Lulus** [CI 39884654030](https://github.com/Indrawan007/Hylite/actions/runs/39884654030),
+`1253655`,watch exit0,job120189875625,23 Oktober2026 01:33:21–01:42:33 UTC /
+09:33:21–09:42:33 Makassar. New **24checks** =23Copy(8Source+15draft)+natural Close0.
+Focused empty Ctrl+Z/native Unicode3line paste as one step, Ctrl+Y/Shift+Z; invalid
+blank/final tab Undo valid/Redo invalid exact; local branch empty redo; Undo draft
+button Copy proves input focus without refocus. Cancel Source untouched/reopen no
+session redo; Split local Undo/Redo→Apply/native X at payload end, Source typing/
+Apply Undo separate, Preview Redo only commit, undo to welcome clean/natural Close0.
+Four clicks only product Open/Undo draft/Apply. Source unchanged before Apply;
+local history not extra Source edges. No-op/caps/stale/save guards also unit-tested.
+
+**310GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16+24**,
+281clipboard(244Source+37draft),12titles,17natural exits. Native852Cargo;
+local294strict core subset,55Python, corresponding CI steps pass. Artifact
+`12472357915`,3.003.957bytes,unexpired; screenshots
+`paragraph-draft-history/draft-history-preview.png`, `draft-history-source.png`
+not visually reviewed/pixel oracles; counts via check annotations, not full archive.
+
+Initial39883632691/52e77a0 failed **new probe mode sequence only**:852Rust/all15old
+gates and21new Copies pass, Copy attempted in Preview. Test-only1253655 uses
+Split→Source→Preview before Redo, then Split Copy; Python asserts5mode cycles and
+final key sequence. Expected bytes/coordinates/deadline/refocus untouched; not an
+application-code fix or retry. Complete fresh39884654030 passes all16suites.
+
+100retained records/1MiB raw text,16KiB per record, one effective edit one step,
+no typing coalescing or selection-anchor/scroll restore. Native cap UI/other edit
+variants/disabled-button blur/narrow-window/traversal/accessibility/physical query
+focus, Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU still manual. X11 tiny-skia
+is not target compositor proof; full snapshots/rebuild O(n), not speedup.
+[Contract/evidence/limits7c](testing-stage7c.md).
