@@ -7,7 +7,7 @@ use crate::text_edit::InlineStyle;
 use iced::{keyboard, widget::text_editor, window};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PendingAction {
     New,
     Open,

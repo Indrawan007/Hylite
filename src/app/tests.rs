@@ -6947,8 +6947,8 @@ fn a_dirty_buffer_makes_a_tree_open_wait_for_the_same_confirmation() {
     let _ = app.update(Message::ActivateWorkspaceRow);
     assert!(app.operations.active().is_none(), "nothing opens yet");
     assert!(matches!(
-        app.pending_action,
-        Some(PendingAction::OpenAt(ref path)) if path == &beta
+        app.pending_action.as_ref(),
+        Some(PendingAction::OpenAt(path)) if path == &beta
     ));
     assert!(app.status_message.contains("unsaved changes"));
 

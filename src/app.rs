@@ -114,7 +114,7 @@ impl Hylite {
 
         let dirty = if self.document.is_dirty() { " •" } else { "" };
         let zen = if self.zen_mode { " [zen]" } else { "" };
-        let confirmation = match self.pending_action {
+        let confirmation = match self.pending_action.as_ref() {
             Some(PendingAction::New) => " [confirm New]",
             Some(PendingAction::Open | PendingAction::OpenAt(_)) => " [confirm Open]",
             Some(PendingAction::Close(_)) => " [confirm Close]",
@@ -497,7 +497,7 @@ impl Hylite {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let content = if let Some(action) = self.pending_action {
+        let content = if let Some(action) = self.pending_action.clone() {
             crate::ui::confirmation::view(
                 self.title(),
                 action,

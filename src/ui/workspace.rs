@@ -55,7 +55,7 @@ fn empty() -> Element<'static, Message> {
     .into()
 }
 
-fn tree(app: &Hylite, workspace: &Workspace) -> Element<'_, Message> {
+fn tree(app: &Hylite, workspace: &Workspace) -> Element<'static, Message> {
     let header = row![
         text(workspace.tree.name.clone())
             .size(13)
@@ -108,7 +108,7 @@ fn tree(app: &Hylite, workspace: &Workspace) -> Element<'_, Message> {
     .into()
 }
 
-fn tree_row<'a>(app: &Hylite, entry: &Row, selected: bool) -> Element<'a, Message> {
+fn tree_row(app: &Hylite, entry: &Row, selected: bool) -> Element<'static, Message> {
     let glyph = if entry.is_dir() {
         if entry.collapsed {
             "▸"
