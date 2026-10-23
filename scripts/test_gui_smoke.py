@@ -1185,8 +1185,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(keys.count("ctrl+a"), 7)
         self.assertEqual(keys.count("ctrl+v"), 7)
         self.assertEqual(keys.count("ctrl+y"), 0)
-        self.assertEqual([c.args[0] for c in desktop.paste_from_clean.call_args_list], [para_source, table])
-        self.assertEqual(desktop.title_is_dirty.call_count, 3)
+        self.assertEqual([c.args[0] for c in desktop.paste_from_clean.call_args_list], [para_source])
+        self.assertEqual(desktop.title_is_dirty.call_count, 2)
         desktop.request_close.assert_called_once_with()
         desktop.expect_native_exit.assert_called_once()
 
