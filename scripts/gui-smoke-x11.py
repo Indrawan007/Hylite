@@ -2142,8 +2142,8 @@ def exercise_single_paragraph_navigation(desktop, artifacts):
     final = "final é🙂".encode("utf-8")
     source = first + gap + second + between + third + suffix
     applied = first + gap + second + between + third2 + suffix
-    typed = first + gap + second + b"X" + between + third2 + suffix
-    final_source = first + gap + final + between + third2 + suffix
+    final_source = final + gap + second + between + third2 + suffix
+    typed = final + b"X" + gap + second + between + third2 + suffix
     desktop.find_window()
     desktop.title_is_dirty(False)
     desktop.expect_copy("Single paragraph navigation suite starts at clean welcome", welcome, refocus=False)
@@ -2177,21 +2177,21 @@ def exercise_single_paragraph_navigation(desktop, artifacts):
 
     open_paragraph()
     copy("First single-line root opens with exact raw payload and native focus", first)
-    click(366, 244)  # Next paragraph
+    click(430, 244)  # Next paragraph
     copy("Next skips heading quote fence and list blocks to the exact second root", second)
-    click(366, 244)
+    click(430, 244)
     copy("Second Next reaches the third root with its raw trailing spaces", third)
     paste(third2)
     copy("Two-space Unicode replacement stays a local draft until Apply & Previous", third2)
-    click(270, 308)  # Apply & Previous
+    click(270, 288)  # Apply & Previous
     copy("Apply & Previous commits the third payload and opens the exact middle root", second)
-    click(270, 308)
+    click(270, 288)
     copy("Unchanged Apply & Previous reaches the first root without a Source edge", first)
     desktop.key("ctrl+Prior")
     copy("Ctrl+PageUp is not a commit route for the text_input draft", first)
     paste(first2)
     copy("First root replacement is staged before the disabled first boundary action", first2)
-    click(270, 308)  # disabled Apply & Previous at the first root
+    click(270, 288)  # disabled Apply & Previous at the first root
     desktop.key("Escape")
     draft_title(False)
     inspect("First boundary plus Cancel keep only the earlier third Apply in Source", applied)
@@ -2200,11 +2200,11 @@ def exercise_single_paragraph_navigation(desktop, artifacts):
     desktop.key("ctrl+y")
     desktop.expect_copy("Source Redo restores the exact grown third root and every skipped byte", applied, refocus=False)
     open_paragraph(split=True)
-    click(366, 244)
+    click(430, 244)
     copy("Split middle root receives the unchanged raw payload before a structural draft", second)
     paste(b"# heading")
     copy("Structural single-line replacement is staged before Apply & Next preflight", b"# heading")
-    click(428, 308)  # Apply & Next
+    click(428, 288)  # Apply & Next
     copy("Apply & Next parse refusal retains the raw draft and native focus", b"# heading")
     desktop.screenshot(artifacts / "single-paragraph-navigation-refused.png")
     desktop.key("Escape")
@@ -2213,7 +2213,7 @@ def exercise_single_paragraph_navigation(desktop, artifacts):
     open_paragraph(split=True)
     paste(final)
     copy("Final first-root replacement is a local draft in Split", final)
-    click(428, 308)
+    click(428, 288)
     copy("Apply & Next opens the raw middle paragraph as a fresh focused draft", second)
     desktop.screenshot(artifacts / "single-paragraph-navigation-split.png")
     desktop.key("Escape")

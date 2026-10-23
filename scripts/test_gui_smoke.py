@@ -1111,8 +1111,8 @@ class SmokeHelperTests(unittest.TestCase):
         final = "final é🙂".encode("utf-8")
         source = first+gap+second+between+third+suffix
         applied = first+gap+second+between+third2+suffix
-        typed = first+gap+second+b"X"+between+third2+suffix
-        final_source = first+gap+final+between+third2+suffix
+        final_source = final+gap+second+between+third2+suffix
+        typed = final+b"X"+gap+second+between+third2+suffix
         welcome = (gui.ROOT / "src" / "welcome.md").read_bytes()
         copies = [c.args[1] for c in desktop.expect_copy.call_args_list]
         self.assertEqual(copies, [welcome, source, first, second, third, third2, second, first, first, first2, applied, source, applied,
@@ -1122,8 +1122,8 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(366,244),at(366,244),at(270,308),at(270,308),at(270,308),
-                                 at(1144,151),at(366,244),at(428,308),at(1144,151),at(428,308)])
+        self.assertEqual(clicks,[at(984,151),at(430,244),at(430,244),at(270,288),at(270,288),at(270,288),
+                                 at(1144,151),at(430,244),at(428,288),at(1144,151),at(428,288)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+shift+m"),2)
         self.assertEqual(keys.count("Escape"),3)
