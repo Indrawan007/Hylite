@@ -41,10 +41,12 @@ fn single_neighbors_follow_source_order_skipping_multiline_headings_quotes_and_f
     );
     assert_eq!(doc.adjacent_single_paragraph(&t[0], Previous), None);
     assert_eq!(doc.adjacent_single_paragraph(&t[2], Next), None);
+    assert_eq!(doc.preview_paragraph_payload(&t[0]).as_deref(), Some(FIRST));
     assert_eq!(
         doc.preview_paragraph_payload(&t[1]).as_deref(),
         Some(SECOND)
     );
+    assert!(doc.buffer_text().starts_with(FIRST));
 }
 #[test]
 fn single_navigation_reads_preserve_source_identity_caret_cache_and_history() {
