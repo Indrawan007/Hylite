@@ -895,14 +895,24 @@ fn nested_images_in_lists_and_quotes_keep_their_own_spec_and_ranges() {
     let source = "> - ![quoted](q.png)\n\n1. ![listed](l.png)\n";
     let blocks = parse(source);
     validate(&blocks, source, 0..source.len());
-    let quoted = &blocks[0].children[0].children[0].runs[0];
+
+    fn spec_sources(blocks: &[Block], found: &mut Vec<(String, String)>) {
+        for block in blocks {
+            for run in &block.runs {
+                if let Some(spec) = run.image.as_ref() {
+                    found.push((spec.src.clone(), spec.alt.clone()));
+                }
+            }
+            spec_sources(&block.children, found);
+        }
+    }
+    let mut found = Vec::new();
+    spec_sources(&blocks, &mut found);
     assert_eq!(
-        quoted.image.as_ref().map(|spec| spec.src.as_str()),
-        Some("q.png")
-    );
-    let listed = &blocks[1].children[0].children[0].runs[0];
-    assert_eq!(
-        listed.image.as_ref().map(|spec| spec.src.as_str()),
-        Some("l.png")
+        found,
+        [
+            ("q.png".to_string(), "quoted".to_string()),
+            ("l.png".to_string(), "listed".to_string())
+        ]
     );
 }
