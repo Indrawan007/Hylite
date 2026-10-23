@@ -1273,3 +1273,6 @@ mod preview_multiline_next_tests;
 #[cfg(test)]
 #[path = "preview_multiline_previous_tests.rs"]
 mod preview_multiline_previous_tests;
+#[cfg(test)]
+#[path = "preview_multiline_property_tests.rs"]
+mod preview_multiline_property_tests;

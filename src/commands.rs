@@ -179,6 +179,12 @@ pub fn preview_history_shortcut(
 /// Exact-modifier shortcuts for an open multiline draft panel. Only Ctrl is
 /// accepted: AltGr (Ctrl+Alt) and compositor Logo must never commit a draft,
 /// and Shift variants stay native text selection/editor behaviour.
+///
+/// This route exists only for the native `text_editor` draft. Iced 0.13
+/// `text_input` (single-line paragraph and table-cell drafts) captures
+/// `Enter`/`PageUp`/`PageDown` itself, so those panels keep their existing
+/// `on_submit` Apply and cannot add subscription-level shortcuts without
+/// replacing their widget.
 pub fn draft_commit_shortcut(
     key: &keyboard::Key,
     modifiers: keyboard::Modifiers,
