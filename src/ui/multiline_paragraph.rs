@@ -145,6 +145,12 @@ pub fn session_key_binding(press: text_editor::KeyPress) -> Option<text_editor::
                 Message::MultilineDraftHistory(redo),
             ));
         }
+        // Explicit commit shortcuts stay behind the same controller guards as
+        // the buttons: an error, boundary, stale target or unchanged move never
+        // mutates Source. Enter alone remains a newline.
+        if let Some(message) = crate::commands::draft_commit_shortcut(&press.key, press.modifiers) {
+            return Some(text_editor::Binding::Custom(message));
+        }
     }
     key_binding(press)
 }
@@ -217,7 +223,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                 .on_press_maybe(apply_previous_message(draft))
         ].spacing(8).height(32),
         text(draft.error.or(draft.navigation_notice).unwrap_or(
-            "Previous/Next = unchanged move · Apply & Next/Previous = one atomic edge · new session resets draft history"
+            "Ctrl+Enter = Apply · Ctrl+PageUp/PageDown = Apply & Previous/Next · Esc = Cancel · Enter = newline"
         ))
         .size(13),
     ]
@@ -551,5 +557,78 @@ mod tests {
         assert!(fresh.can_move(Direction::Next));
         assert!(apply_previous_message(&fresh).is_none());
         assert!(old.can_undo());
+    }
+    #[test]
+    fn commit_shortcuts_apply_next_previous_only_on_exact_focused_ctrl() {
+        use iced::keyboard::{self, key::Named};
+        let press = |key: keyboard::Key, modifiers| text_editor::KeyPress {
+            key,
+            modifiers,
+            text: None,
+            status: text_editor::Status::Focused,
+        };
+        let ctrl = keyboard::Modifiers::CTRL;
+        let enter = keyboard::Key::Named(Named::Enter);
+        let page_up = keyboard::Key::Named(Named::PageUp);
+        let page_down = keyboard::Key::Named(Named::PageDown);
+        assert!(matches!(
+            session_key_binding(press(enter.clone(), ctrl)),
+            Some(text_editor::Binding::Custom(
+                Message::ApplyMultilineParagraph
+            ))
+        ));
+        assert!(matches!(
+            session_key_binding(press(page_up.clone(), ctrl)),
+            Some(text_editor::Binding::Custom(
+                Message::ApplyMultilineParagraphPrevious
+            ))
+        ));
+        assert!(matches!(
+            session_key_binding(press(page_down.clone(), ctrl)),
+            Some(text_editor::Binding::Custom(
+                Message::ApplyMultilineParagraphNext
+            ))
+        ));
+        // AltGr, Logo, Shift and bare modifiers never commit a draft.
+        for rejected in [
+            keyboard::Modifiers::CTRL | keyboard::Modifiers::ALT,
+            keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
+            keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
+            keyboard::Modifiers::SHIFT,
+            keyboard::Modifiers::empty(),
+        ] {
+            for key in [enter.clone(), page_up.clone(), page_down.clone()] {
+                assert!(!matches!(
+                    session_key_binding(press(key, rejected)),
+                    Some(text_editor::Binding::Custom(
+                        Message::ApplyMultilineParagraph
+                            | Message::ApplyMultilineParagraphNext
+                            | Message::ApplyMultilineParagraphPrevious
+                    ))
+                ));
+            }
+        }
+        assert!(session_key_binding(text_editor::KeyPress {
+            key: enter.clone(),
+            modifiers: ctrl,
+            text: None,
+            status: text_editor::Status::Active,
+        })
+        .is_none());
+        // A bare Enter still reaches the native newline binding, not Apply.
+        assert!(!matches!(
+            session_key_binding(press(enter, keyboard::Modifiers::empty())),
+            Some(text_editor::Binding::Custom(_))
+        ));
+        // Keyboard history capture is unchanged by commit shortcuts.
+        assert!(matches!(
+            session_key_binding(press(
+                keyboard::Key::Character("z".into()),
+                keyboard::Modifiers::CTRL
+            )),
+            Some(text_editor::Binding::Custom(
+                Message::MultilineDraftHistory(false)
+            ))
+        ));
     }
 }

@@ -176,9 +176,74 @@ pub fn preview_history_shortcut(
     }
 }
 
+/// Exact-modifier shortcuts for an open multiline draft panel. Only Ctrl is
+/// accepted: AltGr (Ctrl+Alt) and compositor Logo must never commit a draft,
+/// and Shift variants stay native text selection/editor behaviour.
+pub fn draft_commit_shortcut(
+    key: &keyboard::Key,
+    modifiers: keyboard::Modifiers,
+) -> Option<Message> {
+    if modifiers != keyboard::Modifiers::CTRL {
+        return None;
+    }
+    match key.as_ref() {
+        keyboard::Key::Named(keyboard::key::Named::Enter) => Some(Message::ApplyMultilineParagraph),
+        keyboard::Key::Named(keyboard::key::Named::PageUp) => {
+            Some(Message::ApplyMultilineParagraphPrevious)
+        }
+        keyboard::Key::Named(keyboard::key::Named::PageDown) => {
+            Some(Message::ApplyMultilineParagraphNext)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn draft_commit_shortcuts_require_exact_ctrl_and_never_take_altgr_or_logo() {
+        for (key, expected) in [
+            (
+                keyboard::key::Named::Enter,
+                Message::ApplyMultilineParagraph,
+            ),
+            (
+                keyboard::key::Named::PageUp,
+                Message::ApplyMultilineParagraphPrevious,
+            ),
+            (
+                keyboard::key::Named::PageDown,
+                Message::ApplyMultilineParagraphNext,
+            ),
+        ] {
+            assert_eq!(
+                draft_commit_shortcut(&keyboard::Key::Named(key), keyboard::Modifiers::CTRL),
+                Some(expected)
+            );
+            for rejected in [
+                keyboard::Modifiers::empty(),
+                keyboard::Modifiers::SHIFT,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::SHIFT,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::ALT,
+                keyboard::Modifiers::CTRL | keyboard::Modifiers::LOGO,
+                keyboard::Modifiers::ALT,
+            ] {
+                assert!(draft_commit_shortcut(&keyboard::Key::Named(key), rejected).is_none());
+            }
+        }
+        assert!(draft_commit_shortcut(
+            &keyboard::Key::Character("z".into()),
+            keyboard::Modifiers::CTRL
+        )
+        .is_none());
+        assert!(draft_commit_shortcut(
+            &keyboard::Key::Character("s".into()),
+            keyboard::Modifiers::CTRL
+        )
+        .is_none());
+    }
 
     #[test]
     fn confirmation_keys_require_exact_bare_alt_not_altgr() {
