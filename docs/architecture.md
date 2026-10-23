@@ -961,3 +961,28 @@ GUI lama tidak bergeser. Tidak ada shortcut keyboard baru (`text_input` Iced0.13
 menangkap `Enter`/`Escape`/`PageUp`/`PageDown`), tanpa grouping, dan tanpa berbagi
 history antar panel. [Kontrak/tests/evidence/manual limits7l](testing-stage7l.md);
 suite ke-22 independen, 28 badan exercise lama dan 21 gate sebelumnya preserved.
+
+## Keyboard Undo/Redo untuk panel draft satu baris (Stage 7m)
+
+Panel7a/7j dan6h/6i/6p memakai `text_input`, yang tidak punya undo stack dan
+melaporkan `Ctrl+Z` sebagai *captured* saat fokus. Stage7m karena itu memakai rute
+**netral**: `commands::history_keys` mem-parse `Ctrl+Z`/`Ctrl+Y`/`Ctrl+Shift+Z`
+dengan modifier tepat (AltGr, Logo, dan Shift tanpa Ctrl ditolak) menjadi
+`Message::DraftHistory(redo)` dari subscription, lalu
+`Hylite::draft_history` memutuskan tujuan berdasarkan `draft_history_panel()`:
+panel paragraf → stack paragraf, panel sel → stack sel, tanpa panel →
+`preview_undo_redo` (gerbang mode `Preview` yang sama seperti sebelumnya, sehingga
+`Source`/`Split` tetap dijalankan binding widget Source dan tidak pernah terjadi
+undo ganda).
+
+`event::listen_with` hanya menerima *fn pointer*, jadi closure yang menangkap state
+tidak mungkin; itu sebabnya pesan dibuat netral dan keputusan panel dipindah ke
+controller. `preview_history_shortcut` tetap ada sebagai pembungkus bergerbang
+`Status::Ignored` untuk binding `text_editor` multiline, dan panel multiline tetap
+memblokir pesan netral. Snapshot memakai kembali `multiline_draft_history::History`
+(100 record /1MiB /≤16KiB, satu edit efektif = satu langkah, tanpa grouping): tidak
+ada state, file, thread, atau dependency baru, dan stack tetap hilang saat `Cancel`/
+`Apply`/pindah draft. Footer kedua panel menyebut shortcut-nya tanpa menggeser
+tombol, tinggi baris, atau koordinat suite lama.
+[Kontrak/tests/evidence/manual limits7m](testing-stage7m.md); suite ke-23
+independen, 28 badan exercise lama dan 22 gate sebelumnya preserved.

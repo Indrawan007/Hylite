@@ -115,9 +115,10 @@ Jumlah yang dipertahankan apa adanya: 24 `expect_copy` (semua `refocus: False`),
 utuh tanpa perubahan bytes/koordinat/oracle/deadline/refocus.
 
 Pemeriksaan suite baru dihitung dengan aturan yang sama seperti suite lama
-(satu baris `PASS` per `expect_copy`, per `wait`, per `title_is_dirty`, dan per
-`expect_native_exit`): **31 pemeriksaan**, sehingga totalnya **22 suite /
-450 pemeriksaan** (419 + 31).
+(satu baris `PASS` per `expect_copy` dan per `expect_native_exit`): **25
+pemeriksaan**, sehingga totalnya **22 suite / 444 pemeriksaan** (419 + 25; 409
+clipboard — 300 Source + 109 draft input; 12 title konfirmasi; 23 exit native
+normal).
 
 ## Execution status
 
@@ -127,7 +128,8 @@ Local `cargo fmt --all -- --check`, **294 strict core**, **67 Python**
 [CI 39915156642](https://github.com/Indrawan007/Hylite/actions/runs/39915156642),
 `d6ecb70`, job120286966415 **SUCCESS**, 2026-10-23 **07:01:48–07:15:01 UTC** /
 **15:01:48–15:15:01 Makassar**. Format, strict core subset, Clippy
-`-D warnings`, build, **948 Cargo**, seluruh **22 suite** lulus (termasuk
+`-D warnings`, build, **948 Cargo**, seluruh **22 suite** (**444 pemeriksaan**)
+lulus (termasuk
 `Smoke test single-line draft history`), dan upload artifact lulus.
 
 Artifact `12484788441`, **3.329.395 bytes**, expires 2026-10-30T07:13:41Z; digest

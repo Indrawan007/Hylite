@@ -1128,9 +1128,10 @@ Dua tes Python mengunci daftar payload/koordinat/tombol suite ini.
 
 **Lulus** [CI 39915156642](https://github.com/Indrawan007/Hylite/actions/runs/39915156642),
 `d6ecb70`, job120286966415, 23 Oktober2026 07:01:48–07:15:01 UTC /
-15:01:48–15:15:01 Makassar. **948 Cargo**, **22 suite / 450 pemeriksaan GUI**
-(409 clipboard — 300 Source + 109 draft input; 12 title konfirmasi + 2 judul dirty;
-4 transisi judul draft; 23 exit native normal). Artifact `12484788441`,
+15:01:48–15:15:01 Makassar. **948 Cargo**, **22 suite / 444 pemeriksaan GUI**
+(409 clipboard — 300 Source + 109 draft input; 12 title konfirmasi; 23 exit native
+normal; `title_is_dirty` dan transisi judul draft adalah assertion tambahan yang
+tidak menambah baris `PASS`). Artifact `12484788441`,
 3.329.395bytes, expires 2026-10-30T07:13:41Z, digest SHA256 dilaporkan API
 `bb80e4a5…4f7e6de2` (zip tidak dapat diunduh dari sandbox ini).
 [Kontrak7l](testing-stage7l.md).
@@ -1140,3 +1141,33 @@ Batas: fokus Source harus dipulihkan lewat siklus mode penuh
 sentinels `hylite-copy-not-acknowledged-…`. `paste_from_clean` menuntut judul bersih,
 jadi penggantian dokumen di tengah suite memakai paste mentah. Semua ini batasan
 harness, bukan pelonggaran oracle.
+
+## Stage 7m: suite ke-23 `draft-history-keys` (Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z pada panel satu baris)
+
+Stage7m menyambungkan keyboard ke stack draft lokal yang sudah ada. Panel paragraf
+dan panel sel mendapat `Ctrl+Z` = `Undo draft`, `Ctrl+Y`/`Ctrl+Shift+Z` = `Redo
+draft`; tanpa panel draft, gestur itu tetap history Source/Preview. Footer kedua
+panel berubah teks, jadi tidak ada tombol, tinggi baris, atau koordinat yang
+bergeser dan 22 suite lama dijalankan ulang utuh.
+
+Suite baru berjalan di display sendiri dan menguji kedua panel dalam satu sesi
+Source: Undo/Redo/Redo-after-Undo paragraf, stack kosong sebagai no-op, byte Source
+utuh (lewat `Ctrl+Shift+M` ke Source), lalu fixture tabel dan alur sel yang sama,
+ditutup dua `Ctrl+Z` Source sampai `welcome` bersih dan close native normal.
+
+Jumlah yang dipertahankan apa adanya: 17 `expect_copy` (semua `refocus: False`),
+3 klik, 5 `ctrl+shift+m`, 7 `ctrl+z`, 1 `ctrl+y`, 2 `ctrl+shift+z`, 2 `Escape`,
+3 `ctrl+a`, 3 `ctrl+v`, 1 `paste_from_clean`, 2 `title_is_dirty`, 1
+`request_close` + 1 `expect_native_exit`.
+
+**Lulus** [CI 39922474388](https://github.com/Indrawan007/Hylite/actions/runs/39922474388),
+`d1031c3`, job120310748817, 23 Oktober2026 08:07:46–08:19:46 UTC /
+16:07:46–16:19:46 Makassar. **951 Cargo**, **23 suite / 462 pemeriksaan GUI**
+(426 clipboard — 307 Source + 119 draft input; 12 title konfirmasi; 24 exit native
+normal). Artifact `12488168397`, 3.334.806 bytes, expires 2026-10-30T08:19:41Z,
+digest SHA256 dilaporkan API `745dfeff…8f6c6ec` (zip tidak dapat diunduh dari
+sandbox ini). [Kontrak7m](testing-stage7m.md).
+
+Batas: `text_input` yang fokus melaporkan `Ctrl+Z` sebagai *captured* walau tanpa
+undo stack, sehingga rute draft sengaja tidak memeriksa status event; fallback
+Preview tetap bergerbang mode dan tidak pernah menjalankan undo ganda di Source.
