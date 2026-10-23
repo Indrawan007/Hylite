@@ -2240,16 +2240,18 @@ def exercise_draft_history_single(desktop, artifacts):
     first = "first edited 🙂".encode("utf-8")
     kept = "kept 🙂".encode("utf-8")
     kept2 = "kept 🙂 two".encode("utf-8")
+    applied = para_source.replace(payload, kept, 1)
     table = ("| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
     cell_initial = "café🙂 **raw**".encode("utf-8")
     cell_a = "café🙂 **raw** A".encode("utf-8")
     cell_kept = "kept cell 🙂".encode("utf-8")
+    cell_applied = table.replace(cell_initial, cell_kept, 1)
     desktop.find_window()
     desktop.title_is_dirty(False)
     desktop.expect_copy("Draft history suite: fresh clean welcome", welcome, refocus=False)
     desktop.paste_from_clean(para_source)
     desktop.expect_copy("Paragraph fixture keeps raw Unicode markup and the untouched suffix", para_source, refocus=False)
-    desktop.key("ctrl+shift+m")
+    desktop.key("ctrl+shift+m")  # Preview -> Split; Source keeps focus for later copies.
 
     def draft_title(marker, active):
         desktop.wait("Draft history title transition", lambda: ((marker in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == active))
@@ -2275,6 +2277,14 @@ def exercise_draft_history_single(desktop, artifacts):
     def copy(description, expected):
         desktop.expect_copy(description, expected, refocus=False)
 
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")  # Split -> Source refocuses the editor
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_split():
+        desktop.key("ctrl+shift+m")  # Source -> Preview
+        desktop.key("ctrl+shift+m")  # Preview -> Split
+
     open_paragraph()
     copy("Paragraph draft opens with the exact raw payload and native focus", payload)
     paste(first)
@@ -2287,7 +2297,8 @@ def exercise_draft_history_single(desktop, artifacts):
     copy("Second Undo draft returns to the original raw payload", payload)
     desktop.key("Escape")
     draft_title("[paragraph draft]", False)
-    copy("Local paragraph Undo and Redo never created a Source edit", para_source)
+    inspect("Local paragraph Undo and Redo never created a Source edit", para_source)
+    back_to_split()
     open_paragraph()
     paste(kept)
     paste(kept2)
@@ -2296,9 +2307,11 @@ def exercise_draft_history_single(desktop, artifacts):
     copy("Paragraph Undo draft keeps the first staged value", kept)
     desktop.key("Return")
     draft_title("[paragraph draft]", False)
-    copy("Paragraph Apply commits the restored local value as one Source edge", para_source.replace(payload, kept, 1))
+    inspect("Paragraph Apply commits the restored local value as one Source edge", applied)
+    back_to_split()
     desktop.key("ctrl+z")
-    copy("One Source Undo removes only that paragraph edge", para_source)
+    inspect("One Source Undo removes only that paragraph edge", para_source)
+    back_to_split()
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)
     desktop.paste_from_clean(table)
@@ -2315,7 +2328,8 @@ def exercise_draft_history_single(desktop, artifacts):
     copy("Second cell Undo draft returns to the committed payload", cell_initial)
     desktop.key("Escape")
     draft_title("[cell draft]", False)
-    copy("Cell draft Undo and Redo leave every Source byte untouched", table)
+    inspect("Cell draft Undo and Redo leave every Source byte untouched", table)
+    back_to_split()
     open_cell()
     paste(cell_kept)
     paste(cell_kept + b" 2")
@@ -2323,12 +2337,14 @@ def exercise_draft_history_single(desktop, artifacts):
     copy("Cell Undo draft keeps the first staged value", cell_kept)
     desktop.key("Return")
     draft_title("[cell draft]", False)
-    copy("Cell Apply commits only the restored local value", table.replace(cell_initial, cell_kept, 1))
+    inspect("Cell Apply commits only the restored local value", cell_applied)
+    back_to_split()
     desktop.key("ctrl+z")
-    copy("One Source Undo removes the single cell edge", table)
+    inspect("One Source Undo removes the single cell edge", table)
+    back_to_split()
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)
-    copy("Both single-line panels left no hidden history behind welcome", welcome)
+    desktop.expect_copy("Both single-line panels left no hidden history behind welcome", welcome, refocus=False)
     desktop.request_close()
     desktop.expect_native_exit("Draft history suite clean client Close exits naturally")
 

@@ -1158,15 +1158,16 @@ class SmokeHelperTests(unittest.TestCase):
         first = "first edited 🙂".encode("utf-8")
         kept = "kept 🙂".encode("utf-8")
         kept2 = "kept 🙂 two".encode("utf-8")
+        applied = para_source.replace(payload, kept, 1)
         table = ("| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
         cell_initial = "café🙂 **raw**".encode("utf-8")
         cell_a = "café🙂 **raw** A".encode("utf-8")
         cell_kept = "kept cell 🙂".encode("utf-8")
+        cell_applied = table.replace(cell_initial, cell_kept, 1)
         copies = [c.args[1] for c in desktop.expect_copy.call_args_list]
         self.assertEqual(copies, [welcome, para_source, payload, first, payload, first, payload, para_source,
-                                  kept2, kept, para_source.replace(payload, kept, 1), para_source,
-                                  table, cell_initial, cell_a, cell_initial, cell_a, cell_initial, table,
-                                  cell_kept, table.replace(cell_initial, cell_kept, 1), table, welcome])
+                                  kept2, kept, applied, para_source, table, cell_initial, cell_a, cell_initial,
+                                  cell_a, cell_initial, table, cell_kept, cell_applied, table, welcome])
         self.assertTrue(all(c.kwargs == {"refocus": False} for c in desktop.expect_copy.call_args_list))
         clicks = [c.args for c in desktop.command.call_args_list if c.args[-2:] == ("click", "1")]
         def at(x, y):
@@ -1176,12 +1177,13 @@ class SmokeHelperTests(unittest.TestCase):
                                   at(984,151),at(900,354),at(486,200),at(614,200),at(486,200),
                                   at(984,151),at(900,354),at(486,200)])
         keys = [c.args[0] for c in desktop.key.call_args_list]
-        self.assertEqual(keys.count("ctrl+shift+m"), 1)
+        self.assertEqual(keys.count("ctrl+shift+m"), 19)
         self.assertEqual(keys.count("Escape"), 2)
         self.assertEqual(keys.count("Return"), 2)
         self.assertEqual(keys.count("ctrl+z"), 4)
         self.assertEqual(keys.count("ctrl+a"), 6)
         self.assertEqual(keys.count("ctrl+v"), 6)
+        self.assertEqual(keys.count("ctrl+y"), 0)
         self.assertEqual([c.args[0] for c in desktop.paste_from_clean.call_args_list], [para_source, table])
         self.assertEqual(desktop.title_is_dirty.call_count, 3)
         desktop.request_close.assert_called_once_with()
