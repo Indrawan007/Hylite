@@ -95,7 +95,7 @@ fn first_boundary_and_lexical_or_structural_failures_preserve_every_source_state
             .prepare_multiline_paragraph_previous(&t[0], value)
             .is_none());
     }
-    let mut doc = Document::new(SOURCE);
+    let doc = Document::new(SOURCE);
     let t = roots(&doc);
     let before = (
         doc.snapshot(),
