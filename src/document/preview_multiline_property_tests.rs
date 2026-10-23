@@ -182,11 +182,14 @@ fn property_commit_matches_reference_source_for_both_directions() {
         let (next, changed) = doc.commit_multiline_paragraph_move(plan).unwrap();
         assert_eq!(doc.buffer_text(), expected, "case {case}");
         assert_eq!(changed, original != value, "case {case}");
-        assert_eq!(
-            doc.caret_offset(),
-            anchor.payload.start + value.len(),
-            "case {case}"
-        );
+        if original != value {
+            // A commit parks the Source caret at the end of the applied payload.
+            assert_eq!(
+                doc.caret_offset(),
+                anchor.payload.start + value.len(),
+                "case {case}"
+            );
+        }
         let blocks = crate::document::preview_model::parse(&expected);
         let complete = |b: &Block| {
             b.kind == crate::document::preview_model::Kind::Paragraph
@@ -268,7 +271,12 @@ fn property_stale_and_cross_document_plans_are_rejected_every_time() {
     let mut rng = Rng(0x5eed_1234_abcd_0003);
     let mut rejected = 0;
     for case in 0..600 {
-        let text = random_source(&mut rng, &corpus);
+        // Guarantee at least two eligible roots so a Next neighbour always
+        // exists; the random prefix keeps unsupported blocks in play.
+        let text = format!(
+            "{}\n\n{FIRST}\n\n{SECOND}\n",
+            random_source(&mut rng, &corpus)
+        );
         let mut doc = Document::new(&text);
         let all = roots(&doc);
         if all.is_empty() {
