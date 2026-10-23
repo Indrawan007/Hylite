@@ -801,3 +801,37 @@ window/accessibility/keyboard traversal, other Source-bar hit regions dan target
 Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU tetap manual. Belum multiline/EOF
 paragraph editing atau inline WYSIWYG/glyph mapping/scroll sync.
 [Kontrak, bukti dan batas Stage7a](testing-stage7a.md).
+
+## Stage 7b: native multiline root paragraph draft, suite privat kelima belas
+
+`--suite paragraph-multiline` private app/Xvfb/XDG/env/clipboard baru,180s runner/
+5min separate step/job45min unchanged. All25old exercise bodies AST-identical
+`9ad722d`,14existing gates preserved: no old bytes/coordinate/refocus/oracle/
+deadline change. Private DISPLAY validation now15suites; no retry/runtime hooks.
+
+**Lulus** [CI 39881731180](https://github.com/Indrawan007/Hylite/actions/runs/39881731180),
+`5d9cca1`,watch exit0,job120180464018,23 Oktober2026 01:03:04–01:11:19 UTC /
+09:03:04–09:11:19 Makassar. New suite **16checks** =15exact Copy (11Source+4draft)
++natural clean Close0. Raw Unicode/hard breaks/native draft focus; native Enter
+newline staging/Cancel no Source change;3-line clipboard explicit Apply keeps
+final LF/neighbors, atomic Preview Undo/Redo; Split unchanged no edge; parser
+split refusal retains exact draft/focus without refocus; Cancel no partial Source;
+Split final Apply then X at last-line end, typing/Apply/paste Undo to welcome clean.
+Nine clicks only product Open/Apply controls, no refocus workaround.
+
+**286 GUI =116+9+9+9+14+16+11+11+11+11+11+11+16+15+16**,258clipboard
+(236Source+22draft),12title,16natural exits. Native829Cargo; local282strict-core
+subset and53Python, corresponding CI steps pass. Artifact `12470923520`,
+2.913.840bytes,unexpired when checked. `paragraph-multiline/multiline-preview.png`,
+`multiline-invalid.png`, `multiline-split.png` not visually reviewed/pixel oracles.
+Raw check annotations confirm all suite counts; full archived logs unavailable
+at blocked Actions results host, not claimed full-log inspection.
+
+Separate native draft Source authority,2–128nonempty/unindented lines/16KiB/final
+LF; Enter newline, explicit Apply button, full complete-root preflight/no block
+conversion/split.7a single-line unchanged. Root multiline provenance tail button
+shrinks Source Fill, not all previous hit regions identical. Capacity/other
+structural errors/other hit regions/physical Find-Go-to focus/accessibility/keyboard/
+narrow-window and Arch/Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU remain manual.
+No free inline WYSIWYG/glyph mapping/scroll sync/performance proof.
+[Contract/evidence/limits7b](testing-stage7b.md).

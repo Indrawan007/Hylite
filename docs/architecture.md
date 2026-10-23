@@ -1,4 +1,4 @@
-# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–7a
+# Arsitektur: Source 4a–4j, preview 5a–5e, prototipe edit/history 6a–7b
 
 Stage 6h: build debug, Clippy dan **611 tes Cargo headless lulus** pada CI Ubuntu 24.04 / Rust stable. **33 helper Python serta 116 regresi + 9 batch + 9 alignment + 9 row + 14 cell draft checks GUI X11/Xvfb + tiny-skia** juga lulus; lihat [cell draft](testing-stage6h.md), [body row tabel](testing-stage6g.md), [alignment tabel](testing-stage6f.md), [batch task](testing-stage6e.md), [heading Setext](testing-stage6d.md), [heading ATX](testing-stage6c.md), [history task](testing-stage6b.md), [prototipe task](testing-stage6a.md), [navigasi sel](testing-stage5e.md), [navigasi blok](testing-stage5d.md), [cache/fokus mode](testing-stage5c.md), [tabel](testing-stage5b.md), [fondasi renderer](testing-stage5a.md), [riwayat native](verification-native.md) dan [cakupan GUI](testing-gui-x11.md). Ini bukan kelulusan desktop Wayland/Arch/Hyprland, visual/pixel oracle atau benchmark speedup.
 
@@ -8,7 +8,7 @@ Perluasan [lifecycle X11](testing-lifecycle-x11.md) membuktikan New/Cancel/Disca
 
 - **`app.rs`**: state UI dan pemilihan mode, routing message, subscriptions, dan layout utama. Tidak memelihara salinan terpisah dari teks/path/dirty/revisi.
 - **`app/file_actions.rs`**: koordinasi dialog/worker, pengamanan aksi destruktif, dan penerapan hasil operasi. Berinteraksi dengan model dokumen dan tracker lewat API mereka.
-- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table/paragraph 6a–7a mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
+- **`app/editing.rs`**: guard bersama untuk mutasi Source (prompt/Open/Preview), orkestrasi undo/redo, formatting, pencarian, dan replacement. Save/ekspor biasa tidak memblokir edit. Pengecualian task/heading/table/paragraph 6a–7b mempunyai guard provenance sendiri; history Preview hanya boleh melewati edge tervalidasi di puncak, tidak membuka native typing/formatting Preview.
 - **`navigation.rs` / `app/navigation.rs` / `ui/navigation.rs`**: parsing koordinat dan state murni / koordinasi guard-caret-fokus / panel Go to Line.
 - **`preview_navigation.rs`**: target snapshot+range+origin (blok/sel) dan validasi UTF-8 murni; Document menambahkan membership check pada model cached, controller mengatur guard, mode dan fokus.
 - **`preview_heading.rs`**: planner satu byte hash untuk root ATX level 1–6; Document memeriksa warm root membership, renderer memakai metadata marker cached, bukan body display.
@@ -705,3 +705,36 @@ semua13 gate lama tanpa refocus/retry/runtime hooks/oracle changes. Full candida
 parse/reconstruction/history O(n), bukan speedup. Multiline/EOF/inline typing/
 selection/glyph mapping/scroll sync dan desktop target tetap di luar scope.
 [Kontrak, bukti dan batas7a](testing-stage7a.md).
+
+## Bounded native multiline paragraph drafts (Stage 7b)
+
+`preview_paragraph_multiline` memakai Target shape7a tetapi scanner/plan terpisah:
+2–128 physical lines nonempty/unindented, total16KiB, LF final required, LF internal
+boleh/no tabs/CR/other controls. `Block::multiline_paragraph_payload` hanya root
+Paragraph eligible; single-line metadata/action/APIs tetap. New action136×24 tail
+bar yang sebelumnya Source-only, height/spacing dan existing controls unchanged;
+Source Fill shrinks pada multiline bar, bukan claim semua hit regions identik.
+
+New modal local `text_editor::Content` terpisah dari Source/single/cell draft;
+Enter native newline, Apply button eksplisit, Escape Cancel. Source helper
+`buffer_text`/`paste_exact` direexport internally tanpa perubahan implementasi,
+sehingga raw draft paste mempertahankan trailing LF/control untuk validation,
+bukan invent/drop LF. Native insertion/paste cap preserves last accepted bytes/
+selection; invalid intermediate draft editable. No draft-session Undo. Named zero-
+padding Container scope +`source_focus::task_in` memastikan idempotent native draft
+focus, tidak focus_next atau menyentuh Source/query. Parser rejection refocuses
+draft; final Apply/Cancel restores existing logical context.
+
+Document authenticate exact warm multiline root/snapshot/ranges, no cross-API auth,
+then full candidate parse complete root Paragraph +canonical multiline payload.
+No split/conversion/absorption/partial Apply; original final LF/prefix/suffix/
+neighbors untouched. Existing PreviewParagraph atomic history kind/caps/Source
+barriers reused; caret at last applied payload end. Unchanged close preserves
+revision/cache/caret/checkpoint/history/redo. Async Save/Export immutable snapshots,
+modal guards/search/logical Find/Go-to apply to new modal. No AST serialization.
+
+Suite privat15 preserves25 old exercise bodies AST-identical and all14 old gates;
+no runtime hooks/retry/oracle/refocus workaround/deadline changes. Full parse/
+reconstruction/history O(n), not speedup. EOF/indent/blank-separated blocks,
+inline WYSIWYG/selection/glyph mapping/sync scroll and target compositor remain
+out of scope. [Contract/evidence/manual limits7b](testing-stage7b.md).
