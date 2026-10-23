@@ -11,6 +11,7 @@ fn app() -> Hylite {
         go_to: crate::navigation::GoTo::default(),
         cell_draft: None,
         paragraph_draft: None,
+        multiline_draft: None,
         mode: EditMode::Source,
         sidebar_open: true,
         zen_mode: false,
@@ -4680,4 +4681,327 @@ fn paragraph_stale_draft_is_kept_and_source_typing_remains_preview_history_barri
     assert_eq!(app.document.buffer_text(), "applied\n");
     let _ = app.update(Message::Undo);
     assert_eq!(app.document.buffer_text(), "replacement\n");
+}
+
+fn multiline_app() -> Hylite {
+    let mut app = app();
+    app.document = Document::new("café🙂 **raw**  \na\\|b &amp;\n\n# after\n\t");
+    app.mode = EditMode::Preview;
+    app
+}
+fn multiline_target(app: &Hylite) -> crate::preview_paragraph::Target {
+    let block = app
+        .document
+        .preview_blocks()
+        .iter()
+        .find(|b| b.multiline_paragraph_payload.is_some())
+        .unwrap();
+    crate::preview_paragraph::Target {
+        snapshot: app.document.snapshot(),
+        block: block.source.clone(),
+        payload: block.multiline_paragraph_payload.clone().unwrap(),
+    }
+}
+fn multiline_replace(app: &mut Hylite, value: &str) {
+    let _ = app.update(Message::EditMultilineParagraphDraft(
+        text_editor::Action::SelectAll,
+    ));
+    let _ = app.update(Message::EditMultilineParagraphDraft(
+        text_editor::Action::Edit(text_editor::Edit::Paste(std::sync::Arc::new(value.into()))),
+    ));
+}
+#[test]
+fn multiline_draft_native_enter_and_cancel_only_stage_bytes_without_source_mutation() {
+    let mut app = multiline_app();
+    let t = multiline_target(&app);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+        app.document.buffer_text(),
+    );
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    assert!(app.title().contains("[multiline paragraph draft]"));
+    assert!(!app.source_edit_allowed());
+    assert_eq!(
+        app.multiline_draft.as_ref().unwrap().value(),
+        "café🙂 **raw**  \na\\|b &amp;"
+    );
+    multiline_replace(&mut app, "one\ntwo");
+    let _ = app.update(Message::EditMultilineParagraphDraft(
+        text_editor::Action::Edit(text_editor::Edit::Enter),
+    ));
+    assert_eq!(app.multiline_draft.as_ref().unwrap().value(), "one\ntwo\n");
+    assert!(app.multiline_draft.as_ref().unwrap().error.is_some());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset(),
+            app.document.buffer_text()
+        ),
+        before
+    );
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.multiline_draft.is_none());
+    assert!(!app.document.can_undo() && !app.document.is_dirty());
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset(),
+            app.document.buffer_text()
+        ),
+        before
+    );
+}
+#[test]
+fn multiline_preview_split_apply_is_one_atomic_edge_with_exact_applied_end_caret() {
+    for mode in [EditMode::Preview, EditMode::Split] {
+        let mut app = multiline_app();
+        app.mode = mode;
+        let source = app.document.buffer_text();
+        let t = multiline_target(&app);
+        let _ = app.update(Message::OpenMultilineParagraph(t));
+        let value = "new **é🙂**\nsecond  \nthird";
+        multiline_replace(&mut app, value);
+        let _ = app.update(Message::ApplyMultilineParagraph);
+        assert!(app.multiline_draft.is_none());
+        assert_eq!(app.mode, mode);
+        assert_eq!(
+            app.document.buffer_text(),
+            format!("{value}\n\n# after\n\t")
+        );
+        assert_eq!(app.document.caret_offset(), value.len());
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(false)
+        } else {
+            Message::Undo
+        });
+        assert_eq!(app.document.buffer_text(), source);
+        assert!(!app.document.can_undo() && !app.document.is_dirty());
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(true)
+        } else {
+            Message::Redo
+        });
+        assert_eq!(
+            app.document.buffer_text(),
+            format!("{value}\n\n# after\n\t")
+        );
+    }
+}
+#[test]
+fn multiline_unchanged_apply_closes_without_revision_caret_cache_or_redo_changes() {
+    let mut app = multiline_app();
+    assert!(app.document.change(crate::text_edit::TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(app.document.undo());
+    let t = multiline_target(&app);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    assert!(app.multiline_draft.is_none());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+    assert!(app.document.can_redo() && !app.document.can_undo() && !app.document.is_dirty());
+}
+#[test]
+fn multiline_invalid_structure_blank_single_line_and_oversize_keep_draft_until_corrected() {
+    let mut app = multiline_app();
+    let t = multiline_target(&app);
+    let source = app.document.buffer_text();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    for value in [
+        "single".to_owned(),
+        "one\n\ntwo".into(),
+        "one\n indented".into(),
+        "one\n# heading".into(),
+        "one\n---".into(),
+        "one\n```".into(),
+        "x".repeat(crate::preview_paragraph_multiline::MAX_BYTES + 1),
+    ] {
+        multiline_replace(&mut app, &value);
+        let kept = app.multiline_draft.as_ref().unwrap().value();
+        let _ = app.update(Message::ApplyMultilineParagraph);
+        assert!(app.multiline_draft.as_ref().unwrap().error.is_some());
+        assert_eq!(app.multiline_draft.as_ref().unwrap().value(), kept);
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), source);
+        assert!(!app.document.can_undo());
+    }
+    multiline_replace(&mut app, "corrected **é🙂**\nnext");
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    assert!(app.multiline_draft.is_none());
+    assert!(app
+        .document
+        .buffer_text()
+        .starts_with("corrected **é🙂**\nnext\n"));
+}
+#[test]
+fn multiline_source_prompt_open_cell_single_line_and_no_draft_commands_are_guarded() {
+    for case in 0..6 {
+        let mut app = multiline_app();
+        let t = multiline_target(&app);
+        let before = app.document.snapshot();
+        if case == 0 {
+            app.mode = EditMode::Source;
+        }
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case == 2 {
+            assert!(app.operations.start(OperationKind::Open, before).is_some());
+        }
+        if case == 3 {
+            app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n\nfirst\nsecond\n");
+            let cell = cell_target(&app, 1, 0);
+            let _ = app.update(Message::OpenPreviewCell(cell));
+            let t = multiline_target(&app);
+            let _ = app.update(Message::OpenMultilineParagraph(t));
+            assert!(app.cell_draft.is_some() && app.multiline_draft.is_none());
+            continue;
+        }
+        if case == 4 {
+            app.document = Document::new("single\n\nfirst\nsecond\n");
+            let t = paragraph_target(&app);
+            let _ = app.update(Message::OpenPreviewParagraph(t));
+            let t = multiline_target(&app);
+            let _ = app.update(Message::OpenMultilineParagraph(t));
+            assert!(app.paragraph_draft.is_some() && app.multiline_draft.is_none());
+            continue;
+        }
+        if case != 5 {
+            let _ = app.update(Message::OpenMultilineParagraph(t));
+        }
+        multiline_replace(&mut app, "new\ntext");
+        let _ = app.update(Message::ApplyMultilineParagraph);
+        let _ = app.update(Message::CancelMultilineParagraph);
+        assert!(app.multiline_draft.is_none());
+        assert_eq!(app.document.snapshot(), before);
+        assert!(!app.document.can_undo());
+    }
+}
+#[test]
+fn multiline_modal_blocks_document_actions_and_preserves_save_export_snapshot_replies() {
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = multiline_app();
+        let token = app.operations.start(kind, app.document.snapshot()).unwrap();
+        let t = multiline_target(&app);
+        let _ = app.update(Message::OpenMultilineParagraph(t));
+        multiline_replace(&mut app, "saved\nlater");
+        let before = app.document.snapshot();
+        for msg in [
+            Message::NewFile,
+            Message::OpenFile,
+            Message::SaveFile,
+            Message::ExportHtml,
+            Message::CycleMode,
+            Message::Undo,
+            Message::PreviewHistory(false),
+            Message::CloseRequested(window::Id::unique()),
+            Message::ApplyPreviewParagraph,
+            Message::ApplyPreviewCell,
+        ] {
+            let _ = app.update(msg);
+        }
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().value(),
+            "saved\nlater"
+        );
+        assert_eq!(app.mode, EditMode::Preview);
+        let _ = app.update(Message::ApplyMultilineParagraph);
+        assert_ne!(app.document.snapshot(), before);
+        assert_eq!(app.operations.active().unwrap().token, token);
+        assert_eq!(token.snapshot, before);
+        let t = multiline_target(&app);
+        let _ = app.update(Message::OpenMultilineParagraph(t));
+        multiline_replace(&mut app, "draft\nstays");
+        let _ = app.update(match kind {
+            OperationKind::Save => Message::FileSaved(token, Ok(Some("multiline.md".into()))),
+            _ => Message::HtmlExported(token, Ok(Some("multiline.html".into()))),
+        });
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().value(),
+            "draft\nstays"
+        );
+        assert!(app.document.is_dirty());
+        let _ = app.update(Message::CancelMultilineParagraph);
+        let _ = app.update(Message::PreviewHistory(false));
+        assert!(!app.document.is_dirty());
+    }
+}
+#[test]
+fn multiline_apply_refreshes_find_and_keeps_logical_go_to_context() {
+    for go_to in [false, true] {
+        let mut app = multiline_app();
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        if go_to {
+            let _ = app.update(Message::OpenGoTo);
+            let _ = app.update(Message::GoToQueryChanged("2:3".into()));
+        }
+        let t = multiline_target(&app);
+        let _ = app.update(Message::OpenMultilineParagraph(t));
+        multiline_replace(&mut app, "needle first\nsecond needle");
+        let _ = app.update(Message::ApplyMultilineParagraph);
+        assert_eq!(app.search.count(), 2);
+        assert_eq!(app.search.query, "needle");
+        if go_to {
+            assert!(app.go_to.open && !app.search.open);
+            assert_eq!(app.go_to.query, "2:3");
+        } else {
+            assert!(app.search.open && !app.go_to.open);
+        }
+        let _ = app.update(Message::Undo);
+        assert_eq!(app.search.count(), 0);
+    }
+}
+#[test]
+fn multiline_stale_draft_stays_and_source_typing_remains_a_preview_history_barrier() {
+    let mut app = multiline_app();
+    let t = multiline_target(&app);
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    multiline_replace(&mut app, "pending\ntext");
+    app.document.replace(None, "replacement\ntext\n");
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    assert_eq!(app.document.buffer_text(), "replacement\ntext\n");
+    assert_eq!(
+        app.multiline_draft.as_ref().unwrap().value(),
+        "pending\ntext"
+    );
+    assert!(app.multiline_draft.as_ref().unwrap().error.is_some());
+    let _ = app.update(Message::CancelMultilineParagraph);
+    let t = multiline_target(&app);
+    let _ = app.update(Message::OpenMultilineParagraph(t));
+    multiline_replace(&mut app, "applied\ntext");
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    edit(&mut app);
+    let typed = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), typed);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "applied\ntext\n");
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "replacement\ntext\n");
 }

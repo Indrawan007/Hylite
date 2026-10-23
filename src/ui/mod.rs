@@ -10,3 +10,5 @@ pub mod toolbar;
 pub mod cell_edit;
 
 pub mod paragraph_edit;
+
+pub mod multiline_paragraph;

@@ -228,6 +228,15 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                     .on_press(action),
             );
         }
+        if let Some(action) = multiline_paragraph_action(block, snapshot) {
+            actions = actions.push(
+                button(text("Edit multiline…").size(11))
+                    .padding([2, 6])
+                    .height(24)
+                    .width(136)
+                    .on_press(action),
+            );
+        }
         let choices = table_picker_choices(block, snapshot);
         if !choices.is_empty() {
             actions = actions.push(
@@ -263,6 +272,19 @@ fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
     block
         .source_navigable()
         .then(|| Message::RevealPreview(Target::block(snapshot, block.source.clone())))
+}
+
+fn multiline_paragraph_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
+    if block.kind != Kind::Paragraph {
+        return None;
+    }
+    Some(Message::OpenMultilineParagraph(
+        crate::preview_paragraph::Target {
+            snapshot,
+            block: block.source.clone(),
+            payload: block.multiline_paragraph_payload.clone()?,
+        },
+    ))
 }
 
 fn paragraph_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
@@ -1740,5 +1762,66 @@ mod tests {
         let blocks = super::super::preview_model::parse(&source);
         assert!(paragraph_action(&blocks[0], Snapshot::default()).is_none());
         assert!(source_action(&blocks[0], Snapshot::default()).is_some());
+    }
+    #[test]
+    fn multiline_action_has_exact_snapshot_ranges_and_keeps_single_line_adapter_inert() {
+        let source = "first **é🙂**  \nsecond &amp;\n\n# after\n";
+        let blocks = super::super::preview_model::parse(source);
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let Message::OpenMultilineParagraph(t) =
+            multiline_paragraph_action(&blocks[0], snapshot).unwrap()
+        else {
+            panic!("multiline")
+        };
+        assert_eq!(t.snapshot, snapshot);
+        assert_eq!(t.block, blocks[0].source);
+        assert_eq!(&source[t.payload], "first **é🙂**  \nsecond &amp;");
+        assert!(paragraph_action(&blocks[0], snapshot).is_none());
+        assert!(source_action(&blocks[0], snapshot).is_some());
+    }
+    #[test]
+    fn multiline_action_rejects_nested_single_line_eof_blank_indent_and_literal() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(multiline_paragraph_action(block, Snapshot::default()).is_none());
+                check(&block.children);
+            }
+        }
+        for source in [
+            "single\n",
+            "first\nsecond",
+            "first\n\nsecond\n",
+            "first\n second\n",
+            "> first\n> second\n",
+            "- first\n  second\n",
+            "```\nfirst\nsecond\n```\n",
+            "<div>\nfirst\nsecond\n</div>\n",
+            "first\n---\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn multiline_metadata_is_root_only_bounded_and_does_not_change_single_line_controls() {
+        let blocks = super::super::preview_model::parse("single\n\nfirst\nsecond\n");
+        assert!(paragraph_action(&blocks[0], Snapshot::default()).is_some());
+        assert!(multiline_paragraph_action(&blocks[0], Snapshot::default()).is_none());
+        assert!(paragraph_action(&blocks[1], Snapshot::default()).is_none());
+        assert!(multiline_paragraph_action(&blocks[1], Snapshot::default()).is_some());
+        for source in [
+            format!(
+                "{}\nx\n",
+                "x".repeat(crate::preview_paragraph_multiline::MAX_BYTES)
+            ),
+            format!("{}\n", vec!["x"; 129].join("\n")),
+        ] {
+            let blocks = super::super::preview_model::parse(&source);
+            assert!(multiline_paragraph_action(&blocks[0], Snapshot::default()).is_none());
+            assert!(source_action(&blocks[0], Snapshot::default()).is_some());
+        }
     }
 }

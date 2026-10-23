@@ -58,6 +58,7 @@ pub struct Block {
     pub setext_marker: Option<Range<usize>>,
     /// Single physical-line unindented root paragraphs only; not a glyph map.
     pub paragraph_payload: Option<Range<usize>>,
+    pub multiline_paragraph_payload: Option<Range<usize>>,
 }
 
 impl Block {
@@ -117,6 +118,7 @@ fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) 
         heading_marker: None,
         setext_marker: None,
         paragraph_payload: None,
+        multiline_paragraph_payload: None,
     }
 }
 
@@ -275,6 +277,11 @@ fn blocks(
                             if block.kind == Kind::Paragraph {
                                 block.paragraph_payload =
                                     crate::preview_paragraph::payload_range(source, &block.source);
+                                block.multiline_paragraph_payload =
+                                    crate::preview_paragraph_multiline::payload_range(
+                                        source,
+                                        &block.source,
+                                    );
                             }
                             if let Kind::Heading(level) = block.kind {
                                 block.heading_marker = crate::preview_heading::marker_range(

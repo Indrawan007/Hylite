@@ -1572,6 +1572,99 @@ def exercise_paragraph_draft(desktop, artifacts):
     desktop.expect_native_exit("Paragraph suite clean client Close exits naturally")
 
 
+def exercise_paragraph_multiline(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    initial = "café🙂 **raw**  \na\\|b &amp;".encode("utf-8")
+    value = "edited **é🙂**\nsecond  \nthird &amp;".encode("utf-8")
+    suffix = b"\n\n# untouched\n\nterminal\n\t"
+    source, edited, typed = initial + suffix, value + suffix, b"final\nnextX" + suffix
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Multiline suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Multiline fixture preserves Unicode raw hard break spaces escaped pipe entity and suffix", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+
+    def draft_title(active):
+        desktop.wait("Multiline draft title transition", lambda: ("[multiline paragraph draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == active)
+
+    def open_paragraph(split=False):
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        time.sleep(0.25)
+        draft_title(True)
+
+    def apply():
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "225", "364", "click", "1")
+        time.sleep(0.25)
+
+    def paste(value):
+        desktop.put_clipboard(value)
+        desktop.key("ctrl+a")
+        desktop.key("ctrl+v")
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    open_paragraph()
+    desktop.expect_copy("Multiline raw draft receives exact hard break payload and scoped native editor focus", initial, refocus=False)
+    desktop.type_ascii("discard")
+    desktop.key("Return")
+    desktop.type_ascii("pending")
+    draft_title(True)
+    desktop.expect_copy("Enter inserts a draft newline instead of applying Source", b"discard\npending", refocus=False)
+    desktop.key("Escape")
+    draft_title(False)
+    inspect("Multiline Cancel preserves Source and creates no history despite native Enter", source)
+    back_to_preview()
+    open_paragraph()
+    paste(value)
+    desktop.expect_copy("Unicode three line Markdown paste stays local until explicit Apply", value, refocus=False)
+    apply()
+    draft_title(False)
+    desktop.screenshot(artifacts / "multiline-preview.png")
+    inspect("Multiline Apply replaces one complete raw payload keeping final LF neighbors and suffix", edited)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo restores original soft and hard break bytes", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    inspect("Preview Redo restores exact multiline Unicode paragraph", edited)
+    open_paragraph(split=True)
+    apply()
+    draft_title(False)
+    desktop.expect_copy("Unchanged multiline Apply closes without another history edge", edited, refocus=False)
+    open_paragraph(split=True)
+    paste(b"first\n# heading")
+    apply()
+    draft_title(True)
+    desktop.expect_copy("Parser refuses multiline paragraph split and restores draft input focus", b"first\n# heading", refocus=False)
+    desktop.screenshot(artifacts / "multiline-invalid.png")
+    desktop.key("Escape")
+    draft_title(False)
+    desktop.expect_copy("Rejected multiline split and Cancel keep Source byte-exact", edited, refocus=False)
+    open_paragraph(split=True)
+    paste(b"final\nnext")
+    apply()
+    draft_title(False)
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split multiline Apply restores Source focus at last applied line payload end", typed, refocus=False)
+    desktop.screenshot(artifacts / "multiline-split.png")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Multiline Apply and subsequent native Source typing are separate atomic edges", edited, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Multiline Cancel unchanged and refused drafts leave no hidden history before welcome", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Multiline paragraph suite clean client Close exits naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -1612,13 +1705,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_cell_apply_previous(desktop, artifacts)
     elif suite == "paragraph-draft":
         exercise_paragraph_draft(desktop, artifacts)
+    elif suite == "paragraph-multiline":
+        exercise_paragraph_multiline(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -1666,7 +1761,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
+                    "scope": "Explicit bounded multiline root paragraph native draft, Enter stages newline, exact soft/hard break bytes, full parser split refusal, atomic history, Split last applied line Source focus/caret and natural close; no inline typing, blank blocks, EOF or Wayland proof" if args.suite == "paragraph-multiline" else "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

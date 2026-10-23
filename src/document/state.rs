@@ -429,6 +429,52 @@ impl Document {
         }
         crate::preview_cell::payload(&self.buffer_text(), self.snapshot, target).map(str::to_owned)
     }
+    pub(crate) fn multiline_paragraph_payload(
+        &self,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<String> {
+        if target.snapshot != self.snapshot
+            || !self.preview.get()?.iter().any(|block| {
+                block.kind == preview_model::Kind::Paragraph
+                    && block.source == target.block
+                    && block.multiline_paragraph_payload.as_ref() == Some(&target.payload)
+            })
+        {
+            return None;
+        }
+        crate::preview_paragraph_multiline::payload(&self.buffer_text(), self.snapshot, target)
+            .map(str::to_owned)
+    }
+    pub(crate) fn edit_multiline_paragraph(
+        &mut self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> bool {
+        if self.multiline_paragraph_payload(target).is_none() {
+            return false;
+        }
+        let source = self.buffer_text();
+        let Some(change) =
+            crate::preview_paragraph_multiline::plan(&source, self.snapshot, target, value)
+        else {
+            return false;
+        };
+        let mut candidate = source;
+        candidate.replace_range(change.range.clone(), &change.replacement);
+        let expected = target.block.start..target.block.start + value.len() + 1;
+        if !preview_model::parse(&candidate).iter().any(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.source == expected
+                && block.multiline_paragraph_payload.as_ref()
+                    == Some(&(expected.start..expected.end - 1))
+        }) {
+            return false;
+        }
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewParagraph)
+    }
+
     pub(crate) fn preview_paragraph_payload(
         &self,
         target: &crate::preview_paragraph::Target,
@@ -888,7 +934,7 @@ impl Document {
     }
 }
 
-fn buffer_text(content: &text_editor::Content) -> String {
+pub(crate) fn buffer_text(content: &text_editor::Content) -> String {
     content
         .lines()
         .map(|line| line.to_string())
@@ -901,7 +947,7 @@ fn buffer_text(content: &text_editor::Content) -> String {
 /// then remove ONLY that space using native single-scalar Backspace. Intermediate
 /// segments already end in LF, so tabs immediately before LF are retained.
 /// These internal actions happen outside Document history as one user edit.
-fn paste_exact(content: &mut text_editor::Content, text: &str) {
+pub(crate) fn paste_exact(content: &mut text_editor::Content, text: &str) {
     let mut protected = String::with_capacity(text.len().saturating_add(1));
     protected.push_str(text);
     protected.push(' ');
@@ -1010,3 +1056,7 @@ mod preview_cell_tests;
 #[cfg(test)]
 #[path = "preview_paragraph_tests.rs"]
 mod preview_paragraph_tests;
+
+#[cfg(test)]
+#[path = "preview_multiline_paragraph_tests.rs"]
+mod preview_multiline_paragraph_tests;

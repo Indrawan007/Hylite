@@ -16,7 +16,13 @@ pub fn task() -> Task<Message> {
     widget::operate(focus_operation())
 }
 
+pub fn task_in(scope: container::Id) -> Task<Message> {
+    widget::operate(focus_operation_in(scope))
+}
 fn focus_operation() -> impl Operation<Message> {
+    focus_operation_in(id())
+}
+fn focus_operation_in(scope: container::Id) -> impl Operation<Message> {
     struct FocusSource;
 
     impl Operation<Message> for FocusSource {
@@ -36,7 +42,7 @@ fn focus_operation() -> impl Operation<Message> {
 
     // The scope contains exactly the Source TextEditor. Find/Go to Line inputs
     // and other anonymous focusable widgets are outside it and are not touched.
-    operation::scope(id().into(), FocusSource)
+    operation::scope(scope.into(), FocusSource)
 }
 
 #[cfg(test)]
@@ -132,5 +138,31 @@ mod tests {
         assert!(!source.is_focused());
         assert!(anonymous.is_focused());
         assert!(query.is_focused());
+    }
+    #[test]
+    fn draft_scope_is_idempotent_and_cannot_touch_source_or_queries() {
+        let scope = container::Id::new("draft-only");
+        for outside_focused in [false, true] {
+            let mut source = FocusState(outside_focused);
+            let mut query = FocusState(outside_focused);
+            let mut draft = FocusState(false);
+            for _ in 0..3 {
+                let mut op = focus_operation_in(scope.clone());
+                op.container(None, Rectangle::default(), &mut |op| {
+                    op.focusable(&mut query, Some(&widget::Id::new("query")));
+                    op.container(Some(&id().into()), Rectangle::default(), &mut |op| {
+                        op.focusable(&mut source, None)
+                    });
+                    op.container(
+                        Some(&scope.clone().into()),
+                        Rectangle::default(),
+                        &mut |op| op.focusable(&mut draft, None),
+                    );
+                });
+                assert!(draft.is_focused());
+                assert_eq!(source.is_focused(), outside_focused);
+                assert_eq!(query.is_focused(), outside_focused);
+            }
+        }
     }
 }

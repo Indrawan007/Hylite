@@ -49,3 +49,6 @@ mod preview_table_column;
 
 #[path = "../src/preview_paragraph.rs"]
 mod preview_paragraph;
+
+#[path = "../src/preview_paragraph_multiline.rs"]
+mod preview_paragraph_multiline;

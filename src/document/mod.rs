@@ -8,3 +8,5 @@ mod state;
 pub use preview::render_preview;
 pub use snapshot::Snapshot;
 pub use state::Document;
+
+pub(crate) use state::{buffer_text, paste_exact};
