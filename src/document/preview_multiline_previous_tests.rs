@@ -209,7 +209,7 @@ fn abandoned_and_stale_plans_never_commit_or_drop_current_source_redo() {
     let plan = doc
         .prepare_multiline_paragraph_previous(&t[2], "new\ntext")
         .unwrap();
-    let changed_suffix = SOURCE.replace("terminal\n\t", "terminal more\n\t");
+    let changed_suffix = format!("{SOURCE}appended\n");
     let mut foreign = Document::new(&changed_suffix);
     let _ = roots(&foreign);
     // Earlier ranges/payload still authenticate, but the full Source differs.
