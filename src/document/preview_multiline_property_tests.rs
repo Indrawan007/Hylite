@@ -138,7 +138,11 @@ fn property_commit_matches_reference_source_for_both_directions() {
     let mut commits = 0;
     let mut refusals = 0;
     for case in 0..400 {
-        let text = random_source(&mut rng, &corpus);
+        // Two guaranteed roots so both directions have a neighbour.
+        let text = format!(
+            "{}\n\n{FIRST}\n\n{SECOND}\n",
+            random_source(&mut rng, &corpus)
+        );
         let mut doc = Document::new(&text);
         let all = roots(&doc);
         if all.is_empty() {
@@ -231,7 +235,7 @@ fn property_commit_matches_reference_source_for_both_directions() {
         let _ = doc.preview.take();
         assert!(!roots(&Document::new(&doc.buffer_text())).is_empty());
     }
-    assert!(commits > 20, "expected many commits, got {commits}");
+    assert!(commits > 40, "expected many commits, got {commits}");
     assert!(refusals > 0, "expected some refusals");
 }
 #[test]
