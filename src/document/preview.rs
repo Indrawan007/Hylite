@@ -754,7 +754,6 @@ fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a
                 radius: 5.0.into(),
                 color: colors.accent,
                 width: 1.0,
-                ..Border::default()
             },
             ..container::Style::default()
         })
