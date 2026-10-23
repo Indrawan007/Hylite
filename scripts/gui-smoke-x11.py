@@ -2885,9 +2885,11 @@ def exercise_inline_spike(desktop, artifacts, document):
     desktop.title_ends_with("inline-spike.md — Hylite\n")
     desktop.screenshot(artifacts / "inline-spike-before.png")
 
-    # The opt-in controller focuses its native Iced text_editor. Home sets the
-    # caret to the only line's start; seven visible-character moves place it
-    # between `o` and `l` in the bold run without a guessed glyph x.
+    # Click only to focus the one-line editor; Home then resets the caret so
+    # the probe does not rely on the click's glyph hit-testing. Seven visible-
+    # character moves place it between `o` and `l` in the bold run.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                    "400", "150", "click", "1")
     desktop.key("Home")
     for _ in range(7):
         desktop.key("Right")

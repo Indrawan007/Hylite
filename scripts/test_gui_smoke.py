@@ -1596,6 +1596,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(keys[:8], ["Home", *["Right"] * 7])
         self.assertEqual(keys[8:], ["Escape", "ctrl+shift+m", "ctrl+z",
                                     "ctrl+shift+z", "ctrl+z"])
+        desktop.command.assert_any_call(
+            "xdotool", "mousemove", "--window", "42", "400", "150", "click", "1"
+        )
         self.assertEqual(desktop.screenshot.call_count, 4)
         desktop.find_window.assert_called_once_with(initial_click=False)
         self.assertTrue(all(item.kwargs == {"refocus": False}
