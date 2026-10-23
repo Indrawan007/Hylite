@@ -6347,3 +6347,63 @@ fn single_paragraph_adjacent_actions_preserve_save_export_and_logical_search() {
         assert!(!app.document.is_dirty());
     }
 }
+
+#[test]
+fn cell_draft_reports_the_authenticated_source_line_on_open_move_and_apply_next() {
+    let mut app = cell_app();
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let t = cell_target(&app, 0, 1);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let draft = app.cell_draft.as_ref().unwrap();
+    assert_eq!(draft.line, Some(1));
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        )
+    );
+    let _ = app.update(Message::MovePreviewCell(
+        crate::preview_cell::Direction::Next,
+    ));
+    assert_eq!(app.cell_draft.as_ref().unwrap().line, Some(3));
+    let _ = app.update(Message::PreviewCellChanged("café🙂 edited".into()));
+    let _ = app.update(Message::ApplyPreviewCellNext);
+    let draft = app.cell_draft.as_ref().unwrap();
+    assert_eq!((draft.target.row, draft.target.column), (1, 1));
+    assert_eq!(draft.line, Some(3));
+    assert_eq!(draft.value, "raw");
+    assert!(app
+        .document
+        .buffer_text()
+        .contains("| café🙂 edited | raw |"));
+    let _ = app.update(Message::CancelPreviewCell);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(!app.document.is_dirty());
+}
+
+#[test]
+fn cell_draft_line_is_copied_so_a_stale_document_refuses_apply_without_recomputing_it() {
+    let mut app = cell_app();
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    assert_eq!(app.cell_draft.as_ref().unwrap().line, Some(3));
+    let stale = app.cell_draft.as_ref().unwrap().target.clone();
+    app.document.replace(None, "replacement 🙂\ntext\n");
+    let snapshot = app.document.snapshot();
+    assert_eq!(app.document.cell_line(&stale), None);
+    // The panel keeps the value copied at open time; Apply is what refuses.
+    assert_eq!(app.cell_draft.as_ref().unwrap().line, Some(3));
+    let _ = app.update(Message::PreviewCellChanged("pending 🙂".into()));
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert_eq!(app.document.snapshot(), snapshot);
+    assert!(app.cell_draft.as_ref().unwrap().error.is_some());
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "pending 🙂");
+    let _ = app.update(Message::CancelPreviewCell);
+    assert!(app.cell_draft.is_none());
+}

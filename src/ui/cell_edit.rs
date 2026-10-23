@@ -11,9 +11,21 @@ pub struct Draft {
     pub error: Option<&'static str>,
     /// A navigation refusal must not invalidate an otherwise valid Apply.
     pub navigation_notice: Option<&'static str>,
+    /// 1-based Source line of this cell payload, when authenticated.
+    pub line: Option<usize>,
 }
 pub fn input_id() -> text_input::Id {
     text_input::Id::new("hylite-cell-draft")
+}
+/// Fixed single-line header so the panel height (and every button position)
+/// stays identical whether or not provenance is available.
+fn context_line(draft: &Draft) -> String {
+    match draft.line {
+        Some(line) => format!(
+            "Row 0 = header · body starts at 1 · Source line {line} · changes only on Apply"
+        ),
+        None => "Row 0 = header · body starts at 1 · Source changes only on Apply".into(),
+    }
 }
 fn can_move(draft: &Draft, direction: Direction) -> bool {
     draft.error.is_none() && preview_cell::neighbor(&draft.target, direction).is_some()
@@ -28,7 +40,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .on_submit(Message::ApplyPreviewCell);
     let controls=column![
         container(text(format!("Edit table cell {}:{} — raw Markdown draft",draft.target.row,draft.target.column+1)).size(20)).height(28),
-        container(text("Row 0 = header · body starts at 1 · Source changes only on Apply").size(13)).height(20),
+        container(text(context_line(draft)).size(13)).height(20),
         container(text("One line, up to 16 KiB · escape pipes as \\| · outer cell spacing is preserved").size(13)).height(20),
         container(input).height(36),
         row![button("Apply").height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
@@ -65,6 +77,7 @@ mod tests {
             value: "raw".into(),
             error: None,
             navigation_notice: None,
+            line: None,
         }
     }
     #[test]
@@ -113,5 +126,31 @@ mod tests {
         d.target.row = 0;
         d.target.column = 1;
         assert!(apply_previous_message(&d).is_some());
+    }
+    #[test]
+    fn context_line_shows_the_authenticated_source_line_and_keeps_a_stable_fallback() {
+        let mut d = draft(1, 1);
+        assert_eq!(
+            context_line(&d),
+            "Row 0 = header · body starts at 1 · Source changes only on Apply"
+        );
+        d.line = Some(9);
+        assert_eq!(
+            context_line(&d),
+            "Row 0 = header · body starts at 1 · Source line 9 · changes only on Apply"
+        );
+        // Provenance never changes any affordance.
+        assert!(can_move(&d, Direction::Next));
+        d.error = Some("stale");
+        assert_eq!(
+            context_line(&d),
+            "Row 0 = header · body starts at 1 · Source line 9 · changes only on Apply"
+        );
+        d.line = None;
+        assert!(!can_move(&d, Direction::Next));
+        assert_eq!(
+            context_line(&d),
+            "Row 0 = header · body starts at 1 · Source changes only on Apply"
+        );
     }
 }

@@ -24,11 +24,13 @@ impl Hylite {
             self.status_message = "Cell target is stale or unsupported; document kept".into();
             return Task::none();
         };
+        let line = self.document.cell_line(&target);
         self.cell_draft = Some(Draft {
             target,
             value,
             error: None,
             navigation_notice: None,
+            line,
         });
         self.restore_input_focus()
     }
@@ -107,11 +109,13 @@ impl Hylite {
         let Some(value) = self.document.preview_cell_payload(&next) else {
             return Task::none();
         };
+        let line = self.document.cell_line(&next);
         self.cell_draft = Some(Draft {
             target: next,
             value,
             error: None,
             navigation_notice: None,
+            line,
         });
         self.restore_input_focus()
     }
@@ -179,11 +183,13 @@ impl Hylite {
             }
             return self.restore_input_focus();
         };
+        let line = self.document.cell_line(&next);
         self.cell_draft = Some(Draft {
             target: next,
             value,
             error: None,
             navigation_notice: None,
+            line,
         });
         self.status_message = match (direction, changed) {
             (preview_cell::Direction::Next, true) => "Cell applied; next raw cell draft opened",

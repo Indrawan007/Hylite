@@ -644,3 +644,95 @@ fn apply_previous_stale_targets_source_barrier_delayed_save_and_branch_identity_
         .is_some());
     assert!(!doc.can_redo() && doc.is_dirty());
 }
+
+fn table_cell(doc: &Document, index: usize, row: usize, column: usize) -> Target {
+    let block = &doc.preview_blocks()[index];
+    let preview_model::Kind::Table(table) = &block.kind else {
+        panic!("table")
+    };
+    Target {
+        snapshot: doc.snapshot(),
+        table: block.source.clone(),
+        row,
+        column,
+        rows: table.rows.len(),
+        columns: table.alignments.len(),
+        payload: table.editable_cells.as_ref().unwrap()[row][column].clone(),
+    }
+}
+
+const TWO_TABLES: &str = "| a | b |\n|-|-|\n| café🙂 | raw |\n\n# mid\n\ntail 🙂\n\n| x | y |\n|---|---|\n| one | two |\n\nend\n\t";
+
+#[test]
+fn cell_line_reports_authenticated_source_lines_and_rejects_stale_forged_or_foreign_targets() {
+    let doc = Document::new(TWO_TABLES);
+    let header = table_cell(&doc, 0, 0, 0);
+    let body = table_cell(&doc, 0, 1, 1);
+    let later_header = table_cell(&doc, 3, 0, 0);
+    let later_body = table_cell(&doc, 3, 1, 0);
+    assert_eq!(doc.cell_line(&header), Some(1));
+    assert_eq!(doc.cell_line(&body), Some(3));
+    assert_eq!(doc.cell_line(&later_header), Some(9));
+    assert_eq!(doc.cell_line(&later_body), Some(11));
+    // A heading block is not a table target.
+    let mut foreign = header.clone();
+    foreign.table = doc.preview_blocks()[1].source.clone();
+    assert_eq!(doc.cell_line(&foreign), None);
+    // Forged row/column counts and payload ranges never authenticate.
+    let mut forged = header.clone();
+    forged.rows += 1;
+    assert_eq!(doc.cell_line(&forged), None);
+    let mut forged = header.clone();
+    forged.columns += 1;
+    assert_eq!(doc.cell_line(&forged), None);
+    let mut forged = header.clone();
+    forged.payload = forged.payload.start..forged.payload.end + 1;
+    assert_eq!(doc.cell_line(&forged), None);
+    // A stale snapshot refuses even when the ranges still look valid.
+    let mut doc = Document::new(TWO_TABLES);
+    let stale = table_cell(&doc, 0, 1, 0);
+    assert!(doc.change(TextChange {
+        range: 0..1,
+        replacement: "Z".into(),
+        caret: 1,
+    }));
+    assert_eq!(doc.cell_line(&stale), None);
+}
+
+#[test]
+fn cell_line_is_read_only_and_survives_its_own_atomic_apply() {
+    let mut doc = Document::new(TWO_TABLES);
+    let t = table_cell(&doc, 0, 1, 1);
+    let before = (
+        doc.snapshot(),
+        doc.render_key(),
+        doc.caret_offset(),
+        doc.is_dirty(),
+        doc.can_undo(),
+        doc.can_redo(),
+    );
+    let cache = doc.preview_blocks().as_ptr();
+    for _ in 0..3 {
+        assert_eq!(doc.cell_line(&t), Some(3));
+    }
+    assert_eq!(
+        before,
+        (
+            doc.snapshot(),
+            doc.render_key(),
+            doc.caret_offset(),
+            doc.is_dirty(),
+            doc.can_undo(),
+            doc.can_redo()
+        )
+    );
+    assert_eq!(doc.preview_blocks().as_ptr(), cache);
+    assert!(doc.edit_preview_cell(&t, "grown 🙂"));
+    assert!(doc.cell_line(&t).is_none());
+    let refreshed = table_cell(&doc, 0, 1, 1);
+    assert_eq!(doc.cell_line(&refreshed), Some(3));
+    assert_eq!(
+        doc.preview_cell_payload(&refreshed).as_deref(),
+        Some("grown 🙂")
+    );
+}

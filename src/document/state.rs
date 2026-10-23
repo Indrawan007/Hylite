@@ -761,6 +761,18 @@ impl Document {
         Some(text[..start].bytes().filter(|byte| *byte == b'\n').count() + 1)
     }
 
+    /// Read-only 1-based Source line of an authenticated single-line table
+    /// cell payload. Stale, forged, or non-table targets return `None`.
+    pub(crate) fn cell_line(&self, target: &crate::preview_cell::Target) -> Option<usize> {
+        self.preview_cell_payload(target)?;
+        let text = self.buffer_text();
+        let start = target.payload.start;
+        if start > text.len() || !text.is_char_boundary(start) {
+            return None;
+        }
+        Some(text[..start].bytes().filter(|byte| *byte == b'\n').count() + 1)
+    }
+
     pub(crate) fn prepare_multiline_paragraph_next(
         &self,
         target: &crate::preview_paragraph::Target,
