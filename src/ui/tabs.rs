@@ -65,6 +65,14 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             .style(tab_style(false))
             .padding([3, 8]),
     );
+    if app.tab_count() > 1 {
+        strip = strip.push(
+            button(text("›").size(12))
+                .on_press(Message::CycleTab(false))
+                .style(tab_style(false))
+                .padding([3, 8]),
+        );
+    }
     container(strip)
         .width(Length::Fixed(330.0))
         .height(28)
