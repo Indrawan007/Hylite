@@ -7,6 +7,13 @@ use crate::preview_cell::{self, Target};
 use crate::ui::cell_edit::Draft;
 use iced::Task;
 
+fn record_of(value: &str) -> crate::multiline_draft_history::Record {
+    crate::multiline_draft_history::Record {
+        text: value.to_owned(),
+        caret: value.len(),
+    }
+}
+
 impl Hylite {
     fn cell_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source
@@ -31,6 +38,7 @@ impl Hylite {
             error: None,
             navigation_notice: None,
             line,
+            history: crate::multiline_draft_history::History::default(),
         });
         self.restore_input_focus()
     }
@@ -40,6 +48,9 @@ impl Hylite {
             if value.len() > preview_cell::MAX_BYTES {
                 draft.error = Some("Cell draft exceeds 16 KiB; shorten the input before Apply.");
             } else {
+                draft
+                    .history
+                    .record(record_of(&draft.value), &record_of(&value));
                 draft.error = (!preview_cell::valid_value(&value)).then_some(
                     "Use one line, escape pipes as \\|, and avoid an odd trailing backslash.",
                 );
@@ -116,6 +127,7 @@ impl Hylite {
             error: None,
             navigation_notice: None,
             line,
+            history: crate::multiline_draft_history::History::default(),
         });
         self.restore_input_focus()
     }
@@ -190,6 +202,7 @@ impl Hylite {
             error: None,
             navigation_notice: None,
             line,
+            history: crate::multiline_draft_history::History::default(),
         });
         self.status_message = match (direction, changed) {
             (preview_cell::Direction::Next, true) => "Cell applied; next raw cell draft opened",
@@ -207,6 +220,27 @@ impl Hylite {
         if changed {
             self.edited();
         }
+        self.restore_input_focus()
+    }
+
+    /// Draft-local Undo/Redo for the cell panel; Source and its history stay
+    /// untouched and an invalid restored value only re-arms the same error.
+    pub(super) fn history_preview_cell(&mut self, redo: bool) -> Task<Message> {
+        let Some(draft) = &mut self.cell_draft else {
+            return Task::none();
+        };
+        let Some(target) = draft.history.target(redo).cloned() else {
+            return Task::none();
+        };
+        if target.text.len() > preview_cell::MAX_BYTES
+            || draft.history.step(record_of(&draft.value), redo).is_none()
+        {
+            return Task::none();
+        }
+        draft.value = target.text;
+        draft.error = (!preview_cell::valid_value(&draft.value))
+            .then_some("Use one line, escape pipes as \\|, and avoid an odd trailing backslash.");
+        draft.navigation_notice = None;
         self.restore_input_focus()
     }
 

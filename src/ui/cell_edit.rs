@@ -13,6 +13,22 @@ pub struct Draft {
     pub navigation_notice: Option<&'static str>,
     /// 1-based Source line of this cell payload, when authenticated.
     pub line: Option<usize>,
+    /// Bounded local snapshots; never Source history or document identity.
+    pub history: crate::multiline_draft_history::History,
+}
+impl Draft {
+    pub fn can_undo(&self) -> bool {
+        self.history.can_undo()
+    }
+    pub fn can_redo(&self) -> bool {
+        self.history.can_redo()
+    }
+}
+fn undo_message(draft: &Draft) -> Option<Message> {
+    draft.can_undo().then_some(Message::CellDraftHistory(false))
+}
+fn redo_message(draft: &Draft) -> Option<Message> {
+    draft.can_redo().then_some(Message::CellDraftHistory(true))
 }
 pub fn input_id() -> text_input::Id {
     text_input::Id::new("hylite-cell-draft")
@@ -43,8 +59,10 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         container(text(context_line(draft)).size(13)).height(20),
         container(text("One line, up to 16 KiB · escape pipes as \\| · outer cell spacing is preserved").size(13)).height(20),
         container(input).height(36),
-        row![button("Apply").height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
-            button("Cancel (Esc)").height(32).on_press(Message::CancelPreviewCell)].spacing(8).height(32),
+        row![button("Apply").width(90).height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
+            button("Cancel (Esc)").width(130).height(32).on_press(Message::CancelPreviewCell),
+            button(text("Undo draft").size(14)).width(120).height(32).on_press_maybe(undo_message(draft)),
+            button(text("Redo draft").size(14)).width(120).height(32).on_press_maybe(redo_message(draft))].spacing(8).height(32),
         row![button(text("Previous").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Previous).then_some(Message::MovePreviewCell(Direction::Previous))),
             button(text("Next").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
             button(text("Apply & Next").size(14)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
@@ -78,6 +96,7 @@ mod tests {
             error: None,
             navigation_notice: None,
             line: None,
+            history: crate::multiline_draft_history::History::default(),
         }
     }
     #[test]
@@ -154,4 +173,31 @@ mod tests {
             "Row 0 = header · body starts at 1 · Source changes only on Apply"
         );
     }
+}
+
+#[test]
+fn cell_draft_history_affordances_are_local_and_never_disable_navigation() {
+    let mut d = draft(0, 1);
+    assert!(!d.can_undo() && !d.can_redo());
+    assert!(undo_message(&d).is_none() && redo_message(&d).is_none());
+    let record = |value: &str| crate::multiline_draft_history::Record {
+        text: value.into(),
+        caret: value.len(),
+    };
+    assert!(d.history.record(record("b"), &record("b edited")));
+    d.value = "b edited".into();
+    assert!(matches!(
+        undo_message(&d),
+        Some(Message::CellDraftHistory(false))
+    ));
+    assert!(can_move(&d, Direction::Previous));
+    assert!(can_move(&d, Direction::Next));
+    d.value = "raw".into();
+    d.navigation_notice = Some("dirty");
+    assert!(undo_message(&d).is_some());
+    assert!(redo_message(&d).is_none());
+    assert_eq!(
+        context_line(&d),
+        "Row 0 = header · body starts at 1 · Source changes only on Apply"
+    );
 }

@@ -36,6 +36,13 @@ enum AdjacentDecision {
     },
 }
 
+fn record_of(value: &str) -> crate::multiline_draft_history::Record {
+    crate::multiline_draft_history::Record {
+        text: value.to_owned(),
+        caret: value.len(),
+    }
+}
+
 impl Hylite {
     fn paragraph_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source && self.navigation_allowed() && self.cell_draft.is_none()
@@ -56,6 +63,9 @@ impl Hylite {
             if value.len() > preview_paragraph::MAX_BYTES {
                 draft.error = Some("Paragraph draft exceeds 16 KiB; shorten input before Apply.");
             } else {
+                draft
+                    .history
+                    .record(record_of(&draft.value), &record_of(&value));
                 draft.error = (!preview_paragraph::valid_value(&value))
                     .then_some("Use one nonempty unindented line without control characters.");
                 draft.value = value;
@@ -156,6 +166,7 @@ impl Hylite {
             line,
             navigation_notice: None,
             neighbors: [previous, next],
+            history: crate::multiline_draft_history::History::default(),
         })
     }
     pub(super) fn apply_preview_paragraph_previous(&mut self) -> Task<Message> {
@@ -211,6 +222,7 @@ impl Hylite {
             line: Some(plan.move_line()),
             navigation_notice: None,
             neighbors: plan.neighbors(),
+            history: crate::multiline_draft_history::History::default(),
         };
         Some(AdjacentDecision::Proceed {
             plan: Box::new(plan),
@@ -263,6 +275,26 @@ impl Hylite {
         if changed {
             self.edited();
         }
+        self.restore_input_focus()
+    }
+    /// Draft-local Undo/Redo. Source, document identity, and Source history are
+    /// never touched; an invalid restored value only re-arms the same error.
+    pub(super) fn history_preview_paragraph(&mut self, redo: bool) -> Task<Message> {
+        let Some(draft) = &mut self.paragraph_draft else {
+            return Task::none();
+        };
+        let Some(target) = draft.history.target(redo).cloned() else {
+            return Task::none();
+        };
+        if target.text.len() > preview_paragraph::MAX_BYTES
+            || draft.history.step(record_of(&draft.value), redo).is_none()
+        {
+            return Task::none();
+        }
+        draft.value = target.text;
+        draft.error = (!preview_paragraph::valid_value(&draft.value))
+            .then_some("Use one nonempty unindented line without control characters.");
+        draft.navigation_notice = None;
         self.restore_input_focus()
     }
     pub(super) fn cancel_preview_paragraph(&mut self) -> Task<Message> {

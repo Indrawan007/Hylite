@@ -44,6 +44,8 @@ pub enum Message {
     ApplyMultilineParagraphNext,
     ApplyMultilineParagraphPrevious,
     MultilineDraftHistory(bool),
+    ParagraphDraftHistory(bool),
+    CellDraftHistory(bool),
     MoveMultilineParagraph(crate::document::ParagraphDirection),
     CancelMultilineParagraph,
     OpenPreviewParagraph(crate::preview_paragraph::Target),

@@ -13,6 +13,8 @@ pub struct Draft {
     pub navigation_notice: Option<&'static str>,
     /// `[previous, next]` eligible single-line roots at open/move time.
     pub neighbors: [bool; 2],
+    /// Bounded local snapshots; never Source history or document identity.
+    pub history: crate::multiline_draft_history::History,
 }
 pub fn input_id() -> text_input::Id {
     text_input::Id::new("hylite-paragraph-draft")
@@ -29,7 +31,25 @@ fn provenance_line(draft: &Draft) -> String {
         None => "Source changes only on Apply · result must remain one root paragraph".into(),
     }
 }
-pub fn can_move(draft: &Draft, direction: crate::document::ParagraphDirection) -> bool {
+pub fn undo_message(draft: &Draft) -> Option<Message> {
+    draft
+        .can_undo()
+        .then_some(Message::ParagraphDraftHistory(false))
+}
+fn redo_message(draft: &Draft) -> Option<Message> {
+    draft
+        .can_redo()
+        .then_some(Message::ParagraphDraftHistory(true))
+}
+impl Draft {
+    pub fn can_undo(&self) -> bool {
+        self.history.can_undo()
+    }
+    pub fn can_redo(&self) -> bool {
+        self.history.can_redo()
+    }
+}
+fn can_move(draft: &Draft, direction: crate::document::ParagraphDirection) -> bool {
     use crate::document::ParagraphDirection as Direction;
     draft.error.is_none()
         && preview_paragraph::valid_value(&draft.value)
@@ -107,7 +127,15 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                 .on_press_maybe(apply_adjacent_message(
                     draft,
                     crate::document::ParagraphDirection::Next
-                ))
+                )),
+            button(text("Undo draft").size(14))
+                .width(120)
+                .height(32)
+                .on_press_maybe(undo_message(draft)),
+            button(text("Redo draft").size(14))
+                .width(120)
+                .height(32)
+                .on_press_maybe(redo_message(draft))
         ]
         .spacing(8)
         .height(32),
@@ -143,6 +171,7 @@ mod tests {
             line: None,
             navigation_notice: None,
             neighbors: [false, false],
+            history: crate::multiline_draft_history::History::default(),
         };
         assert!(matches!(
             apply_message(&d),
@@ -169,6 +198,7 @@ mod tests {
             line: Some(12),
             navigation_notice: None,
             neighbors: [false, false],
+            history: crate::multiline_draft_history::History::default(),
         };
         assert_eq!(
             provenance_line(&d),
@@ -199,6 +229,7 @@ mod tests {
             line: None,
             navigation_notice: Some("dirty move refused"),
             neighbors: [false, true],
+            history: crate::multiline_draft_history::History::default(),
         };
         assert!(can_move(&d, Next));
         assert!(!can_move(&d, Previous));
@@ -227,6 +258,7 @@ mod tests {
             line: Some(3),
             navigation_notice: Some("last supported single-line paragraph"),
             neighbors: [true, false],
+            history: crate::multiline_draft_history::History::default(),
         };
         assert!(apply_message(&d).is_some());
         assert_eq!(
@@ -237,4 +269,44 @@ mod tests {
         assert_eq!(d.error.or(d.navigation_notice), Some("invalid"));
         assert!(apply_message(&d).is_none());
     }
+}
+
+#[test]
+fn draft_history_affordances_track_local_snapshots_without_touching_apply() {
+    let mut d = Draft {
+        target: preview_paragraph::Target {
+            snapshot: Default::default(),
+            block: 0..4,
+            payload: 0..3,
+        },
+        value: "raw".into(),
+        error: None,
+        line: None,
+        navigation_notice: None,
+        neighbors: [true, true],
+        history: crate::multiline_draft_history::History::default(),
+    };
+    assert!(!d.can_undo() && !d.can_redo());
+    assert!(undo_message(&d).is_none() && redo_message(&d).is_none());
+    let record = |value: &str| crate::multiline_draft_history::Record {
+        text: value.into(),
+        caret: value.len(),
+    };
+    assert!(d.history.record(record("raw"), &record("raw edited")));
+    d.value = "raw edited".into();
+    assert!(d.can_undo() && !d.can_redo());
+    assert!(matches!(
+        undo_message(&d),
+        Some(Message::ParagraphDraftHistory(false))
+    ));
+    assert!(redo_message(&d).is_none());
+    assert!(matches!(
+        apply_message(&d),
+        Some(Message::ApplyPreviewParagraph)
+    ));
+    // An error disables Apply but never the local history.
+    d.error = Some("stale");
+    assert!(apply_message(&d).is_none());
+    assert!(undo_message(&d).is_some());
+    assert!(can_move(&d, crate::document::ParagraphDirection::Next));
 }

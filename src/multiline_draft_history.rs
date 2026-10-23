@@ -17,7 +17,7 @@ impl Record {
         self.text.len() <= MAX_BYTES && self.text.is_char_boundary(self.caret)
     }
 }
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct History {
     undo: VecDeque<Record>,
     redo: VecDeque<Record>,

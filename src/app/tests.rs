@@ -6407,3 +6407,123 @@ fn cell_draft_line_is_copied_so_a_stale_document_refuses_apply_without_recomputi
     let _ = app.update(Message::CancelPreviewCell);
     assert!(app.cell_draft.is_none());
 }
+
+#[test]
+fn paragraph_draft_history_undo_redo_stay_local_and_a_new_edit_drops_redo() {
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let original = app.document.buffer_text();
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+        app.document.can_undo(),
+        app.document.can_redo(),
+    );
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    set_paragraph_value(&mut app, "first A");
+    set_paragraph_value(&mut app, "first AB");
+    assert!(app.paragraph_draft.as_ref().unwrap().can_undo());
+    assert!(!app.paragraph_draft.as_ref().unwrap().can_redo());
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "first A");
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **first**  "
+    );
+    assert!(!app.paragraph_draft.as_ref().unwrap().can_undo());
+    let _ = app.update(Message::ParagraphDraftHistory(true));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "first A");
+    // A new local edit is a branch: redo is dropped, Source is still untouched.
+    set_paragraph_value(&mut app, "first AC");
+    assert!(!app.paragraph_draft.as_ref().unwrap().can_redo());
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "first A");
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().target, t[0]);
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset(),
+            app.document.can_undo(),
+            app.document.can_redo()
+        )
+    );
+    assert_eq!(app.document.buffer_text(), original);
+    // The explicit Apply still commits only the visible draft text.
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert!(app.document.buffer_text().starts_with("first A\n\n# gap"));
+    let _ = app.update(Message::CancelPreviewParagraph);
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), original);
+}
+
+#[test]
+fn paragraph_draft_history_restores_validity_and_ignores_oversized_or_absent_drafts() {
+    let mut app = single_paragraph_app();
+    let t = single_targets(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t[0].clone()));
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **first**  "
+    );
+    set_paragraph_value(&mut app, "two\nlines");
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **first**  "
+    );
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_none());
+    let oversized = "x".repeat(crate::preview_paragraph::MAX_BYTES + 1);
+    set_paragraph_value(&mut app, &oversized);
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **first**  "
+    );
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
+    let _ = app.update(Message::CancelPreviewParagraph);
+    let _ = app.update(Message::ParagraphDraftHistory(false));
+    assert!(app.paragraph_draft.is_none());
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn cell_draft_history_undo_restores_the_raw_cell_and_apply_commits_it() {
+    let mut app = cell_app();
+    let source = app.document.buffer_text();
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let t = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(t));
+    let _ = app.update(Message::PreviewCellChanged("café🙂 A".into()));
+    let _ = app.update(Message::PreviewCellChanged("café🙂 AB".into()));
+    let _ = app.update(Message::CellDraftHistory(false));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "café🙂 A");
+    let _ = app.update(Message::CellDraftHistory(false));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "café🙂");
+    assert_eq!(
+        before,
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        )
+    );
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::CellDraftHistory(true));
+    assert_eq!(app.cell_draft.as_ref().unwrap().value, "café🙂 A");
+    let _ = app.update(Message::ApplyPreviewCell);
+    assert!(app.cell_draft.is_none());
+    assert!(app.document.buffer_text().contains("| café🙂 A | raw |"));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::CellDraftHistory(false));
+    assert!(app.cell_draft.is_none());
+}
