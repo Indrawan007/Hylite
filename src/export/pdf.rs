@@ -301,6 +301,13 @@ pub fn pdf_string(text: &str) -> String {
                 }
             },
         };
+        if byte >= 0x7F {
+            // PDF literal strings are byte strings, but the stream itself is a
+            // Rust String written as UTF-8. An octal escape keeps the byte exact
+            // (\351 is WinAnsi e-acute) instead of re-encoding it as UTF-8.
+            out.push_str(&format!("\\{byte:03o}"));
+            continue;
+        }
         out.push(byte as char);
     }
     out
@@ -308,7 +315,8 @@ pub fn pdf_string(text: &str) -> String {
 
 /// Approximate advance width of one line in points.
 pub fn text_width(text: &str, style: Style, size: f32) -> f32 {
-    let units: u32 = pdf_string(text)
+    // Widths come from the characters, never from their escaped bytes.
+    let units: u32 = text
         .chars()
         .map(|character| {
             if style.mono {
@@ -1011,12 +1019,17 @@ mod tests {
     #[test]
     fn text_is_escaped_and_non_winansi_becomes_a_question_mark() {
         assert_eq!(pdf_string("a(b)c\\d"), "a\\(b\\)c\\\\d");
-        assert_eq!(pdf_string("café"), "café");
+        assert_eq!(pdf_string("café"), "caf\\351");
         assert_eq!(pdf_string("tab\tnewline\njoin"), "tab newline join");
         assert_eq!(pdf_string("emoji 🙂 dan 日本"), "emoji ? dan ??");
         assert_eq!(
             pdf_string("— – “quote” • …"),
-            "\u{97} \u{96} \u{93}quote\u{94} \u{95} \u{85}"
+            "\\227 \\226 \\223quote\\224 \\225 \\205"
+        );
+        assert_eq!(pdf_string("café"), "caf\\351");
+        assert!(
+            pdf_string("café — 🙂").is_ascii(),
+            "the content stream stays ASCII so WinAnsi bytes survive"
         );
         assert_eq!(pdf_string("\u{7}bell"), "bell", "control chars are dropped");
     }

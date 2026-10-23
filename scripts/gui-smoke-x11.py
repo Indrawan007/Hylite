@@ -2767,8 +2767,9 @@ def exercise_pdf(desktop, artifacts, binary, document):
 
     if "Emoji ? ditolak." not in text:
         raise AssertionError("Non-WinAnsi text was not degraded to '?'")
-    if "caf\u00e9" not in text:
-        raise AssertionError("WinAnsi text (café) did not survive")
+    # WinAnsi bytes travel as octal escapes so the stream itself stays ASCII.
+    if "caf\\351" not in text:
+        raise AssertionError("WinAnsi text (café) did not survive as an octal escape")
     desktop.passed_check("WinAnsi text survives and non-WinAnsi degrades to '?' instead of corrupting the page")
 
     if document.read_bytes() != source:

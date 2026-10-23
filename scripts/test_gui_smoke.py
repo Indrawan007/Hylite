@@ -1405,7 +1405,7 @@ class SmokeHelperTests(unittest.TestCase):
                        "BT /F1 10 Tf 56.00 722.00 Td (satu) Tj ET\n"
                        "BT /F4 9 Tf 56.00 706.00 Td (baris kode) Tj ET\n"
                        "BT /F1 10 Tf 56.00 690.00 Td (Emoji ? ditolak.) Tj ET\n"
-                       "BT /F1 10 Tf 56.00 674.00 Td (caf\xe9) Tj ET\n")
+                       "BT /F1 10 Tf 56.00 674.00 Td (caf\\351) Tj ET\n")
         body = content.encode("latin-1")
         objects = [b"<< /Type /Catalog /Pages 2 0 R >>",
                    b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
