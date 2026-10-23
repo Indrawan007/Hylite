@@ -236,7 +236,7 @@ fn render_block<'a>(
                 );
                 column(items).spacing(6).width(Length::Fill).into()
             }
-            Kind::Item(_) => render_blocks(&block.children, colors, snapshot),
+            Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir),
             Kind::Code {
                 info,
                 text: payload,
