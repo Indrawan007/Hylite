@@ -11,6 +11,7 @@ mod files;
 mod highlighting;
 mod hyprland;
 mod line_edit;
+mod multiline_draft_history;
 mod navigation;
 mod operations;
 mod preview_cell;

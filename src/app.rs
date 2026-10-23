@@ -126,6 +126,7 @@ impl Hylite {
             if !matches!(
                 &message,
                 Message::EditMultilineParagraphDraft(_)
+                    | Message::MultilineDraftHistory(_)
                     | Message::ApplyMultilineParagraph
                     | Message::CancelMultilineParagraph
                     | Message::EndTypingGroup
@@ -189,6 +190,7 @@ impl Hylite {
             Message::EditMultilineParagraphDraft(action) => {
                 self.edit_multiline_paragraph_draft(action)
             }
+            Message::MultilineDraftHistory(redo) => self.history_multiline_paragraph(redo),
             Message::ApplyMultilineParagraph => self.apply_multiline_paragraph(),
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),

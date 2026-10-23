@@ -39,6 +39,14 @@ impl Hylite {
         }
         Task::none()
     }
+    /// Local history never calls Document Undo/Redo or changes its identity/cache.
+    pub(super) fn history_multiline_paragraph(&mut self, redo: bool) -> Task<Message> {
+        let Some(draft) = &mut self.multiline_draft else {
+            return Task::none();
+        };
+        draft.undo_redo(redo);
+        self.restore_input_focus()
+    }
     pub(super) fn apply_multiline_paragraph(&mut self) -> Task<Message> {
         if !self.multiline_operation_allowed() {
             return Task::none();

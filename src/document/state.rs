@@ -959,7 +959,7 @@ pub(crate) fn paste_exact(content: &mut text_editor::Content, text: &str) {
 /// Uses logical UTF-8 offsets instead of visual grapheme/RTL cursor motions.
 /// Paste retains a real trailing empty line (with_text alone drops it). Verify
 /// both raw text and logical caret before replacing the original buffer.
-fn content_at(text: &str, caret: usize) -> Option<text_editor::Content> {
+pub(crate) fn content_at(text: &str, caret: usize) -> Option<text_editor::Content> {
     if !text.is_char_boundary(caret) {
         return None;
     }
