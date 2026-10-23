@@ -61,3 +61,6 @@ mod workspace;
 
 #[path = "../src/images.rs"]
 mod images;
+
+#[path = "../src/export/pdf.rs"]
+mod pdf;

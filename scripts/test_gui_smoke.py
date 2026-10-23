@@ -1394,5 +1394,135 @@ class SmokeHelperTests(unittest.TestCase):
             gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "images")
 
 
+    def sample_pdf(self, content=None, with_stream=True):
+        """A minimal, structurally valid PDF 1.4 the probe must accept."""
+        if content is None:
+            content = ("BT /F1 10 Tf 56.00 786.00 Td (Catatan PDF) Tj ET\n"
+                       "BT /F2 10 Tf 56.00 770.00 Td (tebal) Tj ET\n"
+                       "BT /F4 9 Tf 56.00 754.00 Td (kode) Tj ET\n"
+                       "BT /F1 10 Tf 56.00 738.00 Td (Kolom) Tj ET\n"
+                       "BT /F1 10 Tf 120.00 738.00 Td (Nilai) Tj ET\n"
+                       "BT /F1 10 Tf 56.00 722.00 Td (satu) Tj ET\n"
+                       "BT /F4 9 Tf 56.00 706.00 Td (baris kode) Tj ET\n"
+                       "BT /F1 10 Tf 56.00 690.00 Td (Emoji ? ditolak.) Tj ET\n"
+                       "BT /F1 10 Tf 56.00 674.00 Td (caf\xe9) Tj ET\n")
+        body = content.encode("latin-1")
+        objects = [b"<< /Type /Catalog /Pages 2 0 R >>",
+                   b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                   b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.0 842.0] >>"]
+        if with_stream:
+            objects.append(b"<< /Length " + str(len(body)).encode("ascii")
+                           + b" >>\nstream\n" + body + b"endstream")
+        pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+        offsets = []
+        for number, item in enumerate(objects, start=1):
+            offsets.append(len(pdf))
+            pdf += f"{number} 0 obj\n".encode("ascii") + item + b"\nendobj\n"
+        xref = len(pdf)
+        pdf += f"xref\n0 {len(objects) + 1}\n".encode("ascii") + b"0000000000 65535 f \n"
+        for offset in offsets:
+            pdf += f"{offset:010d} 00000 n \n".encode("ascii")
+        pdf += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode("ascii")
+        return pdf
+
+    def test_pdf_document_validator_accepts_the_renderer_skeleton(self):
+        text = gui.assert_pdf_document(self.sample_pdf())
+        self.assertIn("(Catatan PDF) Tj", text)
+
+    def test_pdf_document_validator_rejects_a_broken_structure(self):
+        valid = self.sample_pdf()
+        with self.assertRaisesRegex(AssertionError, "Missing PDF 1.4 header"):
+            gui.assert_pdf_document(b"not a pdf")
+        with self.assertRaisesRegex(AssertionError, "Missing EOF marker"):
+            gui.assert_pdf_document(valid[:-6])
+        with self.assertRaisesRegex(AssertionError, "does not point at the xref table"):
+            gui.assert_pdf_document(valid.replace(b"startxref\n", b"startxref\n9", 1))
+        length = int(valid.split(b"<< /Length ")[1].split(b" ")[0])
+        with self.assertRaisesRegex(AssertionError, "declares"):
+            gui.assert_pdf_document(valid.replace(b"<< /Length %d" % length,
+                                                  b"<< /Length %d" % (length + 7), 1))
+        first = len(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+        with self.assertRaisesRegex(AssertionError, "does not point at its header"):
+            gui.assert_pdf_document(valid.replace(b"%010d 00000 n" % first,
+                                                  b"0000000009 00000 n", 1))
+        with self.assertRaisesRegex(AssertionError, "No content stream found"):
+            gui.assert_pdf_document(self.sample_pdf(with_stream=False))
+
+    def test_pdf_fixture_is_exact_utf8_with_a_table_a_code_block_and_an_emoji(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.pdf_fixture(Path(temp) / "pdf")
+            self.assertEqual(document.read_bytes(), gui.PDF_DOCUMENT)
+        self.assertIn("| :--- | ---: |".encode("utf-8"), gui.PDF_DOCUMENT)
+        self.assertIn("baris kode".encode("utf-8"), gui.PDF_DOCUMENT)
+        self.assertIn("caf\xc3\xa9".encode("latin-1"), gui.PDF_DOCUMENT)
+        self.assertIn("\xf0\x9f\x99\x82".encode("latin-1"), gui.PDF_DOCUMENT)
+
+    def test_pdf_probe_exports_headlessly_and_refuses_destructive_inputs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.pdf_fixture(Path(temp) / "pdf")
+            source = document.read_bytes()
+            artifacts = Path(temp) / "evidence"
+            artifacts.mkdir()
+            sample = self.sample_pdf()
+
+            def fake_export(binary, arguments, env):
+                if len(arguments) != 2:
+                    return gui.subprocess.CompletedProcess([], 2, b"", b"usage")
+                head, tail = Path(arguments[0]), Path(arguments[1])
+                if not head.exists() or head == tail:
+                    return gui.subprocess.CompletedProcess([], 1, b"", b"refused")
+                tail.write_bytes(sample)
+                return gui.subprocess.CompletedProcess([], 0, b"", b"")
+
+            usage = gui.subprocess.CompletedProcess(
+                [], 2, b"", b"usage: hylite export-pdf <input.md> <output.pdf>\n")
+            desktop = Mock(window="42", env={})
+            with patch.object(gui, "run_export_cli", side_effect=fake_export), \
+                 patch.object(gui.subprocess, "run", return_value=usage):
+                gui.exercise_pdf(desktop, artifacts, Path("/unused/binary"), document)
+
+            self.assertEqual(document.read_bytes(), source)
+            self.assertEqual((artifacts / "catatan.pdf").read_bytes(), sample)
+            self.assertEqual(desktop.passed_check.call_count, 7)
+            self.assertEqual([call.args for call in desktop.screenshot.call_args_list],
+                             [(artifacts / "before-export.png",), (artifacts / "after-export.png",)])
+            desktop.expect_copy.assert_called_once_with(
+                "The GUI document is still the exact Markdown after the exports", source, refocus=False)
+            desktop.request_close.assert_called_once_with()
+            desktop.expect_native_exit.assert_called_once()
+
+    def test_pdf_dispatch_is_exclusive_and_keeps_every_previous_suite(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        names = ["exercise", "exercise_navigation", "exercise_preview", "exercise_tables",
+                 "exercise_preview_cache", "exercise_preview_reveal", "exercise_cell_reveal",
+                 "exercise_task_toggle", "exercise_preview_task_history", "exercise_preview_heading",
+                 "exercise_preview_setext", "exercise_lifecycle", "exercise_task_batch",
+                 "exercise_table_alignment", "exercise_table_rows", "exercise_table_cells",
+                 "exercise_cell_navigation", "exercise_table_insert", "exercise_table_columns",
+                 "exercise_table_column_delete", "exercise_table_row_move",
+                 "exercise_table_column_move", "exercise_table_column_duplicate",
+                 "exercise_cell_apply_previous", "exercise_paragraph_draft",
+                 "exercise_paragraph_multiline", "exercise_paragraph_draft_history",
+                 "exercise_paragraph_navigation", "exercise_paragraph_apply_next",
+                 "exercise_paragraph_apply_previous", "exercise_paragraph_draft_shortcuts",
+                 "exercise_single_paragraph_navigation", "exercise_draft_history_single",
+                 "exercise_draft_history_keys", "exercise_tabs", "exercise_workspace",
+                 "exercise_images"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_pdf"))
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "pdf",
+                               None, Path("/unused/doc.md"))
+            new.assert_called_once_with(desktop, artifacts, Path("/unused/binary"),
+                                        Path("/unused/doc.md"))
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_pdf_suite_refuses_to_run_without_a_document(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        with self.assertRaisesRegex(ValueError, "needs a document path"):
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "pdf")
+
+
 if __name__ == "__main__":
     unittest.main()

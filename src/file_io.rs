@@ -128,6 +128,38 @@ pub async fn export_html(markdown: String, source: Option<PathBuf>) -> FileResul
     .map(Some)
 }
 
+pub async fn export_pdf(
+    markdown: String,
+    palette: crate::export::pdf::Palette,
+    source: Option<PathBuf>,
+) -> FileResult<PathBuf> {
+    let stem = source
+        .as_ref()
+        .and_then(|path| path.file_stem())
+        .and_then(|name| name.to_str())
+        .unwrap_or("untitled");
+    let Some(handle) = rfd::AsyncFileDialog::new()
+        .set_title("Export PDF")
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(format!("{stem}.pdf"))
+        .save_file()
+        .await
+    else {
+        return Ok(None);
+    };
+    let path = handle.path().to_path_buf();
+    blocking(move || {
+        if let Some(source) = source {
+            files::ensure_distinct_destination(&source, &path)?;
+        }
+        crate::export::export_pdf(&markdown, palette, &path)
+            .with_context(|| format!("Cannot export {}", path.display()))?;
+        Ok(path)
+    })
+    .await
+    .map(Some)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

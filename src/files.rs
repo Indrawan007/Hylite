@@ -101,7 +101,7 @@ pub fn ensure_distinct_destination(source: &Path, destination: &Path) -> anyhow:
             if metadata.dev() == source_metadata.dev()
                 && metadata.ino() == source_metadata.ino() =>
         {
-            bail!("HTML export cannot overwrite the active Markdown file")
+            bail!("Export cannot overwrite the active Markdown file")
         }
         Ok(_) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),

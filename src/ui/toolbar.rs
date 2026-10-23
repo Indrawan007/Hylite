@@ -68,6 +68,10 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 .on_press(Message::ExportHtml)
                 .style(btn_style(false))
                 .padding([4, 10]),
+            button(text("PDF").size(12))
+                .on_press(Message::ExportPdf)
+                .style(btn_style(false))
+                .padding([4, 10]),
             crate::ui::tabs::view(app),
             horizontal_space(),
             mode_btn("Source", EditMode::Source),

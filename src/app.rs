@@ -147,6 +147,7 @@ impl Hylite {
                 | Message::NewFile
                 | Message::OpenFile
                 | Message::ExportHtml
+                | Message::ExportPdf
                 | Message::SwitchMode(_)
                 | Message::CycleMode
                 | Message::Undo
@@ -423,6 +424,8 @@ impl Hylite {
             Message::FileOpened(token, result) => self.on_file_opened(token, result),
             Message::FileSaved(token, result) => self.on_file_saved(token, result),
             Message::ExportHtml => self.begin_export(),
+            Message::ExportPdf => self.begin_export_pdf(),
+            Message::PdfExported(token, result) => self.on_pdf_exported(token, result),
             Message::HtmlExported(token, result) => self.on_html_exported(token, result),
 
             // ── UI ──

@@ -1,3 +1,6 @@
+pub mod pdf;
+mod pdf_build;
+
 use pulldown_cmark::{html, Options, Parser};
 
 /// Convert markdown → HTML body
@@ -57,9 +60,25 @@ pub fn export_html(markdown: &str, path: &std::path::Path) -> anyhow::Result<()>
     Ok(())
 }
 
+/// Export markdown → PDF with the active theme's colours.
+///
+/// The layout engine is `pdf.rs`: base-14 fonts, WinAnsi text, tables and code
+/// blocks rendered as vector content. No font embedding, no images, no
+/// compression, and no Unicode outside WinAnsi (`?` fallback).
+pub fn export_pdf(
+    markdown: &str,
+    palette: pdf::Palette,
+    path: &std::path::Path,
+) -> anyhow::Result<()> {
+    let blocks = crate::document::preview_model::parse(markdown);
+    let doc = pdf_build::document(&blocks);
+    let bytes = pdf::render(&doc, &palette);
+    crate::files::atomic_write(path, &bytes)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{export_html, to_html};
+    use super::{export_html, export_pdf, pdf, to_html};
 
     #[test]
     fn empty_markdown_produces_empty_body() {
@@ -134,5 +153,40 @@ mod tests {
         let path = directory.path().join("missing").join("catatan.html");
 
         assert!(export_html("# Catatan", &path).is_err());
+    }
+
+    #[test]
+    fn writes_a_valid_pdf_with_headings_tables_and_code() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("catatan.pdf");
+        let markdown =
+            "# Catatan\n\nIsi **dokumen**.\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n```\nkode\n```\n";
+        export_pdf(markdown, pdf::Palette::default(), &path).unwrap();
+
+        let bytes = std::fs::read(path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-1.4"));
+        assert!(bytes.ends_with(b"%%EOF\n"));
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("(Catatan) Tj"));
+        assert!(text.contains("(Isi ) Tj") && text.contains("(dokumen) Tj"));
+        assert!(text.contains("(a) Tj") && text.contains("(2) Tj"));
+        assert!(text.contains("(kode) Tj"));
+        assert!(text.contains("/Count 1"));
+    }
+
+    #[test]
+    fn an_empty_document_still_writes_one_page() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("kosong.pdf");
+        export_pdf("", pdf::Palette::default(), &path).unwrap();
+        let text = String::from_utf8_lossy(&std::fs::read(path).unwrap()).to_string();
+        assert!(text.contains("/Count 1"));
+    }
+
+    #[test]
+    fn pdf_export_propagates_write_errors() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("missing").join("catatan.pdf");
+        assert!(export_pdf("# Catatan", pdf::Palette::default(), &path).is_err());
     }
 }

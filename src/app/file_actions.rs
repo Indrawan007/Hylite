@@ -167,6 +167,53 @@ impl Hylite {
         Task::perform(work, move |result| Message::HtmlExported(token, result))
     }
 
+    /// Theme palette for the PDF, taken from the same iced theme the editor
+    /// draws with so "export with the active theme" is literal.
+    pub(super) fn pdf_palette(&self) -> crate::export::pdf::Palette {
+        let theme = self.theme();
+        let palette = theme.palette();
+        crate::export::pdf::Palette::from_colors(
+            [
+                palette.background.r,
+                palette.background.g,
+                palette.background.b,
+            ],
+            [palette.text.r, palette.text.g, palette.text.b],
+            [palette.primary.r, palette.primary.g, palette.primary.b],
+        )
+    }
+
+    pub(super) fn begin_export_pdf(&mut self) -> Task<Message> {
+        if self.pending_action.is_some() || !self.file_operation_available() {
+            return Task::none();
+        }
+        let token = self.start_operation(OperationKind::Export);
+        self.status_message = "Exporting PDF…".into();
+        let work = file_io::export_pdf(
+            self.document.text(),
+            self.pdf_palette(),
+            self.document.path().map(PathBuf::from),
+        );
+        Task::perform(work, move |result| Message::PdfExported(token, result))
+    }
+
+    pub(super) fn on_pdf_exported(
+        &mut self,
+        token: OperationToken,
+        result: FileResult<PathBuf>,
+    ) -> Task<Message> {
+        if !self.finish_operation(token, OperationKind::Export) {
+            return Task::none();
+        }
+        match result {
+            Ok(Some(path)) => self.status_message = format!("PDF exported: {}", path.display()),
+            Ok(None) => self.status_message = "PDF export cancelled".into(),
+            Err(error) => self.report_file_error("PDF export", error),
+        }
+        // Exporting never changes the Markdown path or the dirty flag.
+        Task::none()
+    }
+
     pub(super) fn on_html_exported(
         &mut self,
         token: OperationToken,

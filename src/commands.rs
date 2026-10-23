@@ -114,6 +114,8 @@ pub enum Message {
     OpenTreeFile(PathBuf),
     ExportHtml,
     HtmlExported(OperationToken, FileResult<PathBuf>),
+    ExportPdf,
+    PdfExported(OperationToken, FileResult<PathBuf>),
     CloseRequested(window::Id),
     ConfirmSave,
     ConfirmDiscard,
@@ -192,6 +194,8 @@ pub fn shortcut(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Me
             "e" | "E" => Some(Message::ExportHtml),
             // Ctrl+Shift+O opens a workspace folder; Ctrl+O stays a single file.
             "o" | "O" => Some(Message::OpenWorkspace),
+            // Ctrl+Shift+E stays HTML; PDF has its own chord.
+            "p" | "P" => Some(Message::ExportPdf),
             _ => None,
         },
         keyboard::Key::Named(keyboard::key::Named::F3) if !ctrl => Some(Message::FindNext(shift)),

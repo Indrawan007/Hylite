@@ -6,6 +6,7 @@ mod continuation;
 mod document;
 mod editor;
 mod export;
+mod export_cli;
 mod file_io;
 mod files;
 mod highlighting;
@@ -33,6 +34,14 @@ mod ui;
 mod workspace;
 
 fn main() -> iced::Result {
+    // `hylite export-pdf <input.md> <output.pdf>` renders without a window, so
+    // a script (and the X11 gate) can produce a PDF headlessly.
+    let arguments = std::env::args_os().skip(1);
+    if export_cli::is_export_pdf(arguments.clone().next().as_ref()) {
+        let theme = config::Config::load().config.appearance.theme.iced();
+        let palette = export_cli::theme_palette(&theme);
+        std::process::exit(export_cli::run(arguments.collect(), palette));
+    }
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
     let launch = std::env::args_os().nth(1).map(std::path::PathBuf::from);
     iced::application(app::Hylite::title, app::Hylite::update, app::Hylite::view)
