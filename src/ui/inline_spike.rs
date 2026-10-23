@@ -224,7 +224,7 @@ mod tests {
         let settings = draft.highlighter_settings();
         let bold = draft.projection.visible().find("bold").unwrap();
         assert_eq!(settings.spans, vec![(bold..bold + 4, Style::Strong)]);
-        let mut highlighter = InlineHighlighter::new(&settings);
+        let mut highlighter = <InlineHighlighter as text::Highlighter>::new(&settings);
         assert_eq!(
             highlighter
                 .highlight_line(draft.projection.visible())

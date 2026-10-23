@@ -5,7 +5,7 @@ use crate::document::preview_model::{self, Block, Kind};
 use crate::document::Snapshot;
 use crate::inline_edit::{self, Projection, Style};
 use crate::preview_paragraph::Target;
-use iced::widget::text_editor::{self, Action, Edit};
+use iced::widget::text_editor::{Action, Edit};
 use iced::Task;
 
 impl Hylite {
