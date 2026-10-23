@@ -4075,22 +4075,50 @@ fn duplicate_column_refreshes_find_matches_and_preserves_logical_go_to_context()
 }
 #[test]
 fn duplicate_column_save_ack_and_growth_refusal_preserve_checkpoint_identity() {
+    fn current_target(
+        app: &Hylite,
+        column: usize,
+        columns: usize,
+        rows: usize,
+    ) -> crate::preview_table_column::Target {
+        let source = app.document.buffer_text();
+        let block = &app.document.preview_blocks()[0];
+        crate::preview_table_column::Target {
+            snapshot: app.document.snapshot(),
+            table: block.source.clone(),
+            column,
+            columns,
+            rows,
+            header: crate::preview_cell::cells(&source, &block.source, columns, rows).unwrap()[0]
+                [column]
+                .clone(),
+            marker: crate::preview_table_edit::delimiters(&source, &block.source, columns).unwrap()
+                [column]
+                .source
+                .clone(),
+        }
+    }
     let mut app = app();
     let source = format!("|a|b|c|\n|-|-|-|\n{}", "|x|y|z|\n".repeat(127));
     app.document = Document::new(&source);
     app.mode = EditMode::Preview;
-    let t = column_target(&app, 0);
+    let t = current_target(&app, 0, 3, 128);
     let _ = app.update(Message::EditPreviewTableColumn(
         t,
         crate::preview_table_column::Action::Duplicate,
     ));
+    assert!(app
+        .document
+        .buffer_text()
+        .starts_with("|a|a|b|c|\n|-|-|-|-|\n"));
     let saved = app.document.snapshot();
     let _ = app.update(Message::PreviewHistory(false));
     assert!(app.document.mark_saved(saved, "duplicate.md".into()));
     assert!(app.document.is_dirty());
     let _ = app.update(Message::PreviewHistory(true));
     assert!(!app.document.is_dirty());
-    let t = column_target(&app, 1);
+    let t = current_target(&app, 1, 4, 128);
+    assert_eq!((t.rows, t.columns), (128, 4));
     let before = app.document.snapshot();
     let _ = app.update(Message::EditPreviewTableColumn(
         t,
