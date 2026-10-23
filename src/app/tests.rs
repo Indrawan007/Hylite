@@ -3917,3 +3917,189 @@ fn column_move_save_ack_and_boundary_refusal_keep_checkpoint_identity() {
     let _ = app.update(Message::PreviewHistory(true));
     assert!(!app.document.is_dirty());
 }
+
+#[test]
+fn column_duplicate_respects_source_prompt_open_modal_and_save_export_tokens() {
+    use crate::preview_table_column::Action;
+    let action = Action::Duplicate;
+    for case in 0..6 {
+        let mut app = app();
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        app.document = Document::new(source);
+        app.mode = if case == 0 {
+            EditMode::Source
+        } else {
+            EditMode::Preview
+        };
+        let t = column_target(&app, 0);
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if (2..=4).contains(&case) {
+            let kind = match case {
+                2 => OperationKind::Open,
+                3 => OperationKind::Save,
+                _ => OperationKind::Export,
+            };
+            assert!(app
+                .operations
+                .start(kind, app.document.snapshot())
+                .is_some());
+        }
+        if case == 5 {
+            let cell = cell_target(&app, 1, 0);
+            let _ = app.update(Message::OpenPreviewCell(cell));
+            let _ = app.update(Message::PreviewCellChanged("draft kept".into()));
+        }
+        let token = app.operations.active();
+        let snapshot = app.document.snapshot();
+        let _ = app.update(Message::EditPreviewTableColumn(t, action));
+        assert_eq!(app.operations.active(), token);
+        if case == 3 || case == 4 {
+            assert_ne!(app.document.snapshot(), snapshot);
+            assert_eq!(token.unwrap().token.snapshot, snapshot);
+            assert!(app.document.is_dirty());
+        } else {
+            assert_eq!(app.document.snapshot(), snapshot);
+            assert_eq!(app.document.buffer_text(), source);
+            assert!(!app.document.can_undo());
+        }
+        if case == 5 {
+            assert_eq!(app.cell_draft.as_ref().unwrap().value, "draft kept");
+        }
+    }
+}
+
+#[test]
+fn stale_column_duplicate_preserves_redo_and_native_typing_is_a_preview_history_barrier() {
+    let mut app = app();
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let old = column_target(&app, 0);
+    let _ = app.update(Message::EditPreviewTableColumn(
+        old.clone(),
+        crate::preview_table_column::Action::Duplicate,
+    ));
+    let _ = app.update(Message::PreviewHistory(false));
+    let _ = app.document.preview_blocks();
+    let snapshot = app.document.snapshot();
+    let _ = app.update(Message::EditPreviewTableColumn(
+        old,
+        crate::preview_table_column::Action::Duplicate,
+    ));
+    assert_eq!(app.document.snapshot(), snapshot);
+    assert!(app.document.can_redo());
+    let _ = app.update(Message::PreviewHistory(true));
+    let inserted = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    edit(&mut app);
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_ne!(app.document.buffer_text(), inserted);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), inserted);
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), source);
+}
+
+#[test]
+fn duplicate_column_preview_split_select_new_header_and_keep_one_step_history() {
+    for mode in [EditMode::Preview, EditMode::Split] {
+        for (column, expected, caret) in [
+            (0, "|a|a|b|\n|-|-|--:|\n|é|é|a\\|b|\n\nend\n\t", 3),
+            (1, "|a|b|b|\n|-|--:|--:|\n|é|a\\|b|a\\|b|\n\nend\n\t", 5),
+        ] {
+            let mut app = app();
+            let source = "|a|b|\n|-|--:|\n|é|a\\|b|\n\nend\n\t";
+            app.document = Document::new(source);
+            app.mode = mode;
+            let t = column_target(&app, column);
+            let _ = app.update(Message::EditPreviewTableColumn(
+                t,
+                crate::preview_table_column::Action::Duplicate,
+            ));
+            assert_eq!(app.document.buffer_text(), expected);
+            assert_eq!(app.document.caret_offset(), caret);
+            assert_eq!(app.mode, mode);
+            let _ = app.update(if mode == EditMode::Preview {
+                Message::PreviewHistory(false)
+            } else {
+                Message::Undo
+            });
+            assert_eq!(app.document.buffer_text(), source);
+            assert!(!app.document.is_dirty() && !app.document.can_undo());
+            let _ = app.update(if mode == EditMode::Preview {
+                Message::PreviewHistory(true)
+            } else {
+                Message::Redo
+            });
+            assert_eq!(app.document.buffer_text(), expected);
+        }
+    }
+}
+#[test]
+fn duplicate_column_refreshes_find_matches_and_preserves_logical_go_to_context() {
+    for go_to in [false, true] {
+        let mut app = app();
+        app.document = Document::new("|a|b|\n|-|-|\n|needle|y|\n");
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        let before = app.search.navigate(false).unwrap();
+        if go_to {
+            let _ = app.update(Message::OpenGoTo);
+            let _ = app.update(Message::GoToQueryChanged("2:3".into()));
+        }
+        let t = column_target(&app, 0);
+        let _ = app.update(Message::EditPreviewTableColumn(
+            t,
+            crate::preview_table_column::Action::Duplicate,
+        ));
+        assert_eq!(app.search.query, "needle");
+        assert_eq!(app.search.count(), 2);
+        assert!(app.search.current().is_none());
+        assert_eq!(app.search.navigate(false).unwrap().start, before.start + 4);
+        assert_eq!(app.search.navigate(false).unwrap().start, before.start + 11);
+        if go_to {
+            assert!(app.go_to.open && !app.search.open);
+            assert_eq!(app.go_to.query, "2:3");
+        } else {
+            assert!(app.search.open && !app.go_to.open);
+        }
+        let _ = app.update(Message::Undo);
+        assert_eq!(app.search.count(), 1);
+        assert_eq!(app.search.navigate(false).unwrap(), before);
+    }
+}
+#[test]
+fn duplicate_column_save_ack_and_growth_refusal_preserve_checkpoint_identity() {
+    let mut app = app();
+    let source = format!("|a|b|c|\n|-|-|-|\n{}", "|x|y|z|\n".repeat(127));
+    app.document = Document::new(&source);
+    app.mode = EditMode::Preview;
+    let t = column_target(&app, 0);
+    let _ = app.update(Message::EditPreviewTableColumn(
+        t,
+        crate::preview_table_column::Action::Duplicate,
+    ));
+    let saved = app.document.snapshot();
+    let _ = app.update(Message::PreviewHistory(false));
+    assert!(app.document.mark_saved(saved, "duplicate.md".into()));
+    assert!(app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+    let t = column_target(&app, 1);
+    let before = app.document.snapshot();
+    let _ = app.update(Message::EditPreviewTableColumn(
+        t,
+        crate::preview_table_column::Action::Duplicate,
+    ));
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.is_dirty());
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::PreviewHistory(true));
+    assert!(!app.document.is_dirty());
+}

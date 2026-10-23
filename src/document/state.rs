@@ -324,7 +324,8 @@ impl Document {
             crate::preview_table_column::Action::MoveLeft
             | crate::preview_table_column::Action::MoveRight => target.columns,
             crate::preview_table_column::Action::InsertBefore
-            | crate::preview_table_column::Action::InsertAfter => target.columns + 1,
+            | crate::preview_table_column::Action::InsertAfter
+            | crate::preview_table_column::Action::Duplicate => target.columns + 1,
         };
         if !preview_model::parse(&candidate).iter().any(|block| {
             let preview_model::Kind::Table(table) = &block.kind else {

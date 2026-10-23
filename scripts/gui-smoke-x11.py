@@ -1336,6 +1336,64 @@ def exercise_table_column_move(desktop, artifacts):
     desktop.request_close()
     desktop.expect_native_exit("Column move suite clean client Close exits naturally")
 
+def exercise_table_column_duplicate(desktop, artifacts):
+    welcome = (ROOT / "src" / "welcome.md").read_bytes()
+    source = ("| Name | Count |\n  | ---  | --: |\n"
+              " | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+    first = ("| Name | Name | Count |\n  | ---  | ---  | --: |\n"
+             " | café🙂 **raw** | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+    last = ("| Name | Count | Count |\n  | ---  | --: | --: |\n"
+            " | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+    typed = ("| Name | Count | XCount |\n  | ---  | --: | --: |\n"
+             " | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+    desktop.find_window()
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Column duplicate suite: fresh clean welcome", welcome, refocus=False)
+    desktop.paste_from_clean(source)
+    desktop.expect_copy("Column duplicate fixture retains Unicode raw markup escaped pipe entity spacing and tab", source, refocus=False)
+    desktop.key("ctrl+shift+m")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "575", "click", "1")
+    time.sleep(0.25)  # All twenty-two old choices, then Column 1: Duplicate.
+
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")
+        desktop.expect_copy(description, expected, refocus=False)
+
+    def back_to_preview():
+        desktop.key("ctrl+shift+m")
+        desktop.key("ctrl+shift+m")
+
+    inspect("Preview Duplicate copies entire first raw column including delimiter alignment and body", first)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("One Preview Undo removes the complete duplicate column byte-exact", source)
+    back_to_preview()
+    desktop.key("ctrl+y")
+    desktop.screenshot(artifacts / "column-duplicate-preview.png")
+    inspect("Preview Redo restores exact copied column raw segments indentation and alignment", first)
+    back_to_preview()
+    desktop.key("ctrl+z")
+    inspect("Undo before Split restores full original table and old action menu prefix", source)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    time.sleep(0.25)
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "593", "click", "1")
+    time.sleep(0.25)  # Column 2: Duplicate; caret in the new third header, not original.
+    desktop.type_ascii("X")
+    desktop.expect_copy("Split Duplicate restores Source focus at new copied header payload start", typed, refocus=False)
+    desktop.screenshot(artifacts / "column-duplicate-split.png")
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Undo native header typing retains the separate complete column duplication", last, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy("Second Undo removes copied column and restores original alignment without normalization", source, refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy("Column duplication adds no hidden history before clean welcome", welcome, refocus=False)
+    desktop.request_close()
+    desktop.expect_native_exit("Column duplicate suite clean client Close exits naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression"):
     if suite == "regression":
         exercise(desktop, artifacts)
@@ -1370,13 +1428,15 @@ def exercise_suite(desktop, artifacts, binary, suite="regression"):
         exercise_table_row_move(desktop, artifacts)
     elif suite == "table-column-move":
         exercise_table_column_move(desktop, artifacts)
+    elif suite == "table-column-duplicate":
+        exercise_table_column_duplicate(desktop, artifacts)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move"), default="regression")
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate"), default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
     args = parser.parse_args()
@@ -1424,7 +1484,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
+                    "scope": "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

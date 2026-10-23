@@ -313,7 +313,7 @@ class SmokeHelperTests(unittest.TestCase):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
-        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move"]:
+        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate"]:
             with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
                  patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
                  patch("sys.stderr", new_callable=io.StringIO), \
@@ -711,6 +711,45 @@ class SmokeHelperTests(unittest.TestCase):
             old = [stack.enter_context(patch.object(gui, name)) for name in names]
             new = stack.enter_context(patch.object(gui, "exercise_table_column_move"))
             gui.exercise_suite(desktop, artifacts, binary, "table-column-move")
+            new.assert_called_once_with(desktop, artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_column_duplicate_probe_locks_copied_alignment_raw_segments_and_new_header_caret(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_table_column_duplicate(desktop, Path("/unused-evidence"))
+        source = desktop.paste_from_clean.call_args.args[0]
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies), 10)
+        first = ("| Name | Name | Count |\n  | ---  | ---  | --: |\n | café🙂 **raw** | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+        last = ("| Name | Count | Count |\n  | ---  | --: | --: |\n | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+        typed = ("| Name | Count | XCount |\n  | ---  | --: | --: |\n | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n\nafter\n\t").encode("utf-8")
+        self.assertEqual(source, ("| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t").encode("utf-8"))
+        self.assertEqual([call.args[1] for call in copies[1:-1]], [source, first, source, first, source, typed, last, source])
+        self.assertEqual(copies[0].args[1], copies[-1].args[1])
+        self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        self.assertEqual([call.args for call in desktop.command.call_args_list], [
+            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "900", "575", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1080", "593", "click", "1"),
+        ])
+        keys = [call.args[0] for call in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+z"), 5)
+        self.assertEqual(keys.count("ctrl+y"), 1)
+        desktop.type_ascii.assert_called_once_with("X")
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count, 2)
+
+    def test_column_duplicate_dispatch_is_exclusive_and_keeps_all_eleven_previous_suites(self):
+        desktop, artifacts, binary = Mock(), Path("/unused"), Path("/unused/binary")
+        names = ["exercise", "exercise_task_batch", "exercise_table_alignment", "exercise_table_rows", "exercise_table_cells", "exercise_cell_navigation", "exercise_table_insert", "exercise_table_columns", "exercise_table_column_delete", "exercise_table_row_move", "exercise_table_column_move"]
+        with contextlib.ExitStack() as stack:
+            old = [stack.enter_context(patch.object(gui, name)) for name in names]
+            new = stack.enter_context(patch.object(gui, "exercise_table_column_duplicate"))
+            gui.exercise_suite(desktop, artifacts, binary, "table-column-duplicate")
             new.assert_called_once_with(desktop, artifacts)
             for probe in old:
                 probe.assert_not_called()

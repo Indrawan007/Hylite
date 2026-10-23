@@ -519,6 +519,27 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
             }
         }
     }
+    // Duplication follows the entire 6n prefix, including both kinds of moves.
+    if table.insertable_columns {
+        if let (Some(rows), Some(markers)) = (&table.editable_cells, &table.delimiters) {
+            if let Some(header) = rows.first() {
+                for (column, payload) in header.iter().enumerate() {
+                    choices.push(TableActionChoice::Column(
+                        crate::preview_table_column::Target {
+                            snapshot,
+                            table: block.source.clone(),
+                            column,
+                            columns: table.alignments.len(),
+                            rows: table.rows.len(),
+                            header: payload.clone(),
+                            marker: markers[column].clone(),
+                        },
+                        crate::preview_table_column::Action::Duplicate,
+                    ));
+                }
+            }
+        }
+    }
     choices
 }
 
@@ -897,7 +918,7 @@ mod tests {
             state_id: 3,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 22);
+        assert_eq!(choices.len(), 24);
         assert_eq!(
             &choices[..8],
             table_action_choices(&blocks[0], snapshot).as_slice()
@@ -946,7 +967,7 @@ mod tests {
             state_id: 7,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 22);
+        assert_eq!(choices.len(), 24);
         assert_eq!(
             choices[..12]
                 .iter()
@@ -1036,7 +1057,7 @@ mod tests {
             state_id: 5,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 22);
+        assert_eq!(choices.len(), 24);
         assert_eq!(
             choices[..14]
                 .iter()
@@ -1163,7 +1184,7 @@ mod tests {
             state_id: 11,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 22);
+        assert_eq!(choices.len(), 24);
         assert_eq!(
             choices[..18]
                 .iter()
@@ -1387,7 +1408,7 @@ mod tests {
             state_id: 11,
         };
         let choices = table_picker_choices(&blocks[0], snapshot);
-        assert_eq!(choices.len(), 22);
+        assert_eq!(choices.len(), 24);
         assert_eq!(
             choices[..20]
                 .iter()
@@ -1509,6 +1530,137 @@ mod tests {
                     crate::preview_table_column::Action::MoveLeft
                 )
             );
+        }
+    }
+    #[test]
+    fn duplicate_columns_append_after_exact_twenty_two_choice_prefix_and_carry_targets() {
+        let blocks = super::super::preview_model::parse("|a|b|\n|-|-|\n|x|y|\n");
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let choices = table_picker_choices(&blocks[0], snapshot);
+        assert_eq!(choices.len(), 24);
+        assert_eq!(
+            choices[..22]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![
+                "Column 1: Left",
+                "Column 1: Center",
+                "Column 1: Right",
+                "Column 2: Left",
+                "Column 2: Center",
+                "Column 2: Right",
+                "Row 1: Duplicate",
+                "Row 1: Delete",
+                "Cell 0:1: Edit",
+                "Cell 0:2: Edit",
+                "Cell 1:1: Edit",
+                "Cell 1:2: Edit",
+                "Row 1: Insert blank before",
+                "Row 1: Insert blank after",
+                "Column 1: Insert before",
+                "Column 1: Insert after",
+                "Column 2: Insert before",
+                "Column 2: Insert after",
+                "Column 1: Delete",
+                "Column 2: Delete",
+                "Column 1: Move right",
+                "Column 2: Move left",
+            ]
+        );
+        for column in 0..2 {
+            let TableActionChoice::Column(t, a) = &choices[22 + column] else {
+                panic!("duplicate")
+            };
+            assert_eq!(*a, crate::preview_table_column::Action::Duplicate);
+            assert_eq!(t.snapshot, snapshot);
+            assert_eq!(t.table, 0..18);
+            assert_eq!((t.column, t.columns, t.rows), (column, 2, 2));
+            assert_eq!(t.header, 1 + column * 2..2 + column * 2);
+            assert_eq!(t.marker, 7 + column * 2..8 + column * 2);
+            assert_eq!(
+                choices[22 + column].to_string(),
+                format!("Column {}: Duplicate", column + 1)
+            );
+            assert!(matches!(
+                choices[22 + column].clone().message(),
+                Message::EditPreviewTableColumn(_, crate::preview_table_column::Action::Duplicate)
+            ));
+        }
+    }
+    #[test]
+    fn duplicate_column_picker_rejects_unsupported_nested_and_growth_capped_tables() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(
+                    !table_picker_choices(block, Snapshot::default())
+                        .iter()
+                        .any(|c| matches!(
+                            c,
+                            TableActionChoice::Column(
+                                _,
+                                crate::preview_table_column::Action::Duplicate
+                            )
+                        ))
+                );
+                check(&block.children);
+            }
+        }
+        let wide = format!(
+            "|{}\n|{}\n|{}\n",
+            "h|".repeat(12),
+            "---|".repeat(12),
+            "x|".repeat(12)
+        );
+        let full = format!("|a|b|c|d|\n|-|-|-|-|\n{}", "|x|y|z|w|\n".repeat(127));
+        for source in [
+            "|a|b|\n|-|-|\n|x|\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "> |a|b|\n> |-|-|\n> |x|y|\n",
+            "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+            "```\n|a|\n|-|\n```\n",
+            &wide,
+            &full,
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn duplicate_column_picker_supports_single_empty_header_only_and_exact_cell_limit() {
+        for source in [
+            "|a|\n|-|\n".to_owned(),
+            "|  |\n|---|\n|  |\n".to_owned(),
+            format!("|a|b|c|\n|-|-|-|\n{}", "|x|y|z|\n".repeat(127)),
+        ] {
+            let blocks = super::super::preview_model::parse(&source);
+            let Kind::Table(table) = &blocks[0].kind else {
+                panic!("table")
+            };
+            assert!(table.insertable_columns);
+            let choices = table_picker_choices(&blocks[0], Snapshot::default());
+            let duplicates: Vec<_> = choices
+                .iter()
+                .filter_map(|c| match c {
+                    TableActionChoice::Column(
+                        t,
+                        crate::preview_table_column::Action::Duplicate,
+                    ) => Some(t.column),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(duplicates, (0..table.alignments.len()).collect::<Vec<_>>());
+            assert!(matches!(
+                choices.last(),
+                Some(TableActionChoice::Column(
+                    _,
+                    crate::preview_table_column::Action::Duplicate
+                ))
+            ));
         }
     }
 }

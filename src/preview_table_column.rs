@@ -11,6 +11,7 @@ use std::ops::Range;
 pub enum Action {
     InsertBefore,
     InsertAfter,
+    Duplicate,
     Delete,
     MoveLeft,
     MoveRight,
@@ -20,6 +21,7 @@ impl std::fmt::Display for Action {
         f.write_str(match self {
             Self::InsertBefore => "Insert before",
             Self::InsertAfter => "Insert after",
+            Self::Duplicate => "Duplicate",
             Self::Delete => "Delete",
             Self::MoveLeft => "Move left",
             Self::MoveRight => "Move right",
@@ -117,7 +119,9 @@ pub fn plan(
         || !match action {
             Action::Delete => can_delete(target.rows, target.columns),
             Action::MoveLeft | Action::MoveRight => neighbor(target, action).is_some(),
-            Action::InsertBefore | Action::InsertAfter => can_insert(target.rows, target.columns),
+            Action::InsertBefore | Action::InsertAfter | Action::Duplicate => {
+                can_insert(target.rows, target.columns)
+            }
         }
         || target.column >= target.columns
     {
@@ -151,6 +155,14 @@ pub fn plan(
             replacement.push_str(&line[middle..end]);
             replacement.push_str(&line[start..middle]);
             replacement.push_str(&line[end..]);
+        } else if action == Action::Duplicate {
+            // Copy the selected raw segment, including its right separator,
+            // immediately after itself. Delimiter alignment travels unchanged.
+            let start = separators.get(target.column)? + 1;
+            let end = separators.get(target.column + 1)? + 1;
+            replacement.push_str(&line[..end]);
+            replacement.push_str(&line[start..end]);
+            replacement.push_str(&line[end..]);
         } else if action == Action::Delete {
             // Keep the left separator, delete only this raw segment and its
             // right separator. Existing neighbors and trailing bytes stay raw.
@@ -172,6 +184,15 @@ pub fn plan(
     }
     if count != target.rows + 1 {
         return None;
+    }
+    if action == Action::Duplicate {
+        let duplicated = preview_cell::cells(
+            &replacement,
+            &(0..replacement.len()),
+            target.columns + 1,
+            target.rows,
+        )?;
+        caret = duplicated.first()?.get(target.column + 1)?.start;
     }
     if action == Action::Delete {
         let remaining = preview_cell::cells(
@@ -647,5 +668,115 @@ mod tests {
         t.header = t.header.start + 4..t.header.end + 4;
         t.marker = t.marker.start + 4..t.marker.end + 4;
         assert!(plan(&source, Snapshot::default(), &t, Action::MoveRight).is_some());
+    }
+    #[test]
+    fn duplicate_copies_first_and_last_raw_column_and_alignment_with_new_header_caret() {
+        let source = "| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n";
+        for (column, expected, caret) in [
+            (0, "| Name | Name | Count |\n  | ---  | ---  | --: |\n | café🙂 **raw** | café🙂 **raw** | a\\|b &amp; |\n", 9),
+            (1, "| Name | Count | Count |\n  | ---  | --: | --: |\n | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n", 17),
+        ] {
+            let t = target(source, 2, 2, column);
+            let change = plan(source, t.snapshot, &t, Action::Duplicate).unwrap();
+            assert_eq!(change.replacement, expected);
+            assert_eq!(change.caret, caret);
+            assert_eq!(change.range, 0..source.len());
+        }
+    }
+    #[test]
+    fn duplicate_middle_preserves_outside_bytes_indentation_and_escape_parity() {
+        let raw = "   | A | `B` | C |\t\n  | :-- | --: | --- |\t\n | a\\|b | **é🙂** &amp; | keep\\\\\\|x |\t\n";
+        let source = format!("before\n\n{raw}\nafter\n\t");
+        let mut t = target(raw, 3, 2, 1);
+        t.table = 8..8 + raw.len();
+        t.header = t.header.start + 8..t.header.end + 8;
+        t.marker = t.marker.start + 8..t.marker.end + 8;
+        let expected = "before\n\n   | A | `B` | `B` | C |\t\n  | :-- | --: | --: | --- |\t\n | a\\|b | **é🙂** &amp; | **é🙂** &amp; | keep\\\\\\|x |\t\n\nafter\n\t";
+        assert_eq!(apply(&source, &t, Action::Duplicate), expected);
+        let change = plan(&source, t.snapshot, &t, Action::Duplicate).unwrap();
+        assert_eq!(&change.replacement[change.caret..change.caret + 3], "`B`");
+    }
+    #[test]
+    fn duplicate_single_column_header_only_and_empty_still_create_a_column() {
+        for (source, expected) in [
+            ("|a|\n|--:|\n", "|a|a|\n|--:|--:|\n"),
+            ("|  |\n|---|\n|  |\n", "|  |  |\n|---|---|\n|  |  |\n"),
+            ("|a|a|\n|-|-|\n|x|x|\n", "|a|a|a|\n|-|-|-|\n|x|x|x|\n"),
+        ] {
+            let columns = if source.starts_with("|a|a|") { 2 } else { 1 };
+            let rows = source.lines().count() - 1;
+            assert_eq!(
+                apply(source, &target(source, columns, rows, 0), Action::Duplicate),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn duplicate_obeys_growth_caps_and_bounded_dimensions_without_overflow() {
+        for (rows, columns, allowed) in [
+            (128, 3, true),
+            (128, 4, false),
+            (42, 11, true),
+            (42, 12, false),
+        ] {
+            let source = format!(
+                "|{}\n|{}\n{}",
+                "h|".repeat(columns),
+                "---|".repeat(columns),
+                format!("|{}\n", "x|".repeat(columns)).repeat(rows - 1)
+            );
+            let t = target(&source, columns, rows, columns - 1);
+            assert_eq!(
+                plan(&source, t.snapshot, &t, Action::Duplicate).is_some(),
+                allowed
+            );
+        }
+        for (rows, columns) in [(0, 1), (129, 1), (1, 0), (1, 13), (usize::MAX, usize::MAX)] {
+            let mut t = target("|a|\n|-|\n", 1, 1, 0);
+            t.rows = rows;
+            t.columns = columns;
+            assert!(plan("|a|\n|-|\n", t.snapshot, &t, Action::Duplicate).is_none());
+        }
+    }
+    #[test]
+    fn duplicate_rejects_forged_snapshot_ranges_dimensions_and_malformed_lines() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let good = target(source, 2, 2, 0);
+        for case in 0..10 {
+            let mut t = good.clone();
+            match case {
+                0 => t.snapshot.state_id += 1,
+                1 => t.table.end -= 1,
+                2 => t.header.start += 1,
+                3 => t.marker.end += 1,
+                4 => t.rows += 1,
+                5 => t.columns += 1,
+                6 => t.column = usize::MAX,
+                7 => t.table.start = usize::MAX,
+                8 => t.snapshot.document_id += 1,
+                _ => t.snapshot.revision += 1,
+            }
+            assert!(plan(source, good.snapshot, &t, Action::Duplicate).is_none());
+        }
+        for source in [
+            "|a|b|\n|-|-|\n|x|\n",
+            "|a|b|\n-|-\n|x|y|\n",
+            "|a|b|\n|-|-|\n|x|y|",
+            "|a|b|\n|-|-|\n|x|y|z|\n",
+        ] {
+            let mut t = good.clone();
+            t.table = 0..source.len();
+            assert!(plan(source, t.snapshot, &t, Action::Duplicate).is_none());
+        }
+    }
+    #[test]
+    fn duplicate_lexical_success_inside_fence_is_not_root_authentication() {
+        let raw = "|a|b|\n|-|-|\n|x|y|\n";
+        let source = format!("```\n{raw}```\n");
+        let mut t = target(raw, 2, 2, 0);
+        t.table = 4..4 + raw.len();
+        t.header = 5..6;
+        t.marker = 11..12;
+        assert!(plan(&source, t.snapshot, &t, Action::Duplicate).is_some());
     }
 }

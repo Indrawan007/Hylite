@@ -694,3 +694,230 @@ fn column_move_save_ack_branch_identity_and_source_typing_barrier_remain() {
     assert!(doc.edit_preview_table_column(&t, Action::MoveLeft));
     assert!(!doc.can_redo());
 }
+
+#[test]
+fn duplicate_column_is_one_atomic_raw_alignment_edge_with_new_header_caret() {
+    let source =
+        "| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t";
+    for (column, expected, caret) in [
+        (0, "| Name | Name | Count |\n  | ---  | ---  | --: |\n | café🙂 **raw** | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t", 9),
+        (1, "| Name | Count | Count |\n  | ---  | --: | --: |\n | café🙂 **raw** | a\\|b &amp; | a\\|b &amp; |\n\nafter\n\t", 17),
+    ] {
+        let mut doc = Document::new(source);
+        let t = target(&doc, column);
+        assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+        assert_eq!(doc.buffer_text(), expected);
+        assert_eq!(doc.caret_offset(), caret);
+        assert_eq!(doc.snapshot().revision, 1);
+        assert!(doc.preview.get().is_none());
+        let preview_model::Kind::Table(table) = &doc.preview_blocks()[0].kind else { panic!("table") };
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.alignments.len(), 3);
+        assert_eq!(table.alignments[column], table.alignments[column+1]);
+        assert_eq!(table.alignments[2], preview_model::Alignment::Right);
+        assert!(doc.restore_preview_history(false));
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.is_dirty() && !doc.can_undo());
+        assert!(doc.restore_preview_history(true));
+        assert_eq!(doc.buffer_text(), expected);
+        assert_eq!(doc.caret_offset(), caret);
+    }
+}
+#[test]
+fn duplicate_column_cold_forged_stale_and_replaced_targets_are_refused() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    let good = target(&doc, 0);
+    doc.preview.take();
+    assert!(!doc.edit_preview_table_column(&good, Action::Duplicate));
+    let _ = doc.preview_blocks();
+    for case in 0..12 {
+        let mut t = good.clone();
+        match case {
+            0 => t.snapshot.document_id += 1,
+            1 => t.snapshot.revision += 1,
+            2 => t.snapshot.state_id += 1,
+            3 => t.table.end -= 1,
+            4 => t.column = usize::MAX,
+            5 => t.columns += 1,
+            6 => t.rows += 1,
+            7 => t.header.start += 1,
+            8 => t.header.end += 1,
+            9 => t.marker.start += 1,
+            10 => t.marker.end += 1,
+            _ => t.table.start = usize::MAX,
+        }
+        let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+        assert!(!doc.edit_preview_table_column(&t, Action::Duplicate));
+        assert_eq!(
+            (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+            before
+        );
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.can_undo() && doc.preview.get().is_some());
+    }
+    assert!(doc.edit_preview_table_column(&good, Action::Duplicate));
+    assert!(doc.restore_preview_history(false));
+    let _ = doc.preview_blocks();
+    assert!(!doc.edit_preview_table_column(&good, Action::Duplicate));
+    assert!(doc.can_redo());
+    doc.replace(None, source);
+    let _ = doc.preview_blocks();
+    assert!(!doc.edit_preview_table_column(&good, Action::Duplicate));
+}
+#[test]
+fn duplicate_column_growth_refusals_preserve_checkpoint_redo_caret_and_cache() {
+    for (rows, columns) in [(42, 12), (128, 4)] {
+        let source = format!(
+            "|{}\n|{}\n{}",
+            "h|".repeat(columns),
+            "---|".repeat(columns),
+            format!("|{}\n", "x|".repeat(columns)).repeat(rows - 1)
+        );
+        let mut doc = Document::new(&source);
+        let t = target(&doc, 0);
+        let align = crate::preview_table_edit::Target {
+            snapshot: t.snapshot,
+            table: t.table,
+            column: 0,
+            columns,
+            marker: t.marker,
+            alignment: crate::preview_table_edit::Alignment::Default,
+        };
+        assert!(doc.align_preview_table(&align, crate::preview_table_edit::Alignment::Center));
+        assert!(doc.restore_preview_history(false));
+        let t = target(&doc, 0);
+        let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+        assert!(!doc.edit_preview_table_column(&t, Action::Duplicate));
+        assert_eq!(
+            (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+            before
+        );
+        assert_eq!(doc.buffer_text(), source);
+        assert!(doc.can_redo() && !doc.is_dirty() && doc.preview.get().is_some());
+        assert!(doc.restore_preview_history(true));
+    }
+}
+#[test]
+fn duplicate_column_accepts_single_empty_header_only_indent_and_exact_growth_limit() {
+    for source in [
+        "|a|\n|--:|\n",
+        "|  |\n|---|\n|  |\n",
+        "   |a|b|\n   |---|--:|\n  |é|🙂|\n\nend\n\t",
+        "|a|a|\n|-|-|\n|x|x|\n",
+    ] {
+        let mut doc = Document::new(source);
+        let t = target(&doc, 0);
+        assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+        assert_ne!(doc.buffer_text(), source); // Identical/empty payload is not a no-op.
+        assert!(doc.restore_preview_history(false));
+        assert_eq!(doc.buffer_text(), source);
+    }
+    let source = format!("|a|b|c|\n|-|-|-|\n{}", "|x|y|z|\n".repeat(127));
+    let mut doc = Document::new(&source);
+    let t = target(&doc, 2);
+    assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+    let preview_model::Kind::Table(table) = &doc.preview_blocks()[0].kind else {
+        panic!("table")
+    };
+    assert_eq!((table.rows.len(), table.alignments.len()), (128, 4));
+    let t = target(&doc, 3);
+    assert!(!doc.edit_preview_table_column(&t, Action::Duplicate));
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), source);
+}
+#[test]
+fn duplicate_column_rejects_nested_literal_ragged_noncanonical_eof_and_fallback() {
+    let wide = format!(
+        "|{}\n|{}\n|{}\n",
+        "h|".repeat(13),
+        "---|".repeat(13),
+        "x|".repeat(13)
+    );
+    for source in [
+        "|a|b|\n|-|-|\n|x|\n",
+        "|a|b|\n-|-\n|x|y|\n",
+        "|a|b|\n|-|-|\n|x|y|",
+        "> |a|b|\n> |-|-|\n> |x|y|\n",
+        "- parent\n\n  |a|b|\n  |-|-|\n  |x|y|\n",
+        "```\n|a|b|\n|-|-|\n|x|y|\n```\n",
+        "<div>\n|a|b|\n|-|-|\n|x|y|\n</div>\n",
+        &wide,
+    ] {
+        let mut doc = Document::new(source);
+        let _ = doc.preview_blocks();
+        let (table, header, marker) = if source.starts_with("```") {
+            (4..source.len() - 4, 5..6, 11..12)
+        } else {
+            (0..source.len(), 1..2, 7..8)
+        };
+        let t = Target {
+            snapshot: doc.snapshot(),
+            table,
+            column: 0,
+            columns: 2,
+            rows: 2,
+            header,
+            marker,
+        };
+        assert!(!doc.edit_preview_table_column(&t, Action::Duplicate));
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.can_undo() && !doc.is_dirty());
+    }
+}
+#[test]
+fn duplicate_column_has_fresh_independent_cell_provenance_and_apply_history() {
+    let source = "|a|b|c|\n|-|:-:|--:|\n|x|café🙂|z|\n";
+    let mut doc = Document::new(source);
+    let t = target(&doc, 1);
+    assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+    let duplicated = doc.buffer_text();
+    assert_eq!(
+        duplicated,
+        "|a|b|b|c|\n|-|:-:|:-:|--:|\n|x|café🙂|café🙂|z|\n"
+    );
+    let block = &doc.preview_blocks()[0];
+    let preview_model::Kind::Table(table) = &block.kind else {
+        panic!("table")
+    };
+    let cell = crate::preview_cell::Target {
+        snapshot: doc.snapshot(),
+        table: block.source.clone(),
+        row: 1,
+        column: 2,
+        rows: 2,
+        columns: 4,
+        payload: table.editable_cells.as_ref().unwrap()[1][2].clone(),
+    };
+    assert_eq!(doc.preview_cell_payload(&cell).as_deref(), Some("café🙂"));
+    assert!(doc.edit_preview_cell(&cell, "fresh"));
+    assert!(doc.buffer_text().contains("|x|café🙂|fresh|z|"));
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), duplicated);
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), source);
+}
+#[test]
+fn duplicate_column_save_ack_branch_and_source_barrier_keep_snapshot_identity() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    let t = target(&doc, 0);
+    assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+    let saved = doc.snapshot();
+    assert!(doc.restore_preview_history(false));
+    assert!(doc.mark_saved(saved, "duplicate-column.md".into()));
+    assert!(doc.is_dirty());
+    assert!(doc.restore_preview_history(true));
+    assert!(!doc.is_dirty());
+    assert!(doc.change(TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(!doc.restore_preview_history(false));
+    assert!(doc.undo());
+    assert!(doc.restore_preview_history(false));
+    let t = target(&doc, 1);
+    assert!(doc.edit_preview_table_column(&t, Action::Duplicate));
+    assert!(!doc.can_redo() && doc.is_dirty());
+}
