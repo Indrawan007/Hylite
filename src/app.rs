@@ -622,7 +622,7 @@ impl Hylite {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let editing_events = event::listen_with(|event, status, _window| {
+        let editing_events = event::listen_with(|event, _status, _window| {
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
