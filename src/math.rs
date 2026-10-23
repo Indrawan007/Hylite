@@ -98,11 +98,12 @@ pub fn render(source: &str) -> Result<String, Error> {
 }
 
 pub fn parse(source: &str) -> Result<Node, Error> {
-    if source.trim().is_empty() {
-        return Err(Error::Empty);
-    }
     if source.len() > MAX_SOURCE_BYTES {
         return Err(Error::TooLong);
+    }
+    let source = source.trim();
+    if source.is_empty() {
+        return Err(Error::Empty);
     }
 
     let mut parser = Parser {
@@ -629,6 +630,7 @@ mod tests {
 
     #[test]
     fn greek_letters_and_common_operators_linearize() {
+        assert_eq!(text("\n  x^2  \n"), "x²");
         assert_eq!(text("\\alpha + \\beta \\le \\pi \\cdot 2"), "α + β ≤ π · 2");
         assert_eq!(text("\\sin x \\to \\infty"), "sin x → ∞");
         assert_eq!(text("\\sum_{i=1}^{n} i"), "∑ᵢ₌₁ⁿ i");
