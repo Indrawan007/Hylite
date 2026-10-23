@@ -49,21 +49,50 @@ pub fn render_preview<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
 ) -> Element<'a, Message> {
+    render_preview_internal(blocks, theme, snapshot, base_dir, None, false)
+}
+
+/// Render the opt-in Stage 9a caret-mapping experiment without changing the
+/// default Preview widget tree or replacing any existing draft panel.
+pub fn render_inline_spike_preview<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    spike: Option<&'a crate::ui::inline_spike::Draft>,
+) -> Element<'a, Message> {
+    render_preview_internal(blocks, theme, snapshot, base_dir, spike, true)
+}
+
+fn render_preview_internal<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    spike: Option<&'a crate::ui::inline_spike::Draft>,
+    experimental: bool,
+) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot, base_dir)
+        render_blocks(blocks, colors, snapshot, base_dir, spike)
     };
-    column![
+    let instructions = if experimental {
+        text(
+            "Stage 9a inline spike · one ASCII root line · caret only · Esc finishes; Source updates live",
+        )
+        .size(11)
+            .color(colors.accent)
+    } else {
         text("Task / heading / table controls edit Source · links and other text inert")
             .size(11)
-            .color(colors.text),
-        content,
-    ]
-    .spacing(12)
-    .width(Length::Fill)
-    .into()
+            .color(colors.text)
+    };
+    column![instructions, content]
+        .spacing(12)
+        .width(Length::Fill)
+        .into()
 }
 
 fn styled_font(style: &Style, heading: bool) -> Font {
@@ -122,11 +151,12 @@ fn render_blocks<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
+    spike: Option<&'a crate::ui::inline_spike::Draft>,
 ) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir)),
+            .map(|block| render_block(block, colors, snapshot, base_dir, spike)),
     )
     .spacing(10)
     .width(Length::Fill)
@@ -170,6 +200,7 @@ fn render_block<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
+    spike: Option<&'a crate::ui::inline_spike::Draft>,
 ) -> Element<'a, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
@@ -178,7 +209,6 @@ fn render_block<'a>(
     let element: Element<'_, Message> =
         match &block.kind {
             Kind::Paragraph | Kind::Heading(_) => {
-                let heading = matches!(block.kind, Kind::Heading(_));
                 // Only a paragraph that is *just* one image becomes a picture;
                 // inline images mixed with text stay their inert marker.
                 if let [run] = block.runs.as_slice() {
@@ -186,22 +216,33 @@ fn render_block<'a>(
                         return render_image(spec, base_dir, colors);
                     }
                 }
-                let size = match block.kind {
-                    Kind::Heading(1) => 32,
-                    Kind::Heading(2) => 27,
-                    Kind::Heading(3) => 23,
-                    Kind::Heading(4) => 20,
-                    Kind::Heading(5) => 18,
-                    _ => 16,
-                };
-                let spans: Vec<text::Span<'_, Message>> = block
-                    .runs
-                    .iter()
-                    .map(|run| styled_span(run, heading, colors))
-                    .collect();
-                rich_text(spans).size(size).width(Length::Fill).into()
+                if let Some(spike) = spike.filter(|spike| spike.target.block == block.source) {
+                    crate::ui::inline_spike::editor(spike)
+                } else {
+                    let heading = matches!(block.kind, Kind::Heading(_));
+                    let size = match block.kind {
+                        Kind::Heading(1) => 32,
+                        Kind::Heading(2) => 27,
+                        Kind::Heading(3) => 23,
+                        Kind::Heading(4) => 20,
+                        Kind::Heading(5) => 18,
+                        _ => 16,
+                    };
+                    let spans: Vec<text::Span<'_, Message>> = block
+                        .runs
+                        .iter()
+                        .map(|run| styled_span(run, heading, colors))
+                        .collect();
+                    rich_text(spans).size(size).width(Length::Fill).into()
+                }
             }
-            Kind::Quote => container(render_blocks(&block.children, colors, snapshot, base_dir))
+            Kind::Quote => container(render_blocks(
+                &block.children,
+                colors,
+                snapshot,
+                base_dir,
+                spike,
+            ))
                 .padding([8, 16])
                 .width(Length::Fill)
                 .style(move |_| container::Style {
@@ -234,14 +275,14 @@ fn render_block<'a>(
                                 }
                                 row![
                                     prefix,
-                                    render_blocks(&item.children, colors, snapshot, base_dir)
+                                    render_blocks(&item.children, colors, snapshot, base_dir, spike)
                                 ]
                                 .spacing(8)
                                 .into()
                             }
                             _ => row![
                                 text(marker).color(colors.text),
-                                render_block(item, colors, snapshot, base_dir)
+                                render_block(item, colors, snapshot, base_dir, spike)
                             ]
                             .spacing(8)
                             .into(),
@@ -250,7 +291,7 @@ fn render_block<'a>(
                 );
                 column(items).spacing(6).width(Length::Fill).into()
             }
-            Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir),
+            Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir, spike),
             Kind::Code {
                 info,
                 text: payload,
@@ -270,7 +311,19 @@ fn render_block<'a>(
             Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
             Kind::Rule => horizontal_rule(1).into(),
         };
-    let element = if let Some(action) = source_action(block, snapshot) {
+    let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
+    let element = if spike_target {
+        column![
+            button(text("Finish inline spike (Esc)").size(11))
+                .padding([2, 6])
+                .height(24)
+                .on_press(Message::FinishInlineSpike),
+            element,
+        ]
+        .spacing(4)
+        .width(Length::Fill)
+        .into()
+    } else if let Some(action) = source_action(block, snapshot) {
         let mut actions = row![button(text("Show block source").size(11))
             .padding([2, 6])
             .height(24)

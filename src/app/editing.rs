@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 impl Hylite {
     pub(crate) fn source_edit_allowed(&self) -> bool {
-        self.cell_draft.is_none()
+        self.inline_spike.is_none()
+            && self.cell_draft.is_none()
             && self.paragraph_draft.is_none()
             && self.multiline_draft.is_none()
             && self.pending_action.is_none()
@@ -44,7 +45,9 @@ impl Hylite {
     /// tree. Restore the logical input context instead of relying on the old
     /// widget's focus surviving. Preview never steals focus; no document mutation.
     pub(super) fn restore_input_focus(&self) -> Task<Message> {
-        if self.multiline_draft.is_some() {
+        if self.inline_spike.is_some() {
+            crate::source_focus::task_in(crate::ui::inline_spike::input_id())
+        } else if self.multiline_draft.is_some() {
             crate::source_focus::task_in(crate::ui::multiline_paragraph::input_id())
         } else if self.paragraph_draft.is_some() {
             iced::widget::text_input::focus(crate::ui::paragraph_edit::input_id())

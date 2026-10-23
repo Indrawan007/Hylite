@@ -1,6 +1,7 @@
 mod cell_edit;
 mod editing;
 mod file_actions;
+mod inline_spike;
 mod multiline_paragraph;
 mod navigation;
 mod paragraph_edit;
@@ -35,6 +36,9 @@ pub struct Hylite {
     pub multiline_draft: Option<crate::ui::multiline_paragraph::Draft>,
     pub paragraph_draft: Option<crate::ui::paragraph_edit::Draft>,
     pub cell_draft: Option<crate::ui::cell_edit::Draft>,
+    inline_spike_enabled: bool,
+    inline_spike_pending: bool,
+    inline_spike: Option<crate::ui::inline_spike::Draft>,
     pub mode: EditMode,
     pub sidebar_open: bool,
     pub zen_mode: bool,
@@ -53,6 +57,18 @@ impl Hylite {
     /// `launch` is the optional command-line path: a folder opens a workspace,
     /// a file is opened in the single startup buffer.
     pub fn with_launch_path(launch: Option<std::path::PathBuf>) -> (Self, Task<Message>) {
+        Self::with_launch_options(launch, false)
+    }
+
+    /// Starts the explicitly opt-in Stage 9a test harness for a single file.
+    pub fn with_inline_spike_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
+        Self::with_launch_options(Some(path), true)
+    }
+
+    fn with_launch_options(
+        launch: Option<std::path::PathBuf>,
+        inline_spike_enabled: bool,
+    ) -> (Self, Task<Message>) {
         let loaded = Config::load();
         let config_warning = (!loaded.warnings.is_empty()).then(|| loaded.warnings.join("\n"));
         if let Some(warning) = &config_warning {
@@ -68,7 +84,12 @@ impl Hylite {
             "Running standalone".to_string()
         };
 
-        let mode = config.editor.default_mode;
+        let mode = if inline_spike_enabled {
+            EditMode::Preview
+        } else {
+            config.editor.default_mode
+        };
+        let inline_spike_pending = inline_spike_enabled && launch.is_some();
 
         let mut app = Self {
             document: Document::new(include_str!("welcome.md")),
@@ -81,6 +102,9 @@ impl Hylite {
             cell_draft: None,
             paragraph_draft: None,
             multiline_draft: None,
+            inline_spike_enabled,
+            inline_spike_pending,
+            inline_spike: None,
             mode,
             sidebar_open: true,
             zen_mode: false,
@@ -196,6 +220,22 @@ impl Hylite {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        if self.inline_spike.is_some() {
+            match message {
+                Message::InlineSpikeAction(action) => return self.inline_spike_action(action),
+                Message::FinishInlineSpike => return self.finish_inline_spike(),
+                Message::EndTypingGroup => return Task::none(),
+                Message::CloseRequested(id) => {
+                    self.inline_spike = None;
+                    return self.request_action(PendingAction::Close(id));
+                }
+                _ => {
+                    self.status_message =
+                        "Stage 9a is active: press Esc to finish before another action".into();
+                    return Task::none();
+                }
+            }
+        }
         if self.multiline_draft.is_some() {
             if matches!(&message, Message::ExitZenMode) {
                 return self.cancel_multiline_paragraph();
@@ -290,6 +330,8 @@ impl Hylite {
             Message::ApplyMultilineParagraph => self.apply_multiline_paragraph(),
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
+            Message::InlineSpikeAction(action) => self.inline_spike_action(action),
+            Message::FinishInlineSpike => self.finish_inline_spike(),
             Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
             Message::ApplyPreviewParagraphPrevious => self.apply_preview_paragraph_previous(),
             Message::ApplyPreviewParagraphNext => self.apply_preview_paragraph_next(),
@@ -626,14 +668,21 @@ impl Hylite {
     }
 
     fn view_preview(&self) -> Element<'_, Message> {
-        let parsed = crate::document::render_preview(
-            self.document.preview_blocks(),
-            &self.theme(),
-            self.document.snapshot(),
-            // Relative image paths resolve against the document's own folder,
-            // never against the process working directory.
-            self.document.path().and_then(|path| path.parent()),
-        );
+        let theme = self.theme();
+        let snapshot = self.document.snapshot();
+        let blocks = self.document.preview_blocks();
+        let base_dir = self.document.path().and_then(|path| path.parent());
+        let parsed = if self.inline_spike_enabled {
+            crate::document::render_inline_spike_preview(
+                blocks,
+                &theme,
+                snapshot,
+                base_dir,
+                self.inline_spike.as_ref(),
+            )
+        } else {
+            crate::document::render_preview(blocks, &theme, snapshot, base_dir)
+        };
 
         container(
             iced::widget::scrollable(

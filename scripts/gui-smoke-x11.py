@@ -65,7 +65,7 @@ class Desktop:
         self.passed.append(description)
         print(f"PASS: {description}", flush=True)
 
-    def find_window(self):
+    def find_window(self, initial_click=True):
         def find():
             try:
                 found = self.command("xdotool", "search", "--onlyvisible", "--pid", str(self.app.pid))
@@ -75,9 +75,10 @@ class Desktop:
                 return False
         self.wait("Visible application window", find, seconds=30)
         self.command("xdotool", "windowfocus", "--sync", self.window)
-        # Source is the configured initial mode, at a fixed 1200x800 window.
-        # Mouse coordinates are relative to THIS client, not the root desktop.
-        self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
+        if initial_click:
+            # Source is the configured initial mode, at a fixed 1200x800 window.
+            # Mouse coordinates are relative to THIS client, not the root desktop.
+            self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
 
     def key(self, combination):
         self.command("xdotool", "key", "--clearmodifiers", "--delay", "40", combination)
@@ -2820,6 +2821,23 @@ MATH_SCOPE = ("Read-only math subset: inline and display math are parsed into a 
               "naturally; screenshots are evidence without pixel assertions, and there is no "
               "KaTeX parity, two-dimensional typesetting, font, IME or Wayland proof")
 
+INLINE_SPIKE_DOCUMENT = b"left **bold** right\n"
+INLINE_SPIKE_EXPECTED = b"left **boXld** right\n"
+INLINE_SPIKE_SCOPE = ("Opt-in Stage 9a Iced text_editor spike: ASCII caret movement into a visible "
+                      "bold run inserts one character into the exact expected Source byte range, "
+                      "Undo restores the byte-identical fixture, and the document closes naturally; "
+                      "this is one X11/tiny-skia scenario, not a pixel oracle or proof of general "
+                      "WYSIWYG behavior, selection mapping, IME, RTL, HiDPI or Wayland")
+
+
+def inline_spike_fixture(root):
+    """Create the single bounded bold-run caret fixture used by the opt-in spike."""
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    document = root / "inline-spike.md"
+    document.write_bytes(INLINE_SPIKE_DOCUMENT)
+    return document
+
 
 def math_fixture(root):
     """Create a byte-exact math fixture with accepted and rejected syntax."""
@@ -2855,6 +2873,56 @@ def exercise_math(desktop, artifacts, document):
     desktop.passed_check("A paste made while math Preview is shown leaves the source clean")
     desktop.request_close()
     desktop.expect_native_exit("Math suite closes the untouched document naturally")
+
+
+def exercise_inline_spike(desktop, artifacts, document):
+    document = Path(document)
+    source = document.read_bytes()
+    if source != INLINE_SPIKE_DOCUMENT:
+        raise AssertionError(f"Inline spike fixture changed unexpectedly: {source!r}")
+    desktop.find_window(initial_click=False)
+    desktop.title_is_dirty(False)
+    desktop.title_ends_with("inline-spike.md — Hylite\n")
+    desktop.screenshot(artifacts / "inline-spike-before.png")
+
+    # The opt-in controller focuses its native Iced text_editor. Home sets the
+    # caret to the only line's start; seven visible-character moves place it
+    # between `o` and `l` in the bold run without a guessed glyph x.
+    desktop.key("Home")
+    for _ in range(7):
+        desktop.key("Right")
+    desktop.screenshot(artifacts / "inline-spike-caret-in-bold.png")
+    desktop.type_ascii("X")
+    desktop.title_is_dirty(True)
+    desktop.screenshot(artifacts / "inline-spike-inserted.png")
+
+    # Escape closes only the experimental input. Switch to Split and read the
+    # real Source widget back through the system clipboard for a byte oracle.
+    desktop.key("Escape")
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "inline-spike-split.png")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                    "300", "280", "click", "1")
+    desktop.expect_copy(
+        "Visible caret inside bold inserts exactly one Source character",
+        INLINE_SPIKE_EXPECTED,
+        refocus=False,
+    )
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.expect_copy(
+        "One Source Undo restores the byte-identical inline spike fixture",
+        source,
+        refocus=False,
+    )
+    desktop.key("ctrl+shift+z")
+    desktop.title_is_dirty(True)
+    desktop.expect_copy("Redo restores the exact bold-run insertion", INLINE_SPIKE_EXPECTED,
+                        refocus=False)
+    desktop.key("ctrl+z")
+    desktop.title_is_dirty(False)
+    desktop.request_close()
+    desktop.expect_native_exit("Inline spike closes naturally after returning to the clean source")
 
 
 def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=None,
@@ -2934,13 +3002,17 @@ def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=Non
         if document is None:
             raise ValueError("The math suite needs a document path")
         exercise_math(desktop, artifacts, document)
+    elif suite == "inline-spike":
+        if document is None:
+            raise ValueError("The inline-spike suite needs a document path")
+        exercise_inline_spike(desktop, artifacts, document)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next", "paragraph-apply-previous", "paragraph-draft-shortcuts", "paragraph-navigation-single", "draft-history-single", "draft-history-keys", "tabs", "workspace", "images", "pdf", "math"),
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next", "paragraph-apply-previous", "paragraph-draft-shortcuts", "paragraph-navigation-single", "draft-history-single", "draft-history-keys", "tabs", "workspace", "images", "pdf", "math", "inline-spike"),
                      default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
@@ -2976,7 +3048,11 @@ def main():
             document = pdf_fixture(Path(temp) / "pdf")
         if args.suite == "math":
             document = math_fixture(Path(temp) / "math")
-        if document is not None:
+        if args.suite == "inline-spike":
+            document = inline_spike_fixture(Path(temp) / "inline-spike")
+        if args.suite == "inline-spike":
+            arguments = ["--inline-edit-spike", document]
+        elif document is not None:
             arguments = [document]
         with (artifacts / "application.log").open("wb") as log:
             try:
@@ -3003,7 +3079,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": MATH_SCOPE if args.suite == "math" else PDF_SCOPE if args.suite == "pdf" else "Read-only Preview images: a launch file opens a document with a real local PNG that renders in Preview and Split, a remote URL, a missing file and a file over the 4 MiB gate all stay inert markers instead of being fetched or decoded, a paste made while Preview is shown never edits the document, and the client closes naturally; screenshots are evidence without pixel assertions, so the decoded picture itself, HiDPI scaling, animated GIF, SVG, WebP and Wayland are not verified" if args.suite == "images" else "Workspace folder tree: a launch folder argument is scanned once without a watcher, Alt+J Alt+K move a clamped keyboard selection over the collapsed-aware rows, Alt+Enter opens the selected document byte for byte with an exact window title, a collapsed folder hides its children from navigation, expanding restores them, and F5 is the only way a file written after the scan appears; mouse rows exist but are not clicked here, dirty per-file markers are unit-tested only, and there is no drag, rename, delete or Wayland proof" if args.suite == "workspace" else "Multi-buffer tabs: Ctrl+T parks the active document and opens an empty tab, Alt+1/Alt+2 restore parked buffers byte for byte with their own text and undo history, an undo in one tab never reaches another, Ctrl+W closes a clean tab and is refused on the last one, and the client closes naturally; no tab drag reorder, split pane, session restore or Wayland proof" if args.suite == "tabs" else "Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line paragraph and table cell panels: the routed keys move only the local snapshot stack, an empty local stack is a no-op, Source bytes stay untouched until Apply, one Source Undo removes each committed edge, Esc cancels and the client closes naturally; no commit shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-keys" else "Draft-local Undo and Redo buttons for the single-line paragraph and table cell panels: staged snapshots, redo after undo, redo dropped by a new edit, restored value committed by Apply as exactly one Source edge, no Source mutation while the draft is open, and natural close; no keyboard shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-single" else "Previous Next unchanged move and atomic Apply and Previous Next over three single-line roots with unsupported block skipping, first and last boundary refusal, parse refusal, Source caret after Cancel, scoped Undo Redo and natural close; no cross-kind navigation or Wayland proof" if args.suite == "paragraph-navigation-single" else "Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next through the same controller guards, boundary refusal without partial commit, exact bytes after each edge, scoped Source Undo and natural close; no implicit wrap, compositor binding or Wayland proof" if args.suite == "paragraph-draft-shortcuts" else "Explicit atomic multiline Apply and Previous over three roots with unchanged earlier offsets, fresh focused previous session, no-op transition, first boundary, parser refusal, Source caret after Cancel, scoped Undo Redo and natural close; no Apply shortcut, wrap or implicit creation" if args.suite == "paragraph-apply-previous" else "Explicit atomic multiline Apply and Next with full candidate and native buffer preflight, fresh root offsets and local history, no-op transition, last boundary and structural refusal no partial commit, Source caret after Cancel, scoped Undo Redo and natural close; no Apply Previous, implicit creation, pixel or Wayland proof" if args.suite == "paragraph-apply-next" else "Explicit unchanged-only Previous Next between eligible multiline roots, skip other blocks, dirty refusal without discard, no wrap or implicit Apply, fresh local history, exact Source atomic Apply and focus caret, natural clean close; no Apply and Next, cross-kind or Wayland proof" if args.suite == "paragraph-navigation" else "Bounded multiline draft-only Undo Redo keyboard and button focus, raw valid and invalid paste snapshots, local branching and session reset, no Source mutation before Apply, atomic Source history after Apply, natural clean close; no draft grouping, selection anchor, pixel or Wayland proof" if args.suite == "paragraph-draft-history" else "Explicit bounded multiline root paragraph native draft, Enter stages newline, exact soft/hard break bytes, full parser split refusal, atomic history, Split last applied line Source focus/caret and natural close; no inline typing, blank blocks, EOF or Wayland proof" if args.suite == "paragraph-multiline" else "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
+                    "scope": INLINE_SPIKE_SCOPE if args.suite == "inline-spike" else MATH_SCOPE if args.suite == "math" else PDF_SCOPE if args.suite == "pdf" else "Read-only Preview images: a launch file opens a document with a real local PNG that renders in Preview and Split, a remote URL, a missing file and a file over the 4 MiB gate all stay inert markers instead of being fetched or decoded, a paste made while Preview is shown never edits the document, and the client closes naturally; screenshots are evidence without pixel assertions, so the decoded picture itself, HiDPI scaling, animated GIF, SVG, WebP and Wayland are not verified" if args.suite == "images" else "Workspace folder tree: a launch folder argument is scanned once without a watcher, Alt+J Alt+K move a clamped keyboard selection over the collapsed-aware rows, Alt+Enter opens the selected document byte for byte with an exact window title, a collapsed folder hides its children from navigation, expanding restores them, and F5 is the only way a file written after the scan appears; mouse rows exist but are not clicked here, dirty per-file markers are unit-tested only, and there is no drag, rename, delete or Wayland proof" if args.suite == "workspace" else "Multi-buffer tabs: Ctrl+T parks the active document and opens an empty tab, Alt+1/Alt+2 restore parked buffers byte for byte with their own text and undo history, an undo in one tab never reaches another, Ctrl+W closes a clean tab and is refused on the last one, and the client closes naturally; no tab drag reorder, split pane, session restore or Wayland proof" if args.suite == "tabs" else "Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line paragraph and table cell panels: the routed keys move only the local snapshot stack, an empty local stack is a no-op, Source bytes stay untouched until Apply, one Source Undo removes each committed edge, Esc cancels and the client closes naturally; no commit shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-keys" else "Draft-local Undo and Redo buttons for the single-line paragraph and table cell panels: staged snapshots, redo after undo, redo dropped by a new edit, restored value committed by Apply as exactly one Source edge, no Source mutation while the draft is open, and natural close; no keyboard shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-single" else "Previous Next unchanged move and atomic Apply and Previous Next over three single-line roots with unsupported block skipping, first and last boundary refusal, parse refusal, Source caret after Cancel, scoped Undo Redo and natural close; no cross-kind navigation or Wayland proof" if args.suite == "paragraph-navigation-single" else "Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next through the same controller guards, boundary refusal without partial commit, exact bytes after each edge, scoped Source Undo and natural close; no implicit wrap, compositor binding or Wayland proof" if args.suite == "paragraph-draft-shortcuts" else "Explicit atomic multiline Apply and Previous over three roots with unchanged earlier offsets, fresh focused previous session, no-op transition, first boundary, parser refusal, Source caret after Cancel, scoped Undo Redo and natural close; no Apply shortcut, wrap or implicit creation" if args.suite == "paragraph-apply-previous" else "Explicit atomic multiline Apply and Next with full candidate and native buffer preflight, fresh root offsets and local history, no-op transition, last boundary and structural refusal no partial commit, Source caret after Cancel, scoped Undo Redo and natural close; no Apply Previous, implicit creation, pixel or Wayland proof" if args.suite == "paragraph-apply-next" else "Explicit unchanged-only Previous Next between eligible multiline roots, skip other blocks, dirty refusal without discard, no wrap or implicit Apply, fresh local history, exact Source atomic Apply and focus caret, natural clean close; no Apply and Next, cross-kind or Wayland proof" if args.suite == "paragraph-navigation" else "Bounded multiline draft-only Undo Redo keyboard and button focus, raw valid and invalid paste snapshots, local branching and session reset, no Source mutation before Apply, atomic Source history after Apply, natural clean close; no draft grouping, selection anchor, pixel or Wayland proof" if args.suite == "paragraph-draft-history" else "Explicit bounded multiline root paragraph native draft, Enter stages newline, exact soft/hard break bytes, full parser split refusal, atomic history, Split last applied line Source focus/caret and natural close; no inline typing, blank blocks, EOF or Wayland proof" if args.suite == "paragraph-multiline" else "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

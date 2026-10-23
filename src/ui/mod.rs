@@ -1,16 +1,14 @@
+pub mod cell_edit;
 pub mod confirmation;
 pub mod editing;
+pub mod inline_spike;
+pub mod multiline_paragraph;
 pub mod navigation;
 pub mod notifications;
+pub mod paragraph_edit;
 pub mod search;
 pub mod sidebar;
 pub mod statusbar;
 pub mod tabs;
 pub mod toolbar;
 pub mod workspace;
-
-pub mod cell_edit;
-
-pub mod paragraph_edit;
-
-pub mod multiline_paragraph;

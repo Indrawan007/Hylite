@@ -55,6 +55,8 @@ pub enum Message {
     MoveMultilineParagraph(crate::document::ParagraphDirection),
     CancelMultilineParagraph,
     OpenPreviewParagraph(crate::preview_paragraph::Target),
+    InlineSpikeAction(text_editor::Action),
+    FinishInlineSpike,
     PreviewParagraphChanged(String),
     ApplyPreviewParagraph,
     ApplyPreviewParagraphNext,

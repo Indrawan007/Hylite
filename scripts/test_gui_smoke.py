@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 SPEC = importlib.util.spec_from_file_location("gui_smoke", Path(__file__).with_name("gui-smoke-x11.py"))
 gui = importlib.util.module_from_spec(SPEC)
@@ -1568,6 +1568,52 @@ class SmokeHelperTests(unittest.TestCase):
         pdf.assert_not_called()
         with self.assertRaisesRegex(ValueError, "needs a document path"):
             gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "math")
+
+
+    def test_inline_spike_fixture_and_probe_use_an_exact_bold_source_delta(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.inline_spike_fixture(Path(temp) / "inline-spike")
+            self.assertEqual(document.name, "inline-spike.md")
+            self.assertEqual(document.read_bytes(), b"left **bold** right\n")
+            desktop = Mock(window="42")
+            artifacts = Path(temp) / "evidence"
+            gui.exercise_inline_spike(desktop, artifacts, document)
+            self.assertEqual(document.read_bytes(), b"left **bold** right\n")
+
+        self.assertEqual(desktop.title_is_dirty.call_args_list,
+                         [call(False), call(True), call(False), call(True), call(False)])
+        self.assertEqual(
+            [call.args for call in desktop.expect_copy.call_args_list],
+            [
+                ("Visible caret inside bold inserts exactly one Source character",
+                 b"left **boXld** right\n"),
+                ("One Source Undo restores the byte-identical inline spike fixture",
+                 b"left **bold** right\n"),
+                ("Redo restores the exact bold-run insertion", b"left **boXld** right\n"),
+            ],
+        )
+        keys = [item.args[0] for item in desktop.key.call_args_list]
+        self.assertEqual(keys[:8], ["Home", *["Right"] * 7])
+        self.assertEqual(keys[8:], ["Escape", "ctrl+shift+m", "ctrl+z",
+                                    "ctrl+shift+z", "ctrl+z"])
+        self.assertEqual(desktop.screenshot.call_count, 4)
+        desktop.find_window.assert_called_once_with(initial_click=False)
+        self.assertTrue(all(item.kwargs == {"refocus": False}
+                            for item in desktop.expect_copy.call_args_list))
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_inline_spike_dispatch_is_exclusive_and_requires_a_document(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        document = Path("/unused/inline-spike.md")
+        with patch.object(gui, "exercise_inline_spike") as spike, \
+             patch.object(gui, "exercise_math") as math:
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "inline-spike",
+                               None, document)
+        spike.assert_called_once_with(desktop, artifacts, document)
+        math.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "needs a document path"):
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "inline-spike")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ impl Hylite {
     }
 
     pub(super) fn replace_document(&mut self, path: Option<PathBuf>, text: &str) {
+        self.inline_spike = None;
         self.document.replace(path, text);
         self.go_to = crate::navigation::GoTo::default();
         self.search.reset_document();
@@ -111,6 +112,8 @@ impl Hylite {
         if !self.finish_operation(token, OperationKind::Open) {
             return Task::none();
         }
+        let start_inline_spike = self.inline_spike_pending;
+        self.inline_spike_pending = false;
         // Defense in depth: even a late result must not replace edits.
         if self.document.snapshot() != token.snapshot {
             self.status_message = "Open result ignored: document changed".into();
@@ -120,6 +123,10 @@ impl Hylite {
             Ok(Some((path, text))) => {
                 self.status_message = format!("Opened: {}", path.display());
                 self.replace_document(Some(path), &text);
+                if start_inline_spike {
+                    self.mode = crate::editor::EditMode::Preview;
+                    return self.open_first_inline_spike();
+                }
             }
             Ok(None) => self.status_message = "File open cancelled".into(),
             Err(error) => self.report_file_error("Open", error),
