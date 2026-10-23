@@ -187,6 +187,7 @@ fn format(style: &Style, _theme: &Theme) -> highlighter::Format<Font> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use iced::advanced::text::Highlighter;
     use iced::widget::text_editor::{Action, Motion};
 
     fn draft() -> Draft {
