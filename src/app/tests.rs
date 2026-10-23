@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 fn app() -> Hylite {
     Hylite {
         document: Document::new("Original\n"),
+        tabs: vec![tabs::Tab::active()],
+        active_tab: 0,
         search: crate::search::Search::default(),
         go_to: crate::navigation::GoTo::default(),
         cell_draft: None,
