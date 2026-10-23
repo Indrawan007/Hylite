@@ -905,6 +905,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(keys.count("ctrl+z"), 10)
         self.assertEqual(keys.count("ctrl+y"), 6)
         self.assertEqual(keys.count("ctrl+shift+z"), 1)
+        self.assertEqual(keys.count("ctrl+shift+m"), 5)
+        self.assertEqual(keys[-8:], ["ctrl+z", "ctrl+z", "ctrl+shift+m", "ctrl+shift+m", "ctrl+y", "ctrl+shift+m", "ctrl+z", "ctrl+z"])
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["X"])
         desktop.request_close.assert_called_once_with()
         desktop.expect_native_exit.assert_called_once()

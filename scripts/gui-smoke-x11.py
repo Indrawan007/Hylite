@@ -1746,7 +1746,8 @@ def exercise_paragraph_draft_history(desktop, artifacts):
     desktop.expect_copy("Source Undo first removes native typing not any local draft edit", applied, refocus=False)
     desktop.key("ctrl+z")
     desktop.expect_copy("One more Source Undo removes entire Apply regardless of draft history", source, refocus=False)
-    desktop.key("ctrl+shift+m")
+    desktop.key("ctrl+shift+m")  # Split -> Source
+    desktop.key("ctrl+shift+m")  # Source -> Preview; redo must use Preview history
     desktop.key("ctrl+y")
     desktop.key("ctrl+shift+m")
     desktop.expect_copy("Preview Redo restores only committed paragraph not draft history", applied, refocus=False)
