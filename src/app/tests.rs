@@ -224,7 +224,7 @@ fn failed_or_cancelled_save_does_not_continue_a_destructive_action() {
             let _ = app.update(Message::ConfirmSave);
             let token = token(&app);
             let _ = app.update(Message::FileSaved(token, result));
-            assert_eq!(app.pending_action, Some(action));
+            assert_eq!(app.pending_action, Some(action.clone()));
             assert!(app.operations.active().is_none());
             assert!(app.document.is_dirty());
             assert_eq!(app.document.text(), before);
