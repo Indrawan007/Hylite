@@ -63,17 +63,12 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Align {
+    #[default]
     Left,
     Center,
     Right,
-}
-
-impl Default for Align {
-    fn default() -> Self {
-        Self::Left
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
