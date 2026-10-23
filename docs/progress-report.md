@@ -1,6 +1,8 @@
 # Laporan Progress — Hylite (snapshot Stage 7l)
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD:** `601ba8d` (dokumen) · basis kode `d6ecb70`
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode:** `d6ecb70`
+(dokumentasi 7l berada di commit terpisah pada branch yang sama)
+
 **Basis:** commit `d6ecb70` lulus [CI 39915156642](https://github.com/Indrawan007/Hylite/actions/runs/39915156642)
 Status kerja: **belum di-merge ke `main`**; dokumentasi 7l ditulis setelah CI kode dan CI dokumen lulus
 ([39916771054](https://github.com/Indrawan007/Hylite/actions/runs/39916771054), `601ba8d`).
@@ -109,7 +111,7 @@ editing blok terbatas. Gap terbesar ada pada dua baris terakhir tabel di atas.
    dan draft pane terbatas masih kompromi prototipe.
 3. **O(n) di banyak jalur** (parse penuh, salinan Source, dua buffer native di plan
    7e/7f) — memori ekstra, belum ada optimasi.
-4. **Statistik tes bukan cakupan.** 294 core adalah subset dari 943 Cargo; angka GUI
+4. **Statistik tes bukan cakupan.** 294 core adalah subset dari 948 Cargo; angka GUI
    membuktikan byte/fokus/urutan, bukan piksel atau mapping glyph.
 5. **Screenshot artefak belum direview visual** dan bukan oracle piksel.
 
