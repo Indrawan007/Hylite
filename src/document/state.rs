@@ -445,6 +445,32 @@ impl Document {
         crate::preview_paragraph_multiline::payload(&self.buffer_text(), self.snapshot, target)
             .map(str::to_owned)
     }
+    /// Nearest eligible multiline root in source order. Read only; never warms
+    /// a cold cache, rebases an old target, or navigates into nested/literal text.
+    pub(crate) fn adjacent_multiline_paragraph(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        direction: crate::document::ParagraphDirection,
+    ) -> Option<crate::preview_paragraph::Target> {
+        use crate::document::ParagraphDirection as Direction;
+        self.multiline_paragraph_payload(target)?;
+        let mut eligible = self.preview.get()?.iter().filter(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.multiline_paragraph_payload.is_some()
+        });
+        let next = match direction {
+            Direction::Previous => eligible
+                .take_while(|b| b.source.start < target.block.start)
+                .last(),
+            Direction::Next => eligible.find(|b| b.source.start > target.block.start),
+        }?;
+        Some(crate::preview_paragraph::Target {
+            snapshot: self.snapshot,
+            block: next.source.clone(),
+            payload: next.multiline_paragraph_payload.clone()?,
+        })
+    }
+
     pub(crate) fn edit_multiline_paragraph(
         &mut self,
         target: &crate::preview_paragraph::Target,
@@ -1060,3 +1086,7 @@ mod preview_paragraph_tests;
 #[cfg(test)]
 #[path = "preview_multiline_paragraph_tests.rs"]
 mod preview_multiline_paragraph_tests;
+
+#[cfg(test)]
+#[path = "preview_multiline_navigation_tests.rs"]
+mod preview_multiline_navigation_tests;

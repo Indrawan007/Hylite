@@ -1,5 +1,6 @@
 //! Local bounded draft editor, never the Source document or its history.
 use crate::commands::Message;
+use crate::document::ParagraphDirection as Direction;
 use crate::multiline_draft_history::{History, Record};
 use crate::preview_paragraph::Target;
 use crate::preview_paragraph_multiline::{self, MAX_BYTES};
@@ -10,6 +11,8 @@ pub struct Draft {
     pub content: text_editor::Content,
     pub error: Option<&'static str>,
     history: History,
+    neighbors: [bool; 2],
+    pub navigation_notice: Option<&'static str>,
 }
 impl Draft {
     pub fn new(target: Target, value: &str) -> Option<Self> {
@@ -26,7 +29,20 @@ impl Draft {
             content,
             error: None,
             history: History::default(),
+            neighbors: [false, false],
+            navigation_notice: None,
         })
+    }
+    pub fn with_neighbors(mut self, previous: bool, next: bool) -> Self {
+        self.neighbors = [previous, next];
+        self
+    }
+    pub fn can_move(&self, direction: Direction) -> bool {
+        self.error.is_none()
+            && self.neighbors[match direction {
+                Direction::Previous => 0,
+                Direction::Next => 1,
+            }]
     }
     pub fn value(&self) -> String {
         crate::document::buffer_text(&self.content)
@@ -63,6 +79,7 @@ impl Draft {
             return false;
         }
         self.content = content;
+        self.navigation_notice = None;
         self.error = (!preview_paragraph_multiline::valid_value(&self.value())).then_some(
             "Use 2–128 nonempty unindented lines, no tabs/control characters, up to 16 KiB.",
         );
@@ -95,6 +112,7 @@ impl Draft {
         }
         let value = self.value();
         if value != *before {
+            self.navigation_notice = None;
             let after_record = self.record();
             self.history.record(before_record, &after_record);
             self.error = (!preview_paragraph_multiline::valid_value(&value)).then_some(
@@ -129,6 +147,11 @@ pub fn session_key_binding(press: text_editor::KeyPress) -> Option<text_editor::
         }
     }
     key_binding(press)
+}
+fn move_message(draft: &Draft, direction: Direction) -> Option<Message> {
+    draft
+        .can_move(direction)
+        .then_some(Message::MoveMultilineParagraph(direction))
 }
 fn apply_message(draft: &Draft) -> Option<Message> {
     (draft.error.is_none() && preview_paragraph_multiline::valid_value(&draft.value()))
@@ -172,8 +195,14 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         ]
         .spacing(8)
         .height(32),
-        text(draft.error.unwrap_or(
-            "Ctrl+Z / Ctrl+Y = draft Undo/Redo · one step per edit · Source changes only on Apply"
+        row![
+            button(text("Previous multiline").size(14)).width(160).height(32)
+                .on_press_maybe(move_message(draft, Direction::Previous)),
+            button(text("Next multiline").size(14)).width(160).height(32)
+                .on_press_maybe(move_message(draft, Direction::Next))
+        ].spacing(8).height(32),
+        text(draft.error.or(draft.navigation_notice).unwrap_or(
+            "Previous/Next require unchanged draft · skip unsupported blocks · Ctrl+Z/Y = draft history"
         ))
         .size(13),
     ]
@@ -406,5 +435,44 @@ mod tests {
         assert!(d.error.is_none());
         assert!(d.undo_redo(true));
         assert!(apply_message(&d).is_some()); // still needs Document structural preflight
+    }
+    #[test]
+    fn multiline_navigation_affordances_obey_both_bounds_errors_and_do_not_disable_apply_on_notice()
+    {
+        let mut d = draft().with_neighbors(false, true);
+        assert!(move_message(&d, Direction::Previous).is_none());
+        assert!(matches!(
+            move_message(&d, Direction::Next),
+            Some(Message::MoveMultilineParagraph(Direction::Next))
+        ));
+        d.navigation_notice = Some("dirty navigation refused");
+        assert!(apply_message(&d).is_some());
+        d = d.with_neighbors(true, false);
+        assert!(matches!(
+            move_message(&d, Direction::Previous),
+            Some(Message::MoveMultilineParagraph(Direction::Previous))
+        ));
+        assert!(move_message(&d, Direction::Next).is_none());
+        d.error = Some("parser refused");
+        assert!(move_message(&d, Direction::Previous).is_none());
+        assert!(apply_message(&d).is_none());
+    }
+    #[test]
+    fn multiline_navigation_notices_clear_only_on_effective_local_changes() {
+        let mut d = draft().with_neighbors(true, true);
+        d.navigation_notice = Some("draft kept");
+        d.edit(text_editor::Action::Move(
+            text_editor::Motion::DocumentStart,
+        ));
+        assert_eq!(d.navigation_notice, Some("draft kept"));
+        paste(&mut d, "changed\ntext");
+        assert!(d.navigation_notice.is_none());
+        d.navigation_notice = Some("draft kept");
+        assert!(d.undo_redo(false));
+        assert!(d.navigation_notice.is_none());
+        assert!(d.can_move(Direction::Previous) && d.can_move(Direction::Next));
+        let fresh = draft().with_neighbors(false, true);
+        assert!(!fresh.can_undo() && !fresh.can_redo());
+        assert!(fresh.navigation_notice.is_none());
     }
 }

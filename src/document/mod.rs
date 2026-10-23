@@ -10,3 +10,10 @@ pub use snapshot::Snapshot;
 pub use state::Document;
 
 pub(crate) use state::{buffer_text, content_at, paste_exact};
+
+/// Source-order navigation between authenticated eligible multiline roots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParagraphDirection {
+    Previous,
+    Next,
+}

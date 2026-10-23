@@ -17,17 +17,63 @@ impl Hylite {
         if self.multiline_draft.is_some() || !self.multiline_operation_allowed() {
             return Task::none();
         }
-        let Some(value) = self.document.multiline_paragraph_payload(&target) else {
+        let Some(draft) = self.multiline_draft_for(target) else {
             self.status_message =
-                "Multiline paragraph target is stale or unsupported; document kept".into();
-            return Task::none();
-        };
-        let Some(draft) = Draft::new(target, &value) else {
-            self.status_message =
-                "Draft buffer could not preserve raw paragraph; document kept".into();
+                "Multiline target is stale/unsupported or cannot preserve raw text; document kept"
+                    .into();
             return Task::none();
         };
         self.multiline_draft = Some(draft);
+        self.restore_input_focus()
+    }
+    fn multiline_draft_for(&self, target: Target) -> Option<Draft> {
+        use crate::document::ParagraphDirection as Direction;
+        let value = self.document.multiline_paragraph_payload(&target)?;
+        let previous = self
+            .document
+            .adjacent_multiline_paragraph(&target, Direction::Previous)
+            .is_some();
+        let next = self
+            .document
+            .adjacent_multiline_paragraph(&target, Direction::Next)
+            .is_some();
+        Draft::new(target, &value).map(|d| d.with_neighbors(previous, next))
+    }
+    pub(super) fn move_multiline_paragraph(
+        &mut self,
+        direction: crate::document::ParagraphDirection,
+    ) -> Task<Message> {
+        if !self.multiline_operation_allowed() {
+            return Task::none();
+        }
+        let Some(draft) = &mut self.multiline_draft else {
+            return Task::none();
+        };
+        let Some(before) = self.document.multiline_paragraph_payload(&draft.target) else {
+            draft.error = Some("Multiline target is stale; Cancel and reopen. Draft kept.");
+            return self.restore_input_focus();
+        };
+        if draft.error.is_some() || draft.value() != before {
+            draft.navigation_notice = Some("Draft kept. Previous/Next require unchanged text; Apply and reopen, Undo draft changes, or Cancel.");
+            return self.restore_input_focus();
+        }
+        let Some(next) = self
+            .document
+            .adjacent_multiline_paragraph(&draft.target, direction)
+        else {
+            draft.navigation_notice = Some(
+                "No supported multiline paragraph in that direction; no wrap or Apply. Draft kept.",
+            );
+            return self.restore_input_focus();
+        };
+        // Construct/verify the complete new native buffer before discarding the
+        // old session; failure does not edit Source or lose local history.
+        let Some(next_draft) = self.multiline_draft_for(next) else {
+            return self.restore_input_focus();
+        };
+        self.multiline_draft = Some(next_draft);
+        self.status_message =
+            "Unchanged draft moved to supported multiline paragraph; Source kept".into();
         self.restore_input_focus()
     }
     pub(super) fn edit_multiline_paragraph_draft(

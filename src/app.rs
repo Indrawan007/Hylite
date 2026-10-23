@@ -127,6 +127,7 @@ impl Hylite {
                 &message,
                 Message::EditMultilineParagraphDraft(_)
                     | Message::MultilineDraftHistory(_)
+                    | Message::MoveMultilineParagraph(_)
                     | Message::ApplyMultilineParagraph
                     | Message::CancelMultilineParagraph
                     | Message::EndTypingGroup
@@ -190,6 +191,7 @@ impl Hylite {
             Message::EditMultilineParagraphDraft(action) => {
                 self.edit_multiline_paragraph_draft(action)
             }
+            Message::MoveMultilineParagraph(direction) => self.move_multiline_paragraph(direction),
             Message::MultilineDraftHistory(redo) => self.history_multiline_paragraph(redo),
             Message::ApplyMultilineParagraph => self.apply_multiline_paragraph(),
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
