@@ -36,14 +36,15 @@ mod workspace;
 fn main() -> iced::Result {
     // `hylite export-pdf <input.md> <output.pdf>` renders without a window, so
     // a script (and the X11 gate) can produce a PDF headlessly.
-    let arguments = std::env::args_os().skip(1);
-    if export_cli::is_export_pdf(arguments.clone().next().as_ref()) {
+    // Collect once: `ArgsOs` is not cloneable and both paths read the same list.
+    let arguments: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    if export_cli::is_export_pdf(arguments.first()) {
         let theme = config::Config::load().config.appearance.theme.iced();
         let palette = export_cli::theme_palette(&theme);
-        std::process::exit(export_cli::run(arguments.collect(), palette));
+        std::process::exit(export_cli::run(arguments, palette));
     }
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
-    let launch = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+    let launch = arguments.first().map(std::path::PathBuf::from);
     iced::application(app::Hylite::title, app::Hylite::update, app::Hylite::view)
         .theme(app::Hylite::theme)
         .subscription(app::Hylite::subscription)
