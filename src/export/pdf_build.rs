@@ -27,6 +27,9 @@ fn item(block: &Block) -> Option<Item> {
         }),
         Kind::Paragraph => Some(Item::Paragraph(runs(&block.runs))),
         Kind::Code { text, .. } => Some(Item::Code(text.clone())),
+        // Stage 8d's PDF contract leaves math inert even though the native
+        // Preview now has a read-only subset. Reuse the original marked source.
+        Kind::Math { .. } => Some(Item::Paragraph(runs(&block.runs))),
         Kind::Quote => Some(Item::Quote(items(&block.children))),
         Kind::List(start) => Some(Item::List {
             start: *start,
@@ -54,8 +57,8 @@ fn item(block: &Block) -> Option<Item> {
                 .collect(),
             aligns: table.alignments.iter().map(align).collect(),
         }),
-        // Raw HTML, math, footnotes and preview-limit literals export verbatim:
-        // the same inert text the Preview shows, never interpreted.
+        // Raw HTML, footnotes and preview-limit literals export verbatim; math
+        // has its own branch above so PDF keeps the original source inert.
         Kind::Literal { text, .. } => Some(Item::Code(text.clone())),
     }
 }
@@ -88,7 +91,21 @@ fn style(style: &PreviewStyle) -> pdf::Style {
 fn runs(runs: &[PreviewRun]) -> Vec<pdf::Run> {
     runs.iter()
         .filter(|run| !run.text.is_empty() && run.image.is_none())
-        .map(|run| pdf::Run::with(run.text.clone(), style(&run.style)))
+        .map(|run| {
+            let mut style = style(&run.style);
+            let text = if let Some(math) = &run.math {
+                // Keep Stage 8d deterministic and independent of the newer
+                // Preview math projection; math remains source in PDF.
+                style = pdf::Style {
+                    mono: true,
+                    ..style
+                };
+                math.source.clone()
+            } else {
+                run.text.clone()
+            };
+            pdf::Run::with(text, style)
+        })
         .collect()
 }
 

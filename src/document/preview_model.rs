@@ -24,6 +24,9 @@ pub struct Run {
     pub text: String,
     pub source: Range<usize>,
     pub style: Style,
+    /// Math keeps its original delimited Markdown alongside its read-only
+    /// Unicode projection. Failed subset parses stay visibly marked source.
+    pub math: Option<crate::math::Projection>,
     /// Set only on the single literal run produced by `![alt](src)`. The text is
     /// still the inert `[image not loaded: …]` marker; the renderer decides
     /// whether that one run becomes a picture or stays marker text.
@@ -45,6 +48,7 @@ pub enum Kind {
     List(Option<u64>),
     Item(Option<TaskMarker>),
     Code { info: String, text: String },
+    Math { display: bool },
     Rule,
     Table(Table),
     Literal { label: &'static str, text: String },
@@ -97,6 +101,19 @@ fn raw(source: &str, range: &Range<usize>) -> String {
         .get(range.clone())
         .unwrap_or("[preview source range unavailable]")
         .to_owned()
+}
+
+fn math_source(source: &str, range: &Range<usize>, expression: &str, display: bool) -> String {
+    let delimiter = if display { "$$" } else { "$" };
+    let original = raw(source, range);
+    if original.starts_with(delimiter)
+        && original.ends_with(delimiter)
+        && original.len() >= delimiter.len() * 2
+    {
+        original
+    } else {
+        format!("{delimiter}{expression}{delimiter}")
+    }
 }
 
 fn skip(events: &mut Events<'_>) {
@@ -162,6 +179,7 @@ impl Inline {
             text,
             source: range,
             style,
+            math: None,
             image: None,
         });
     }
@@ -176,7 +194,22 @@ impl Inline {
             text: marker,
             source: range,
             style,
+            math: None,
             image: Some(spec),
+        });
+    }
+
+    fn push_math(&mut self, expression: String, range: Range<usize>, source: &str, display: bool) {
+        let marked_source = math_source(source, &range, &expression, display);
+        let (math, text) = crate::math::Projection::new(&expression, marked_source, display);
+        let mut style = self.style.clone();
+        style.code |= math.error.is_some();
+        self.runs.push(Run {
+            text,
+            source: range,
+            style,
+            math: Some(math),
+            image: None,
         });
     }
 
@@ -235,11 +268,13 @@ impl Inline {
                     source: crate::preview_task::marker_range(source, range, checked),
                 })
             }
-            Event::Html(_)
-            | Event::InlineHtml(_)
-            | Event::InlineMath(_)
-            | Event::DisplayMath(_)
-            | Event::FootnoteReference(_) => {
+            Event::InlineMath(expression) => {
+                self.push_math(expression.into_string(), range, source, false)
+            }
+            Event::DisplayMath(expression) => {
+                self.push_math(expression.into_string(), range, source, true)
+            }
+            Event::Html(_) | Event::InlineHtml(_) | Event::FootnoteReference(_) => {
                 self.push(raw(source, &range), range, true);
             }
             Event::Rule => {}
@@ -315,7 +350,17 @@ fn blocks(
                             _ => Kind::Paragraph,
                         };
                         let content = inline(events, source, tag_end);
+                        let display_math = content.runs.len() == 1
+                            && content.runs[0]
+                                .math
+                                .as_ref()
+                                .is_some_and(|math| math.display);
                         task = task.or(content.task);
+                        let kind = if kind == Kind::Paragraph && display_math {
+                            Kind::Math { display: true }
+                        } else {
+                            kind
+                        };
                         let mut block = node(kind, range, content.runs, vec![]);
                         if depth == 0 {
                             if block.kind == Kind::Paragraph {
@@ -390,6 +435,17 @@ fn blocks(
                     }
                 };
                 out.push(block);
+            }
+            Event::DisplayMath(expression) => {
+                pending.flush(&mut out);
+                let mut content = Inline::default();
+                content.push_math(expression.into_string(), range.clone(), source, true);
+                out.push(node(
+                    Kind::Math { display: true },
+                    range,
+                    content.runs,
+                    vec![],
+                ));
             }
             Event::Rule => {
                 pending.flush(&mut out);

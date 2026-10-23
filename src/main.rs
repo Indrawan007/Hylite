@@ -13,6 +13,7 @@ mod highlighting;
 mod hyprland;
 mod images;
 mod line_edit;
+mod math;
 mod multiline_draft_history;
 mod navigation;
 mod operations;

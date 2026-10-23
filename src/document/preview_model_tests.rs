@@ -242,16 +242,61 @@ fn raw_html_is_visible_inert_source_not_executed_or_erased() {
 }
 
 #[test]
-fn images_and_math_have_explicit_literal_fallbacks() {
+fn images_stay_literal_while_supported_inline_math_projects_to_unicode() {
     let blocks = parse("![alt](https://example.invalid/x.png) $x+1$");
     let content = text(&blocks[0]);
     assert!(content.contains("[image not loaded: ![alt](https://example.invalid/x.png)]"));
-    assert!(content.contains("$x+1$"));
-    assert!(blocks[0]
+    assert!(content.ends_with("x+1"));
+    let image = blocks[0]
         .runs
         .iter()
-        .filter(|run| run.text.contains("image not loaded") || run.text.contains("$x+1$"))
-        .all(|run| run.style.code));
+        .find(|run| run.image.is_some())
+        .expect("image marker run");
+    assert!(image.style.code);
+    let math = blocks[0]
+        .runs
+        .iter()
+        .find(|run| run.math.is_some())
+        .expect("math run");
+    assert_eq!(math.text, "x+1");
+    assert_eq!(math.math.as_ref().unwrap().source, "$x+1$");
+    assert!(math.math.as_ref().unwrap().error.is_none());
+    assert!(!math.style.code);
+}
+
+#[test]
+fn unsupported_inline_math_is_marked_and_retains_the_delimited_source() {
+    let source = "Before $\\hyliteunsupported{x}$ after";
+    let blocks = parse(source);
+    let math = blocks[0]
+        .runs
+        .iter()
+        .find(|run| run.math.is_some())
+        .expect("math run");
+    assert!(math.style.code);
+    assert!(math.text.contains("math source fallback"));
+    assert!(math.text.contains("$\\hyliteunsupported{x}$"));
+    assert_eq!(
+        math.math.as_ref().unwrap().source,
+        "$\\hyliteunsupported{x}$"
+    );
+    assert!(math.math.as_ref().unwrap().error.is_some());
+    validate(&blocks, source, 0..source.len());
+}
+
+#[test]
+fn isolated_display_math_is_a_read_only_math_block() {
+    let source = "$$\n\\frac{a+b}{c}\n$$\n";
+    let blocks = parse(source);
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].kind, Kind::Math { display: true });
+    let run = &blocks[0].runs[0];
+    assert_eq!(run.text, "(a+b)⁄c");
+    assert!(run.math.as_ref().unwrap().display);
+    assert!(run.math.as_ref().unwrap().source.starts_with("$$"));
+    assert!(run.math.as_ref().unwrap().source.contains("\\frac{a+b}{c}"));
+    assert!(run.math.as_ref().unwrap().source.ends_with("$$"));
+    validate(&blocks, source, 0..source.len());
 }
 
 #[test]
@@ -454,17 +499,26 @@ fn tables_inside_quotes_and_lists_still_have_valid_hierarchical_provenance() {
 }
 
 #[test]
-fn html_images_math_and_footnotes_inside_cells_remain_inert_fallbacks() {
-    let source =
-        "a|b\n-|-\n<b>raw</b>|![alt](file:///no-read) $x$ [^note]\n\n[^note]: definition\n";
+fn html_images_and_footnotes_stay_inert_while_table_math_uses_the_subset() {
+    let source = "a|b\n-|-\n<b>raw</b>|![alt](file:///no-read) $x$ $\\hyliteunsupported$ [^note]\n\n[^note]: definition\n";
     let blocks = parse(source);
     let Kind::Table(table) = &blocks[0].kind else {
         panic!("expected table")
     };
     assert_eq!(cell_text(&table.rows[1].cells[0]), "<b>raw</b>");
-    let content = cell_text(&table.rows[1].cells[1]);
+    let cell = &table.rows[1].cells[1];
+    let content = cell_text(cell);
     assert!(content.contains("[image not loaded: ![alt](file:///no-read)]"));
-    assert!(content.contains("$x$") && content.contains("[^note]"));
+    assert!(content.contains("x") && content.contains("math source fallback"));
+    assert!(content.contains("[^note]"));
+    let math: Vec<_> = cell
+        .runs
+        .iter()
+        .filter_map(|run| run.math.as_ref())
+        .collect();
+    assert_eq!(math.len(), 2);
+    assert!(math[0].error.is_none());
+    assert!(math[1].error.is_some());
     assert!(matches!(
         blocks[1].kind,
         Kind::Literal {

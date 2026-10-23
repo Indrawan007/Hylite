@@ -89,12 +89,26 @@ fn styled_font(style: &Style, heading: bool) -> Font {
 fn styled_span(run: &Run, heading: bool, colors: Colors) -> text::Span<'_, Message> {
     debug_assert!(run.source.start <= run.source.end);
     let is_link = run.style.link.is_some();
-    let font = styled_font(&run.style, heading);
+    let supported_math = run.math.as_ref().is_some_and(|math| math.error.is_none());
+    let marked_math = run.math.as_ref().is_some_and(|math| math.error.is_some());
+    let font = if supported_math {
+        Font {
+            family: font::Family::Serif,
+            style: font::Style::Italic,
+            ..styled_font(&run.style, heading)
+        }
+    } else {
+        styled_font(&run.style, heading)
+    };
     // Iced Rich uses its Link generic as the widget Message type. Keep it
     // compatible with the app, but never set a Span::link action.
     let mut span = text::Span::new(run.text.as_str())
         .font(font)
-        .color(if is_link { colors.accent } else { colors.text })
+        .color(if is_link || marked_math {
+            colors.accent
+        } else {
+            colors.text
+        })
         .underline(is_link)
         .strikethrough(run.style.strike);
     if run.style.code {
@@ -248,6 +262,7 @@ fn render_block<'a>(
                 };
                 code_panel(label, payload, colors)
             }
+            Kind::Math { display } => math_panel(block, *display, colors),
             Kind::Literal {
                 label,
                 text: payload,
@@ -700,6 +715,52 @@ fn task_action(item: &Block, snapshot: Snapshot) -> Option<Message> {
     }))
 }
 
+fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a, Message> {
+    let Some(run) = block.runs.first() else {
+        return text("[math source unavailable]")
+            .size(13)
+            .color(colors.accent)
+            .into();
+    };
+    let error = run.math.as_ref().and_then(|math| math.error.as_ref());
+    let label = match error {
+        Some(error) => format!("Math source fallback · {}", error.reason()),
+        None if display => "Display math · Unicode subset".into(),
+        None => "Math · Unicode subset".into(),
+    };
+    let body = if error.is_some() {
+        text(run.text.as_str())
+            .font(Font::MONOSPACE)
+            .size(13)
+            .shaping(text::Shaping::Advanced)
+            .color(colors.accent)
+    } else {
+        text(run.text.as_str())
+            .font(Font {
+                family: font::Family::Serif,
+                style: font::Style::Italic,
+                ..Font::DEFAULT
+            })
+            .size(22)
+            .shaping(text::Shaping::Advanced)
+            .color(colors.text)
+    };
+    container(column![text(label).size(11).color(colors.accent), body].spacing(6))
+        .padding(12)
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(colors.surface.into()),
+            border: Border {
+                radius: 5.0.into(),
+                color: colors.accent,
+                width: 1.0,
+                ..Border::default()
+            },
+            ..container::Style::default()
+        })
+        .into()
+}
+
 fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {
     container(
         column![
@@ -755,6 +816,7 @@ mod tests {
                 text: "label".into(),
                 source: 0..5,
                 image: None,
+                math: None,
                 style: Style {
                     strike: true,
                     link: Some("javascript:alert(1)".into()),
@@ -777,6 +839,23 @@ mod tests {
             let _view = render_preview(&blocks, &theme, Snapshot::default(), None);
         }
     }
+    #[test]
+    fn inline_display_and_fallback_math_build_native_widgets_in_both_themes() {
+        for source in [
+            "inline $x^2$",
+            "$$\n\\frac{1}{2}\n$$\n",
+            "unsupported $\\hyliteunsupported{x}$",
+        ] {
+            let blocks = super::super::preview_model::parse(source);
+            assert!(blocks
+                .iter()
+                .any(|block| { block.runs.iter().any(|run| run.math.is_some()) }));
+            for theme in [Theme::Dark, Theme::Light] {
+                let _view = render_preview(&blocks, &theme, Snapshot::default(), None);
+            }
+        }
+    }
+
     #[test]
     fn a_single_image_paragraph_builds_a_bounded_picture_or_an_inert_marker() {
         let directory = tempfile::tempdir().unwrap();
@@ -813,6 +892,7 @@ mod tests {
             text: "café🙂 cached".into(),
             source: 0..15,
             style: Style::default(),
+            math: None,
             image: None,
         };
         let span = styled_span(&run, false, Colors::new(&Theme::Dark));

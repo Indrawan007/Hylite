@@ -1523,6 +1523,52 @@ class SmokeHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "needs a document path"):
             gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "pdf")
 
+    def test_math_fixture_contains_exact_inline_display_and_unsupported_forms(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.math_fixture(Path(temp) / "math")
+            self.assertEqual(document.name, "math.md")
+            self.assertEqual(document.read_bytes(), gui.MATH_DOCUMENT)
+        self.assertIn(b"$x^2", gui.MATH_DOCUMENT)
+        self.assertIn(b"$$\n", gui.MATH_DOCUMENT)
+        self.assertIn(b"\\begin{matrix}", gui.MATH_DOCUMENT)
+
+    def test_math_probe_keeps_document_bytes_through_preview_and_split(self):
+        with tempfile.TemporaryDirectory() as temp:
+            document = gui.math_fixture(Path(temp) / "math")
+            source = document.read_bytes()
+            desktop = Mock(window="42")
+            gui.exercise_math(desktop, Path(temp) / "evidence", document)
+            self.assertEqual(document.read_bytes(), source)
+
+        self.assertEqual(desktop.passed_check.call_count, 3)
+        self.assertEqual(
+            [call.args[0] for call in desktop.key.call_args_list],
+            ["ctrl+shift+m", "ctrl+v", "ctrl+shift+m", "ctrl+shift+m"],
+        )
+        self.assertEqual(
+            [call.args[0] for call in desktop.screenshot.call_args_list],
+            [Path(temp) / "evidence" / "before-math.png",
+             Path(temp) / "evidence" / "math-preview.png",
+             Path(temp) / "evidence" / "math-split.png"],
+        )
+        self.assertEqual(desktop.expect_copy.call_count, 2)
+        self.assertEqual(desktop.expect_copy.call_args.kwargs, {"refocus": False})
+        desktop.title_is_dirty.assert_any_call(False)
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+
+    def test_math_dispatch_is_exclusive_and_requires_a_document(self):
+        desktop, artifacts = Mock(), Path("/unused")
+        document = Path("/unused/math.md")
+        with patch.object(gui, "exercise_math") as math, \
+             patch.object(gui, "exercise_pdf") as pdf:
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "math",
+                               None, document)
+        math.assert_called_once_with(desktop, artifacts, document)
+        pdf.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "needs a document path"):
+            gui.exercise_suite(desktop, artifacts, Path("/unused/binary"), "math")
+
 
 if __name__ == "__main__":
     unittest.main()
