@@ -130,6 +130,7 @@ impl Hylite {
                     | Message::MoveMultilineParagraph(_)
                     | Message::ApplyMultilineParagraph
                     | Message::ApplyMultilineParagraphNext
+                    | Message::ApplyMultilineParagraphPrevious
                     | Message::CancelMultilineParagraph
                     | Message::EndTypingGroup
                     | Message::FileOpened(..)
@@ -194,6 +195,7 @@ impl Hylite {
             }
             Message::MoveMultilineParagraph(direction) => self.move_multiline_paragraph(direction),
             Message::MultilineDraftHistory(redo) => self.history_multiline_paragraph(redo),
+            Message::ApplyMultilineParagraphPrevious => self.apply_multiline_paragraph_previous(),
             Message::ApplyMultilineParagraphNext => self.apply_multiline_paragraph_next(),
             Message::ApplyMultilineParagraph => self.apply_multiline_paragraph(),
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),

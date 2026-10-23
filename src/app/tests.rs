@@ -5658,3 +5658,253 @@ fn multiline_apply_next_preserves_immutable_save_export_replies_and_refreshes_lo
         assert!(!app.document.is_dirty());
     }
 }
+
+#[test]
+fn multiline_apply_previous_commits_second_and_opens_fresh_raw_first_in_preview_and_split() {
+    use crate::document::ParagraphDirection::{Next, Previous};
+    for mode in [EditMode::Preview, EditMode::Split] {
+        let mut app = multiline_navigation_app();
+        app.mode = mode;
+        let original = app.document.buffer_text();
+        let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+        let _ = app.update(Message::MoveMultilineParagraph(Next));
+        let target = app.multiline_draft.as_ref().unwrap().target.clone();
+        multiline_replace(&mut app, "grown é🙂\nsecond\nthird  ");
+        let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+        let draft = app.multiline_draft.as_ref().unwrap();
+        assert_eq!(draft.value(), "café🙂 **first**  \na\\|b &amp;");
+        assert_eq!(draft.target.snapshot, app.document.snapshot());
+        assert_eq!(draft.content.cursor_position(), (0, 0));
+        assert!(!draft.can_undo() && !draft.can_redo());
+        assert!(!draft.can_move(Previous));
+        assert!(draft.can_move(Next));
+        assert_eq!(
+            app.document.caret_offset(),
+            target.payload.start + "grown é🙂\nsecond\nthird  ".len()
+        );
+        let mut expected = original.clone();
+        expected.replace_range(target.payload.clone(), "grown é🙂\nsecond\nthird  ");
+        assert_eq!(app.document.buffer_text(), expected);
+        let _ = app.update(Message::CancelMultilineParagraph);
+        assert!(!app.title().contains("draft"));
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(false)
+        } else {
+            Message::Undo
+        });
+        assert_eq!(app.document.buffer_text(), original);
+        assert!(!app.document.can_undo());
+    }
+}
+#[test]
+fn multiline_apply_previous_noop_after_local_undo_preserves_source_redo_and_caret() {
+    use crate::document::ParagraphDirection::Next;
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let _ = app.update(Message::MoveMultilineParagraph(Next));
+    multiline_replace(&mut app, "saved\nsecond");
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    let applied = app.document.buffer_text();
+    let _ = app.update(Message::PreviewHistory(false));
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let _ = app.update(Message::MoveMultilineParagraph(Next));
+    assert_eq!(
+        app.multiline_draft.as_ref().unwrap().value(),
+        "second é🙂\nraw **tail**  "
+    );
+    multiline_replace(&mut app, "discard\npending");
+    let _ = app.update(Message::MultilineDraftHistory(false));
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    let draft = app.multiline_draft.as_ref().unwrap();
+    assert_eq!(draft.value(), "café🙂 **first**  \na\\|b &amp;");
+    assert!(!draft.can_redo());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+    let _ = app.update(Message::CancelMultilineParagraph);
+    let _ = app.update(Message::PreviewHistory(true));
+    assert_eq!(app.document.buffer_text(), applied);
+}
+#[test]
+fn multiline_apply_previous_first_boundary_refuses_changed_and_noop_without_partial_apply() {
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let before = (
+        app.document.snapshot(),
+        app.document.buffer_text(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    assert!(app
+        .multiline_draft
+        .as_ref()
+        .unwrap()
+        .navigation_notice
+        .is_some());
+    multiline_replace(&mut app, "first edited\ntext");
+    let target = app.multiline_draft.as_ref().unwrap().target.clone();
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    let draft = app.multiline_draft.as_ref().unwrap();
+    assert_eq!(draft.target, target);
+    assert_eq!(draft.value(), "first edited\ntext");
+    assert!(draft.error.is_none() && draft.navigation_notice.is_some() && draft.can_undo());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.buffer_text(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+    let _ = app.update(Message::ApplyMultilineParagraph);
+    assert!(app.multiline_draft.is_none());
+    assert!(app.document.buffer_text().contains("first edited\ntext\n"));
+}
+#[test]
+fn multiline_apply_previous_lexical_structural_oversized_and_stale_refusal_keep_local_history() {
+    use crate::document::ParagraphDirection::Next;
+    for value in ["invalid\n\ntext\t", "one\n# heading", "- list\n- next"] {
+        let mut app = multiline_navigation_app();
+        let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+        let _ = app.update(Message::MoveMultilineParagraph(Next));
+        let target = app.multiline_draft.as_ref().unwrap().target.clone();
+        let before = app.document.snapshot();
+        multiline_replace(&mut app, value);
+        let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+        let draft = app.multiline_draft.as_ref().unwrap();
+        assert_eq!(draft.target, target);
+        assert_eq!(draft.value(), value);
+        assert!(draft.error.is_some() && draft.can_undo());
+        assert_eq!(app.document.snapshot(), before);
+        let _ = app.update(Message::MultilineDraftHistory(false));
+        let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().value(),
+            "café🙂 **first**  \na\\|b &amp;"
+        );
+        assert_eq!(app.document.snapshot(), before);
+    }
+    let mut app = multiline_navigation_app();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let _ = app.update(Message::MoveMultilineParagraph(Next));
+    multiline_replace(
+        &mut app,
+        &"x".repeat(crate::preview_paragraph_multiline::MAX_BYTES + 1),
+    );
+    let accepted = app.multiline_draft.as_ref().unwrap().value();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    assert_eq!(app.multiline_draft.as_ref().unwrap().value(), accepted);
+    assert_eq!(app.document.snapshot(), before);
+    app.document.replace(None, "replacement\ntext\n");
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(app.multiline_draft.is_some());
+}
+#[test]
+fn multiline_apply_previous_source_pending_open_no_draft_and_other_modals_are_guarded() {
+    use crate::document::ParagraphDirection::Next;
+    for guard in 0..3 {
+        let mut app = multiline_navigation_app();
+        let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+        let _ = app.update(Message::MoveMultilineParagraph(Next));
+        multiline_replace(&mut app, "changed\nsecond");
+        match guard {
+            0 => app.mode = EditMode::Source,
+            1 => app.pending_action = Some(PendingAction::New),
+            _ => {
+                app.operations
+                    .start(OperationKind::Open, app.document.snapshot())
+                    .unwrap();
+            }
+        }
+        let before = app.document.snapshot();
+        let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(
+            app.multiline_draft.as_ref().unwrap().value(),
+            "changed\nsecond"
+        );
+    }
+    let mut app = multiline_navigation_app();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    assert_eq!(app.document.snapshot(), before);
+    let mut app = paragraph_app();
+    let t = paragraph_target(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    assert!(app.paragraph_draft.is_some() && app.multiline_draft.is_none());
+}
+#[test]
+fn multiline_apply_previous_forward_navigation_uses_fresh_applied_payload_and_source_barrier() {
+    use crate::document::ParagraphDirection::Next;
+    let mut app = multiline_navigation_app();
+    app.mode = EditMode::Split;
+    let original = app.document.buffer_text();
+    let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+    let _ = app.update(Message::MoveMultilineParagraph(Next));
+    multiline_replace(&mut app, "edited é🙂\nsecond  ");
+    let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+    let _ = app.update(Message::MoveMultilineParagraph(Next));
+    assert_eq!(
+        app.multiline_draft.as_ref().unwrap().value(),
+        "edited é🙂\nsecond  "
+    );
+    let _ = app.update(Message::CancelMultilineParagraph);
+    edit(&mut app);
+    let typed = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), typed);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert!(app
+        .document
+        .buffer_text()
+        .starts_with("café🙂 **first**  \na\\|b &amp;\n\ntwo\n"));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), original);
+}
+#[test]
+fn multiline_apply_previous_preserves_immutable_save_export_and_refreshes_logical_search() {
+    use crate::document::ParagraphDirection::Next;
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = multiline_navigation_app();
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        let _ = app.update(Message::OpenGoTo);
+        let _ = app.update(Message::GoToQueryChanged("2:3".into()));
+        let token = app.operations.start(kind, app.document.snapshot()).unwrap();
+        let _ = app.update(Message::OpenMultilineParagraph(multiline_target(&app)));
+        let _ = app.update(Message::MoveMultilineParagraph(Next));
+        multiline_replace(&mut app, "needle\nneedle");
+        let _ = app.update(Message::ApplyMultilineParagraphPrevious);
+        assert_eq!(app.search.count(), 2);
+        assert!(app.go_to.open && !app.search.open);
+        assert_eq!(app.go_to.query, "2:3");
+        assert_eq!(app.operations.active().unwrap().token, token);
+        let target = app.multiline_draft.as_ref().unwrap().target.clone();
+        let _ = app.update(match kind {
+            OperationKind::Save => Message::FileSaved(token, Ok(Some("apply-previous.md".into()))),
+            _ => Message::HtmlExported(token, Ok(Some("apply-previous.html".into()))),
+        });
+        assert_eq!(app.multiline_draft.as_ref().unwrap().target, target);
+        assert!(app.document.is_dirty());
+        let _ = app.update(Message::CancelMultilineParagraph);
+        let _ = app.update(Message::Undo);
+        assert!(!app.document.is_dirty());
+    }
+}

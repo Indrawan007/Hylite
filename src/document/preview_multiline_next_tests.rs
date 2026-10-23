@@ -16,8 +16,8 @@ const SOURCE: &str = "café🙂  \nfirst\n\n# gap\n\nsingle\n\n> nested\n> para\
 fn transition(doc: &mut Document, t: &Target, value: &str) -> Option<(Target, bool)> {
     let plan = doc.prepare_multiline_paragraph_next(t, value)?;
     // Same native construction preflight as controller, before Source commit.
-    crate::ui::multiline_paragraph::Draft::new(plan.next_target(), plan.next_value())?;
-    doc.commit_multiline_paragraph_next(plan)
+    crate::ui::multiline_paragraph::Draft::new(plan.move_target(), plan.move_value())?;
+    doc.commit_multiline_paragraph_move(plan)
 }
 #[test]
 fn apply_next_preflights_exact_next_raw_bytes_offsets_native_buffer_and_fresh_snapshot() {
@@ -27,13 +27,13 @@ fn apply_next_preflights_exact_next_raw_bytes_offsets_native_buffer_and_fresh_sn
     let plan = doc
         .prepare_multiline_paragraph_next(&old[0], value)
         .unwrap();
-    assert_eq!(plan.next_value(), "second é🙂\ntail  ");
+    assert_eq!(plan.move_value(), "second é🙂\ntail  ");
     assert_eq!(plan.neighbors(), [true, true]);
-    let provisional = plan.next_target();
+    let provisional = plan.move_target();
     assert_ne!(provisional.payload, old[1].payload);
     assert_eq!(doc.buffer_text(), SOURCE);
     assert!(!doc.can_undo());
-    let (next, changed) = doc.commit_multiline_paragraph_next(plan).unwrap();
+    let (next, changed) = doc.commit_multiline_paragraph_move(plan).unwrap();
     assert!(changed);
     assert_eq!(next.snapshot, doc.snapshot());
     assert_ne!(next.snapshot, old[0].snapshot);
@@ -185,7 +185,7 @@ fn abandoned_and_stale_plans_never_commit_or_drop_current_source_redo() {
         .prepare_multiline_paragraph_next(&t[0], "new\ntext")
         .unwrap();
     doc.preview.take();
-    assert!(doc.commit_multiline_paragraph_next(plan).is_none());
+    assert!(doc.commit_multiline_paragraph_move(plan).is_none());
     assert!(doc.preview.get().is_none());
     let t = roots(&doc);
     let plan = doc
@@ -195,7 +195,7 @@ fn abandoned_and_stale_plans_never_commit_or_drop_current_source_redo() {
     assert!(doc.undo());
     let _ = roots(&doc);
     let snapshot = doc.snapshot();
-    assert!(doc.commit_multiline_paragraph_next(plan).is_none());
+    assert!(doc.commit_multiline_paragraph_move(plan).is_none());
     assert_eq!(doc.snapshot(), snapshot);
     assert!(doc.can_redo());
     let mut foreign = Document::new(&SOURCE.replace("second é🙂", "foreign second"));
@@ -205,7 +205,7 @@ fn abandoned_and_stale_plans_never_commit_or_drop_current_source_redo() {
     let plan = doc
         .prepare_multiline_paragraph_next(&t[0], "new\ntext")
         .unwrap();
-    assert!(foreign.commit_multiline_paragraph_next(plan).is_none());
+    assert!(foreign.commit_multiline_paragraph_move(plan).is_none());
     assert!(foreign.buffer_text().contains("foreign second"));
 }
 #[test]
@@ -247,7 +247,7 @@ fn plan_accepts_caret_and_immutable_save_ack_but_not_replace_with_matching_text(
         .unwrap();
     assert!(doc.set_caret(2));
     assert!(doc.mark_saved(saved, "next.md".into()));
-    assert!(doc.commit_multiline_paragraph_next(plan).unwrap().1);
+    assert!(doc.commit_multiline_paragraph_move(plan).unwrap().1);
     assert!(doc.is_dirty());
     assert!(doc.undo());
     assert!(!doc.is_dirty());
@@ -258,7 +258,7 @@ fn plan_accepts_caret_and_immutable_save_ack_but_not_replace_with_matching_text(
         .unwrap();
     doc.replace(None, SOURCE);
     let _ = roots(&doc);
-    assert!(doc.commit_multiline_paragraph_next(plan).is_none());
+    assert!(doc.commit_multiline_paragraph_move(plan).is_none());
     assert!(!doc.can_undo());
 }
 #[test]

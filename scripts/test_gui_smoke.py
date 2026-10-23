@@ -1007,5 +1007,55 @@ class SmokeHelperTests(unittest.TestCase):
             for probe in old:
                 probe.assert_not_called()
 
+    def test_paragraph_apply_previous_probe_locks_three_roots_noop_boundary_refusal_focus_and_history(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_paragraph_apply_previous(desktop, Path("/unused-evidence"))
+        first = "café🙂 **first**  \na\\|b &amp;".encode("utf-8")
+        middle = b"\n\n# gap\n\nsingle line\n\n> nested\n> paragraph\n\n```text\nliteral\nparagraph\n```\n\n"
+        second = "second é🙂\nraw **tail**  ".encode("utf-8")
+        between = b"\n\n## second gap\n\n- item\n  - nested item\n\n"
+        third = "third 🙂\nraw final  ".encode("utf-8")
+        suffix = b"\n\nterminal\n\t"
+        third2 = "growth **é🙂**\nfinal two  \nthird  ".encode("utf-8")
+        first2 = "first edited é🙂\nsecond line  ".encode("utf-8")
+        final = "final é🙂\nsecond two  ".encode("utf-8")
+        source = first+middle+second+between+third+suffix
+        applied = first+middle+second+between+third2+suffix
+        applied2 = first+middle+final+between+third2+suffix
+        typed = first+middle+final+b"X"+between+third2+suffix
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies), 26)
+        self.assertEqual([c.args[1] for c in copies[1:-1]], [source,first,second,third,third2,second,second,first,first2,first2,applied,source,applied,second,b"one\n# heading",b"one\n# heading",applied,second,final,first,typed,applied2,applied,source])
+        self.assertEqual(copies[0].args[1],copies[-1].args[1])
+        self.assertEqual(desktop.paste_from_clean.call_args.args[0],source)
+        self.assertTrue(all(c.kwargs=={"refocus":False} for c in copies))
+        def at(x,y):
+            return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
+        clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
+        self.assertEqual(clicks,[at(984,151),at(450,408),at(450,408),at(302,452),at(302,452),at(302,452),at(1144,151),at(450,408),at(302,452),at(1144,151),at(450,408),at(302,452)])
+        keys=[c.args[0] for c in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+z"),6)
+        self.assertEqual(keys.count("ctrl+y"),1)
+        self.assertEqual(keys.count("ctrl+shift+m"),2)
+        self.assertEqual(keys.count("Escape"),3)
+        self.assertEqual(keys.count("ctrl+a"),4)
+        self.assertEqual(keys.count("ctrl+v"),4)
+        self.assertEqual([c.args[0] for c in desktop.type_ascii.call_args_list],["X"])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count,2)
+
+    def test_paragraph_apply_previous_dispatch_is_exclusive_and_keeps_all_eighteen_previous_suites(self):
+        desktop, artifacts, binary = Mock(), Path("/unused"), Path("/unused/binary")
+        names=["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation","exercise_paragraph_apply_next"]
+        with contextlib.ExitStack() as stack:
+            old=[stack.enter_context(patch.object(gui,name)) for name in names]
+            new=stack.enter_context(patch.object(gui,"exercise_paragraph_apply_previous"))
+            gui.exercise_suite(desktop,artifacts,binary,"paragraph-apply-previous")
+            new.assert_called_once_with(desktop,artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

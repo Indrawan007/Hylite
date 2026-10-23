@@ -157,6 +157,11 @@ fn apply_next_message(draft: &Draft) -> Option<Message> {
     (draft.can_move(Direction::Next) && preview_paragraph_multiline::valid_value(&draft.value()))
         .then_some(Message::ApplyMultilineParagraphNext)
 }
+fn apply_previous_message(draft: &Draft) -> Option<Message> {
+    (draft.can_move(Direction::Previous)
+        && preview_paragraph_multiline::valid_value(&draft.value()))
+    .then_some(Message::ApplyMultilineParagraphPrevious)
+}
 fn apply_message(draft: &Draft) -> Option<Message> {
     (draft.error.is_none() && preview_paragraph_multiline::valid_value(&draft.value()))
         .then_some(Message::ApplyMultilineParagraph)
@@ -207,8 +212,12 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             button(text("Apply & Next").size(14)).width(160).height(32)
                 .on_press_maybe(apply_next_message(draft))
         ].spacing(8).height(32),
+        row![
+            button(text("Apply & Previous").size(14)).width(160).height(32)
+                .on_press_maybe(apply_previous_message(draft))
+        ].spacing(8).height(32),
         text(draft.error.or(draft.navigation_notice).unwrap_or(
-            "Previous/Next require unchanged draft · Apply & Next commits one · new session resets draft history"
+            "Previous/Next = unchanged move · Apply & Next/Previous = one atomic edge · new session resets draft history"
         ))
         .size(13),
     ]
@@ -510,6 +519,37 @@ mod tests {
         assert!(!fresh.can_undo() && !fresh.can_redo());
         assert!(fresh.can_move(Direction::Previous));
         assert!(apply_next_message(&fresh).is_none());
+        assert!(old.can_undo());
+    }
+    #[test]
+    fn apply_previous_affordance_allows_valid_dirty_notice_but_requires_previous_and_no_error() {
+        let mut d = draft().with_neighbors(true, false);
+        paste(&mut d, "edited é🙂\nprevious");
+        d.navigation_notice = Some("dirty move refused");
+        assert!(matches!(
+            apply_previous_message(&d),
+            Some(Message::ApplyMultilineParagraphPrevious)
+        ));
+        d = d.with_neighbors(false, true);
+        assert!(apply_previous_message(&d).is_none());
+        d = d.with_neighbors(true, false);
+        d.error = Some("parser refused");
+        assert!(apply_previous_message(&d).is_none());
+        paste(&mut d, "invalid\n\ntext");
+        assert!(apply_previous_message(&d).is_none());
+    }
+    #[test]
+    fn fresh_previous_native_buffer_keeps_raw_payload_caret_zero_and_empty_history() {
+        let mut old = draft().with_neighbors(true, false);
+        paste(&mut old, "changed\nsecond");
+        let fresh = Draft::new(old.target.clone(), "previous é🙂  \nraw &amp;")
+            .unwrap()
+            .with_neighbors(false, true);
+        assert_eq!(fresh.value(), "previous é🙂  \nraw &amp;");
+        assert_eq!(fresh.content.cursor_position(), (0, 0));
+        assert!(!fresh.can_undo() && !fresh.can_redo());
+        assert!(fresh.can_move(Direction::Next));
+        assert!(apply_previous_message(&fresh).is_none());
         assert!(old.can_undo());
     }
 }
