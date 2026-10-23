@@ -1005,3 +1005,28 @@ plus reference model yang menghitung ulang total byte (bukan menyalin counter
 produksi) memverifikasi urutan eviksi, pembuangan redo, dan akuntansi byte pada 5 seed
 × 400 operasi; dua test controller memastikan pesan/gestur history tidak pernah
 menyentuh Source atau stack-nya. [Kontrak/tests/evidence/manual limits7n](testing-stage7n.md).
+
+## Tab multi-buffer (Stage 8a)
+
+`Hylite` kini memegang `tabs: Vec<app::tabs::Tab>` + `active_tab`. `Tab` hanya
+`Option<Document>`: `None` menandai slot yang sedang aktif, karena `Document`-nya
+hidup di `Hylite::document` supaya seluruh jalur edit yang sudah ada (Source, Find,
+GoTo, draft sel/paragraf, preview history) memakai borrow yang sama persis.
+Konsekuensinya pindah tab adalah dua `mem::replace`, bukan rebuild: content native,
+caret/seleksi, history bounded, snapshot/checkpoint, path, dan dirty flag ikut
+berpindah utuh, dan tidak ada edge history baru di Source mana pun.
+
+Guard `tab_switch_allowed` menolak tab baru/pindah/tutup saat panel draft terbuka,
+konfirmasi tertunda, atau operasi file aktif — draft terikat pada target di buffer
+aktif sehingga target basi tidak pernah terjadi. Tab terakhir dilindungi dan tab
+kotor tidak pernah dibuang diam-diam (keduanya lapor lewat status). Pindah tab
+me-reset `GoTo` dan pencarian lewat `search.reset_document()` + `refresh_search()`
+seperti `Open`, jadi match/target buffer sebelumnya tidak bocor.
+
+Shortcut tab memakai `Ctrl+T`, `Ctrl+W`, dan `Alt+1..9` dengan modifier persis
+(AltGr/`Ctrl+Alt` tidak pernah memindah buffer); `Ctrl+Tab` sengaja tidak dipakai
+karena editor Source bisa menangkap Tab bermodifier, sehingga cycling tersedia lewat
+tombol `›`. Strip tab dirender **di dalam baris toolbar yang sudah ada** (tinggi 28px,
+lebar tetap 330px, disisipkan sebelum `horizontal_space()`), jadi setiap koordinat
+editor — dan seluruh suite GUI lama — tidak bergeser. Bentuk judul jendela tidak
+berubah agar oracle title lama tetap valid. [Kontrak/tests/evidence/manual limits8a](testing-stage8a.md).

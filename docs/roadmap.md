@@ -1,12 +1,13 @@
-# Roadmap Hylite — dari Stage 7n sampai rilis 1.0
+# Roadmap Hylite — dari Stage 8a sampai rilis 1.0
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `a7e3a01`
-(**956 Cargo / 297 strict core / 69 Python / 23 suite GUI 462 pemeriksaan**, CI
-[39927995762](https://github.com/Indrawan007/Hylite/actions/runs/39927995762) hijau)
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `e6677d7`
+(**960 Cargo / 297 strict core / 71 Python / 24 suite GUI 471 pemeriksaan**, CI
+[39936002455](https://github.com/Indrawan007/Hylite/actions/runs/39936002455) hijau)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
-> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–7n, 35 stage) tidak
+> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8a, 36 stage) tidak
 > diulang di sini; rinciannya ada di [`progress-report.md`](progress-report.md).
+> Stage 8a juga sudah lulus CI (960 Cargo / 24 suite / 471 pemeriksaan).
 
 ---
 
@@ -23,7 +24,7 @@ Hylite 1.0 dinyatakan selesai bila **semua** ini benar:
 | 5 | **Math + gambar** tampil di Preview | Golden test render; gambar tidak pernah dieksekusi/di-upload otomatis |
 | 6 | **Berjalan dan divalidasi di Arch + Hyprland/Wayland** (portal, IME, HiDPI, RTL) | Checklist manual tercentang di mesin target, bukan Xvfb |
 | 7 | **Terpasang**: PKGBUILD/AUR, build release reproducible | `makepkg` sukses + checksum |
-| 8 | Semua gate lama (23 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
+| 8 | Semua gate lama (24 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
 
 **Yang eksplisit TIDAK termasuk 1.0** (supaya tidak ada klaim berlebih):
 kolaborasi/CRDT, cloud sync, plugin system, mobile, WYSIWYG penuh untuk semua
@@ -44,7 +45,7 @@ Tujuannya: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF".
 
 | Stage | Isi | Kenapa sekarang | Usaha | Risiko |
 |---|---|---|---|---|
-| **8a** | **Multi-buffer + tab**: `Vec<Buffer>` di app state; tab bar; perpindahan tab mempertahankan caret, seleksi, scroll, dirty, dan **stack history masing-masing** | Prasyarat teknis untuk 8b dan untuk bekerja dengan dokumen nyata; menyentuh `Hylite`/`Document` jadi lebih baik sebelum lapisan WYSIWYG menempel | sedang | sedang — refactor state luas |
+| **8a** ✅ | **Multi-buffer + tab**: tab memarkir seluruh `Document` (bukan `Vec<Buffer>` terpisah); strip di dalam baris toolbar; perpindahan mempertahankan teks, caret, seleksi, snapshot, path, dirty, dan **stack history masing-masing**; `Ctrl+T`/`Ctrl+W`/`Alt+1..9` + `＋`/`×`/`›` | Prasyarat teknis untuk 8b; menyentuh `Hylite` jadi lebih baik sebelum lapisan WYSIWYG menempel | **selesai** — [catatan](testing-stage8a.md) | sedang — refactor state luas (dipilih: park `Document`, bukan buffer kedua) |
 | **8b** | **File tree + workspace folder**: panel kiri folder, buka file dari tree, indikator dirty per file; tetap tanpa watcher (re-scan manual + tombol refresh) | Melengkapi 8a menjadi alur kerja nyata | sedang | rendah |
 | **8c** | **Gambar read-only di Preview**: inline image dari path relatif/absolut, `alt` sebagai fallback, batas ukuran file dan dimensi, **tidak** memuat URL jaringan. Paste gambar ke disk = stage terpisah nanti | `iced` sudah mengaktifkan fitur `image`/`svg`, jadi biayanya rendah dan dampak visualnya besar | kecil–sedang | rendah — keamanan path harus ketat |
 | **8d** | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | sedang | sedang — pilih crate murni-Rust, tanpa browser |

@@ -1193,3 +1193,33 @@ sandbox ini). [Kontrak7n](testing-stage7n.md).
 Batas: `Ctrl+PageUp`/`Ctrl+PageDown` tetap bukan rute commit panel satu baris;
 oracle suite 7j (`Ctrl+PageUp is not a commit route for the text_input draft`) sengaja
 tidak diubah.
+
+## Stage 8a: suite ke-24 `tabs` (multi-buffer, keyboard-only)
+
+Strip tab dirender di dalam baris toolbar (bukan baris baru), jadi tidak ada
+koordinat editor yang bergeser dan 23 suite lama dijalankan ulang utuh. Suite baru
+sengaja **tidak melakukan satu klik pun**: seluruh gerakan tab lewat `Ctrl+T`,
+`Ctrl+W`, dan `Alt+1`/`Alt+2`, sehingga tidak ada koordinat toolbar yang bisa
+bergeser diam-diam tanpa gate.
+
+Suite membuktikan: `Ctrl+T` memarkir buffer welcome dan membuat buffer kosong (paste
+fixture lalu copy hanya berisi fixture itu), `Alt+1`/`Alt+2` mengembalikan buffer
+parkir byte-for-byte, `Ctrl+Z` di tab kedua tidak menyentuh tab pertama, `Ctrl+W`
+menutup tab bersih lalu jatuh ke tetangganya, `Ctrl+W` pada tab terakhir ditolak, dan
+`Ctrl+Z` terakhir mengembalikan checkpoint kosong sebelum close native normal.
+
+Jumlah yang dipertahankan apa adanya: 8 `expect_copy` (semua `refocus: False`),
+0 klik, 1 `ctrl+t`, 2 `ctrl+w`, 2 `alt+1`, 1 `alt+2`, 2 `ctrl+z`, 2 `ctrl+a`,
+2 `ctrl+v`, 3 `title_is_dirty`, 1 `request_close` + 1 `expect_native_exit`.
+
+**Lulus** [CI 39936002455](https://github.com/Indrawan007/Hylite/actions/runs/39936002455),
+`e6677d7`, job120355571872, 23 Oktober2026 10:00:42–10:15:05 UTC /
+18:00:42–18:15:05 Makassar. **960 Cargo**, **24 suite / 471 pemeriksaan GUI**
+(434 clipboard — 315 Source + 119 draft input; 12 title konfirmasi; 25 exit native
+normal). Artifact `12494617096`, 3.386.090bytes, expires 2026-10-30T10:15:00Z,
+digest SHA256 dilaporkan API `69838e42…0113d1bf` (zip tidak dapat diunduh dari
+sandbox ini). [Kontrak8a](testing-stage8a.md).
+
+Batas: tutup tab kotor ditolak dengan pesan status (belum ada dialog konfirmasi),
+tidak ada drag-reorder/split pane/session restore, dan `Ctrl+Tab` sengaja tidak
+dipakai karena editor Source bisa menangkap Tab bermodifier.
