@@ -429,6 +429,51 @@ impl Document {
         }
         crate::preview_cell::payload(&self.buffer_text(), self.snapshot, target).map(str::to_owned)
     }
+    pub(crate) fn preview_paragraph_payload(
+        &self,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<String> {
+        if target.snapshot != self.snapshot
+            || !self.preview.get()?.iter().any(|block| {
+                block.kind == preview_model::Kind::Paragraph
+                    && block.source == target.block
+                    && block.paragraph_payload.as_ref() == Some(&target.payload)
+            })
+        {
+            return None;
+        }
+        crate::preview_paragraph::payload(&self.buffer_text(), self.snapshot, target)
+            .map(str::to_owned)
+    }
+
+    pub(crate) fn edit_preview_paragraph(
+        &mut self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> bool {
+        if self.preview_paragraph_payload(target).is_none() {
+            return false;
+        }
+        let source = self.buffer_text();
+        let Some(change) = crate::preview_paragraph::plan(&source, self.snapshot, target, value)
+        else {
+            return false;
+        };
+        let mut candidate = source;
+        candidate.replace_range(change.range.clone(), &change.replacement);
+        let expected = target.block.start..target.block.start + value.len() + 1;
+        if !preview_model::parse(&candidate).iter().any(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.source == expected
+                && block.paragraph_payload.as_ref() == Some(&(expected.start..expected.end - 1))
+        }) {
+            return false;
+        }
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewParagraph)
+    }
+
     pub(crate) fn edit_preview_cell(
         &mut self,
         target: &crate::preview_cell::Target,
@@ -961,3 +1006,7 @@ mod preview_table_row_tests;
 #[cfg(test)]
 #[path = "preview_cell_tests.rs"]
 mod preview_cell_tests;
+
+#[cfg(test)]
+#[path = "preview_paragraph_tests.rs"]
+mod preview_paragraph_tests;

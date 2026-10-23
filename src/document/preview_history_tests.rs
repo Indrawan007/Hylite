@@ -169,3 +169,58 @@ fn table_edges_are_atomic_and_tagged_but_source_colon_edits_remain_barriers() {
     assert_eq!(history.undo(record("---:", 3)), Some(record(":---:", 2)));
     assert!(!history.preview_edit_available(true));
 }
+
+#[test]
+fn paragraph_edges_are_atomic_preview_history_and_never_cross_source_barriers() {
+    let mut history = History::default();
+    history.record_edit(
+        record("raw\n", 0),
+        "new\n",
+        3,
+        1,
+        EditKind::PreviewParagraph,
+        Instant::now(),
+    );
+    assert!(history.preview_edit_available(false));
+    assert_eq!(history.undo(record("new\n", 1)), Some(record("raw\n", 0)));
+    assert!(history.preview_edit_available(true));
+    assert_eq!(history.redo(record("raw\n", 0)), Some(record("new\n", 1)));
+    history.record(record("new\n", 1));
+    assert!(!history.preview_edit_available(false));
+    history.undo(record("newX\n", 2));
+    assert!(history.preview_edit_available(false));
+    assert!(!history.preview_edit_available(true));
+}
+#[test]
+fn paragraph_noop_cannot_retag_source_and_typing_does_not_merge_into_paragraph() {
+    let mut history = History::default();
+    history.record(record("raw\n", 0));
+    history.record_edit(
+        record("same\n", 1),
+        "same\n",
+        4,
+        1,
+        EditKind::PreviewParagraph,
+        Instant::now(),
+    );
+    assert!(!history.preview_edit_available(false));
+    history.record_edit(
+        record("same\n", 1),
+        "new\n",
+        3,
+        2,
+        EditKind::PreviewParagraph,
+        Instant::now(),
+    );
+    history.record_edit(
+        record("new\n", 2),
+        "newX\n",
+        4,
+        3,
+        EditKind::Insert('X'),
+        Instant::now(),
+    );
+    assert!(!history.preview_edit_available(false));
+    assert_eq!(history.undo(record("newX\n", 3)), Some(record("new\n", 2)));
+    assert!(history.preview_edit_available(false));
+}

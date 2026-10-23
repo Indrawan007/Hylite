@@ -2,6 +2,7 @@ mod cell_edit;
 mod editing;
 mod file_actions;
 mod navigation;
+mod paragraph_edit;
 
 use crate::commands::{Message, PendingAction};
 use crate::config::Config;
@@ -20,6 +21,7 @@ pub struct Hylite {
     pub document: Document,
     pub search: crate::search::Search,
     pub go_to: crate::navigation::GoTo,
+    pub paragraph_draft: Option<crate::ui::paragraph_edit::Draft>,
     pub cell_draft: Option<crate::ui::cell_edit::Draft>,
     pub mode: EditMode,
     pub sidebar_open: bool,
@@ -60,6 +62,7 @@ impl Hylite {
                 search: crate::search::Search::default(),
                 go_to: crate::navigation::GoTo::default(),
                 cell_draft: None,
+                paragraph_draft: None,
                 mode,
                 sidebar_open: true,
                 zen_mode: false,
@@ -99,10 +102,32 @@ impl Hylite {
                 draft.target.column + 1
             )
         });
-        format!("{filename}{dirty}{zen}{confirmation}{draft} — Hylite")
+        let paragraph = if self.paragraph_draft.is_some() {
+            " [paragraph draft]"
+        } else {
+            ""
+        };
+        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph} — Hylite")
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        if self.paragraph_draft.is_some() {
+            if matches!(&message, Message::ExitZenMode) {
+                return self.cancel_preview_paragraph();
+            }
+            if !matches!(
+                &message,
+                Message::PreviewParagraphChanged(_)
+                    | Message::ApplyPreviewParagraph
+                    | Message::CancelPreviewParagraph
+                    | Message::EndTypingGroup
+                    | Message::FileOpened(..)
+                    | Message::FileSaved(..)
+                    | Message::HtmlExported(..)
+            ) {
+                return Task::none();
+            }
+        }
         if self.cell_draft.is_some() {
             if matches!(&message, Message::ExitZenMode) {
                 return self.cancel_preview_cell();
@@ -135,6 +160,10 @@ impl Hylite {
             self.document.break_undo_group();
         }
         match message {
+            Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
+            Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
+            Message::ApplyPreviewParagraph => self.apply_preview_paragraph(),
+            Message::CancelPreviewParagraph => self.cancel_preview_paragraph(),
             Message::OpenPreviewCell(target) => self.open_preview_cell(target),
             Message::PreviewCellChanged(value) => self.change_preview_cell(value),
             Message::ApplyPreviewCell => self.apply_preview_cell(),
@@ -327,6 +356,8 @@ impl Hylite {
                 self.operations.active().is_none(),
                 self.file_error.as_deref().unwrap_or(&self.status_message),
             )
+        } else if let Some(draft) = &self.paragraph_draft {
+            crate::ui::paragraph_edit::view(draft)
         } else if let Some(draft) = &self.cell_draft {
             crate::ui::cell_edit::view(draft)
         } else if self.zen_mode {

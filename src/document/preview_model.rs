@@ -56,6 +56,8 @@ pub struct Block {
     pub heading_marker: Option<Range<usize>>,
     /// Root Setext underline run, separate from the ATX opening marker.
     pub setext_marker: Option<Range<usize>>,
+    /// Single physical-line unindented root paragraphs only; not a glyph map.
+    pub paragraph_payload: Option<Range<usize>>,
 }
 
 impl Block {
@@ -114,6 +116,7 @@ fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) 
         children,
         heading_marker: None,
         setext_marker: None,
+        paragraph_payload: None,
     }
 }
 
@@ -269,6 +272,10 @@ fn blocks(
                         task = task.or(content.task);
                         let mut block = node(kind, range, content.runs, vec![]);
                         if depth == 0 {
+                            if block.kind == Kind::Paragraph {
+                                block.paragraph_payload =
+                                    crate::preview_paragraph::payload_range(source, &block.source);
+                            }
                             if let Kind::Heading(level) = block.kind {
                                 block.heading_marker = crate::preview_heading::marker_range(
                                     source,

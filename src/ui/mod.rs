@@ -8,3 +8,5 @@ pub mod statusbar;
 pub mod toolbar;
 
 pub mod cell_edit;
+
+pub mod paragraph_edit;

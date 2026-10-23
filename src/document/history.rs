@@ -22,6 +22,8 @@ pub enum EditKind {
     PreviewHeading,
     /// Only the authenticated root table delimiter transaction path assigns this.
     PreviewTable,
+    /// Only authenticated, parser-preflighted root paragraph Apply assigns this.
+    PreviewParagraph,
     Insert(char),
     Backspace,
     Delete,
@@ -185,7 +187,8 @@ impl History {
                 EditKind::Atomic
                 | EditKind::PreviewTask
                 | EditKind::PreviewHeading
-                | EditKind::PreviewTable => None,
+                | EditKind::PreviewTable
+                | EditKind::PreviewParagraph => None,
             }
         } else {
             None
@@ -210,7 +213,10 @@ impl History {
         if merge.is_none() {
             if matches!(
                 kind,
-                EditKind::PreviewTask | EditKind::PreviewHeading | EditKind::PreviewTable
+                EditKind::PreviewTask
+                    | EditKind::PreviewHeading
+                    | EditKind::PreviewTable
+                    | EditKind::PreviewParagraph
             ) {
                 self.record_entry(before, true);
             } else {

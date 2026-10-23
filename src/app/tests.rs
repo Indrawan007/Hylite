@@ -10,6 +10,7 @@ fn app() -> Hylite {
         search: crate::search::Search::default(),
         go_to: crate::navigation::GoTo::default(),
         cell_draft: None,
+        paragraph_draft: None,
         mode: EditMode::Source,
         sidebar_open: true,
         zen_mode: false,
@@ -4384,4 +4385,299 @@ fn apply_previous_active_draft_blocks_document_commands_and_delayed_save_ack_sta
     let _ = app.update(Message::PreviewHistory(false));
     assert_eq!(app.document.buffer_text(), source);
     assert!(!app.document.is_dirty());
+}
+
+fn paragraph_app() -> Hylite {
+    let mut app = app();
+    app.document = Document::new("café🙂 **raw** &amp; a\\|b  \n\n# after\n\t");
+    app.mode = EditMode::Preview;
+    app
+}
+fn paragraph_target(app: &Hylite) -> crate::preview_paragraph::Target {
+    let block = app
+        .document
+        .preview_blocks()
+        .iter()
+        .find(|b| b.paragraph_payload.is_some())
+        .unwrap();
+    crate::preview_paragraph::Target {
+        snapshot: app.document.snapshot(),
+        block: block.source.clone(),
+        payload: block.paragraph_payload.clone().unwrap(),
+    }
+}
+#[test]
+fn paragraph_draft_typing_cancel_never_change_document_cache_caret_history_or_mode() {
+    let mut app = paragraph_app();
+    let t = paragraph_target(&app);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+        app.document.buffer_text(),
+    );
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    assert!(app.title().contains("[paragraph draft]"));
+    assert!(!app.source_edit_allowed());
+    assert_eq!(
+        app.paragraph_draft.as_ref().unwrap().value,
+        "café🙂 **raw** &amp; a\\|b  "
+    );
+    let _ = app.update(Message::PreviewParagraphChanged("pending".into()));
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset(),
+            app.document.buffer_text()
+        ),
+        before
+    );
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.paragraph_draft.is_none());
+    assert!(!app.title().contains("[paragraph draft]"));
+    assert_eq!(app.mode, EditMode::Preview);
+    assert!(!app.document.can_undo() && !app.document.is_dirty());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset(),
+            app.document.buffer_text()
+        ),
+        before
+    );
+}
+#[test]
+fn paragraph_preview_split_apply_one_atomic_edge_with_caret_at_applied_payload_end() {
+    for mode in [EditMode::Preview, EditMode::Split] {
+        let mut app = paragraph_app();
+        app.mode = mode;
+        let source = app.document.buffer_text();
+        let t = paragraph_target(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t));
+        let _ = app.update(Message::PreviewParagraphChanged("new **é🙂** &amp;".into()));
+        let _ = app.update(Message::ApplyPreviewParagraph);
+        assert!(app.paragraph_draft.is_none());
+        assert_eq!(app.mode, mode);
+        assert_eq!(
+            app.document.buffer_text(),
+            "new **é🙂** &amp;\n\n# after\n\t"
+        );
+        assert_eq!(app.document.caret_offset(), "new **é🙂** &amp;".len());
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(false)
+        } else {
+            Message::Undo
+        });
+        assert_eq!(app.document.buffer_text(), source);
+        assert!(!app.document.can_undo() && !app.document.is_dirty());
+        let _ = app.update(if mode == EditMode::Preview {
+            Message::PreviewHistory(true)
+        } else {
+            Message::Redo
+        });
+        assert_eq!(
+            app.document.buffer_text(),
+            "new **é🙂** &amp;\n\n# after\n\t"
+        );
+    }
+}
+#[test]
+fn paragraph_unchanged_apply_closes_without_history_or_redo_caret_revision_changes() {
+    let mut app = paragraph_app();
+    assert!(app.document.change(crate::text_edit::TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(app.document.undo());
+    let t = paragraph_target(&app);
+    let before = (
+        app.document.snapshot(),
+        app.document.render_key(),
+        app.document.caret_offset(),
+    );
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert!(app.paragraph_draft.is_none());
+    assert_eq!(
+        (
+            app.document.snapshot(),
+            app.document.render_key(),
+            app.document.caret_offset()
+        ),
+        before
+    );
+    assert!(app.document.can_redo() && !app.document.can_undo() && !app.document.is_dirty());
+}
+#[test]
+fn paragraph_invalid_structural_and_oversized_apply_keeps_draft_until_corrected() {
+    let mut app = paragraph_app();
+    let t = paragraph_target(&app);
+    let source = app.document.buffer_text();
+    let before = app.document.snapshot();
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    for value in [
+        "".to_owned(),
+        " leading".into(),
+        "two\nlines".into(),
+        "x".repeat(crate::preview_paragraph::MAX_BYTES + 1),
+        "# heading".into(),
+        "- item".into(),
+        "<div>".into(),
+    ] {
+        let _ = app.update(Message::PreviewParagraphChanged(value));
+        let kept = app.paragraph_draft.as_ref().unwrap().value.clone();
+        let _ = app.update(Message::ApplyPreviewParagraph);
+        let d = app.paragraph_draft.as_ref().unwrap();
+        assert!(d.error.is_some());
+        assert_eq!(d.value, kept);
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.document.buffer_text(), source);
+        assert!(!app.document.can_undo());
+    }
+    let _ = app.update(Message::PreviewParagraphChanged("corrected **é🙂**".into()));
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert!(app.paragraph_draft.is_none());
+    assert!(app
+        .document
+        .buffer_text()
+        .starts_with("corrected **é🙂**\n"));
+}
+#[test]
+fn paragraph_source_prompt_open_cell_and_no_draft_commands_are_guarded() {
+    for case in 0..5 {
+        let mut app = paragraph_app();
+        let t = paragraph_target(&app);
+        let before = app.document.snapshot();
+        if case == 0 {
+            app.mode = EditMode::Source;
+        }
+        if case == 1 {
+            app.pending_action = Some(PendingAction::New);
+        }
+        if case == 2 {
+            assert!(app.operations.start(OperationKind::Open, before).is_some());
+        }
+        if case == 3 {
+            // A real existing cell modal must reject the paragraph Open message.
+            app.document = Document::new("|a|b|\n|-|-|\n|x|y|\n\nparagraph\n");
+            let cell = cell_target(&app, 1, 0);
+            let _ = app.update(Message::OpenPreviewCell(cell));
+            let t = paragraph_target(&app);
+            let _ = app.update(Message::OpenPreviewParagraph(t));
+            assert!(app.cell_draft.is_some() && app.paragraph_draft.is_none());
+            continue;
+        }
+        if case != 4 {
+            let _ = app.update(Message::OpenPreviewParagraph(t));
+        }
+        let _ = app.update(Message::PreviewParagraphChanged("changed".into()));
+        let _ = app.update(Message::ApplyPreviewParagraph);
+        let _ = app.update(Message::CancelPreviewParagraph);
+        assert!(app.paragraph_draft.is_none());
+        assert_eq!(app.document.snapshot(), before);
+        assert!(!app.document.can_undo());
+    }
+}
+#[test]
+fn paragraph_modal_blocks_document_actions_and_preserves_inflight_save_export_tokens() {
+    for kind in [OperationKind::Save, OperationKind::Export] {
+        let mut app = paragraph_app();
+        let token = app.operations.start(kind, app.document.snapshot()).unwrap();
+        let t = paragraph_target(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t));
+        let _ = app.update(Message::PreviewParagraphChanged("saved later".into()));
+        let before = app.document.snapshot();
+        for msg in [
+            Message::NewFile,
+            Message::OpenFile,
+            Message::SaveFile,
+            Message::ExportHtml,
+            Message::CycleMode,
+            Message::Undo,
+            Message::PreviewHistory(false),
+            Message::CloseRequested(window::Id::unique()),
+            Message::ApplyPreviewCell,
+        ] {
+            let _ = app.update(msg);
+        }
+        assert_eq!(app.document.snapshot(), before);
+        assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "saved later");
+        assert_eq!(app.mode, EditMode::Preview);
+        let _ = app.update(Message::ApplyPreviewParagraph);
+        assert_ne!(app.document.snapshot(), before);
+        assert_eq!(app.operations.active().unwrap().token, token);
+        assert_eq!(token.snapshot, before);
+        let t = paragraph_target(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t));
+        let _ = app.update(Message::PreviewParagraphChanged("draft stays".into()));
+        let _ = app.update(match kind {
+            OperationKind::Save => Message::FileSaved(token, Ok(Some("paragraph.md".into()))),
+            _ => Message::HtmlExported(token, Ok(Some("paragraph.html".into()))),
+        });
+        assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "draft stays");
+        assert!(app.document.is_dirty());
+        let _ = app.update(Message::CancelPreviewParagraph);
+        let _ = app.update(Message::PreviewHistory(false));
+        assert!(!app.document.is_dirty());
+    }
+}
+#[test]
+fn paragraph_apply_refreshes_find_and_preserves_logical_go_to_context() {
+    for go_to in [false, true] {
+        let mut app = paragraph_app();
+        app.mode = EditMode::Split;
+        let _ = app.update(Message::OpenFind(false));
+        let _ = app.update(Message::FindQueryChanged("needle".into()));
+        if go_to {
+            let _ = app.update(Message::OpenGoTo);
+            let _ = app.update(Message::GoToQueryChanged("2:3".into()));
+        }
+        let t = paragraph_target(&app);
+        let _ = app.update(Message::OpenPreviewParagraph(t));
+        let _ = app.update(Message::PreviewParagraphChanged(
+            "needle **é🙂** needle".into(),
+        ));
+        let _ = app.update(Message::ApplyPreviewParagraph);
+        assert_eq!(app.search.count(), 2);
+        assert_eq!(app.search.query, "needle");
+        if go_to {
+            assert!(app.go_to.open && !app.search.open);
+            assert_eq!(app.go_to.query, "2:3");
+        } else {
+            assert!(app.search.open && !app.go_to.open);
+        }
+        let _ = app.update(Message::Undo);
+        assert_eq!(app.search.count(), 0);
+    }
+}
+#[test]
+fn paragraph_stale_draft_is_kept_and_source_typing_remains_preview_history_barrier() {
+    let mut app = paragraph_app();
+    let t = paragraph_target(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    let _ = app.update(Message::PreviewParagraphChanged("pending".into()));
+    app.document.replace(None, "replacement\n");
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    assert_eq!(app.document.buffer_text(), "replacement\n");
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "pending");
+    assert!(app.paragraph_draft.as_ref().unwrap().error.is_some());
+    let _ = app.update(Message::CancelPreviewParagraph);
+    let t = paragraph_target(&app);
+    let _ = app.update(Message::OpenPreviewParagraph(t));
+    let _ = app.update(Message::PreviewParagraphChanged("applied".into()));
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    edit(&mut app);
+    let typed = app.document.buffer_text();
+    let _ = app.update(Message::SwitchMode(EditMode::Preview));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), typed);
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "applied\n");
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), "replacement\n");
 }

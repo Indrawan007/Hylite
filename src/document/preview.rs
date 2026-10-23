@@ -219,6 +219,15 @@ fn render_block(block: &Block, colors: Colors, snapshot: Snapshot) -> Element<'_
                 );
             }
         }
+        if let Some(action) = paragraph_action(block, snapshot) {
+            actions = actions.push(
+                button(text("Edit paragraph…").size(11))
+                    .padding([2, 6])
+                    .height(24)
+                    .width(136)
+                    .on_press(action),
+            );
+        }
         let choices = table_picker_choices(block, snapshot);
         if !choices.is_empty() {
             actions = actions.push(
@@ -254,6 +263,19 @@ fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
     block
         .source_navigable()
         .then(|| Message::RevealPreview(Target::block(snapshot, block.source.clone())))
+}
+
+fn paragraph_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
+    if block.kind != Kind::Paragraph {
+        return None;
+    }
+    Some(Message::OpenPreviewParagraph(
+        crate::preview_paragraph::Target {
+            snapshot,
+            block: block.source.clone(),
+            payload: block.paragraph_payload.clone()?,
+        },
+    ))
 }
 
 fn heading_action(
@@ -1662,5 +1684,61 @@ mod tests {
                 ))
             ));
         }
+    }
+    #[test]
+    fn paragraph_action_carries_exact_warm_projection_ranges_and_snapshot() {
+        let source = "café🙂 **raw** &amp;  \n\n# end\n";
+        let blocks = super::super::preview_model::parse(source);
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let Message::OpenPreviewParagraph(t) = paragraph_action(&blocks[0], snapshot).unwrap()
+        else {
+            panic!("paragraph")
+        };
+        assert_eq!(t.snapshot, snapshot);
+        assert_eq!(t.block, blocks[0].source);
+        assert_eq!(t.payload, 0..source.find('\n').unwrap());
+        assert_eq!(&source[t.payload], "café🙂 **raw** &amp;  ");
+        assert!(source_action(&blocks[0], snapshot).is_some());
+    }
+    #[test]
+    fn paragraph_action_is_absent_for_nested_multiline_indent_eof_heading_and_literal() {
+        fn check(blocks: &[Block]) {
+            for block in blocks {
+                assert!(paragraph_action(block, Snapshot::default()).is_none());
+                check(&block.children);
+            }
+        }
+        for source in [
+            "> plain\n",
+            "- plain\n",
+            "```\nplain\n```\n",
+            "<div>\nplain\n</div>\n",
+            "# heading\n",
+            "one\ntwo\n",
+            " indented\n",
+            "plain",
+            "|a|b|\n|-|-|\n|x|y|\n",
+        ] {
+            check(&super::super::preview_model::parse(source));
+        }
+    }
+    #[test]
+    fn paragraph_metadata_keeps_root_payloads_separate_and_over_budget_inert() {
+        let source = "first\n\nsecond **é🙂**\n";
+        let blocks = super::super::preview_model::parse(source);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].paragraph_payload, Some(0..5));
+        assert_eq!(
+            &source[blocks[1].paragraph_payload.clone().unwrap()],
+            "second **é🙂**"
+        );
+        let source = format!("{}\n", "x".repeat(crate::preview_paragraph::MAX_BYTES + 1));
+        let blocks = super::super::preview_model::parse(&source);
+        assert!(paragraph_action(&blocks[0], Snapshot::default()).is_none());
+        assert!(source_action(&blocks[0], Snapshot::default()).is_some());
     }
 }
