@@ -1076,9 +1076,9 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(984,151)])
+        self.assertEqual(clicks,[at(984,151),at(1144,151)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
-        for key, count in [("ctrl+Return",1),("ctrl+Next",3),("ctrl+Prior",2),("ctrl+shift+m",1),("Escape",1),("ctrl+z",2),("ctrl+a",2),("ctrl+v",2)]:
+        for key, count in [("ctrl+Return",1),("ctrl+Next",3),("ctrl+Prior",2),("ctrl+shift+m",2),("Escape",1),("ctrl+z",2),("ctrl+a",2),("ctrl+v",2)]:
             self.assertEqual(keys.count(key), count, key)
         self.assertEqual(desktop.type_ascii.call_count,0)
         desktop.request_close.assert_called_once_with()

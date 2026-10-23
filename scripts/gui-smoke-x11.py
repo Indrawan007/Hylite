@@ -2080,8 +2080,8 @@ def exercise_paragraph_draft_shortcuts(desktop, artifacts):
         desktop.command("xdotool", "mousemove", "--window", desktop.window, str(x), str(y), "click", "1")
         time.sleep(0.25)
 
-    def open_paragraph():
-        click(984, 151)
+    def open_paragraph(split=False):
+        click(1144 if split else 984, 151)
         draft_title(True)
 
     def paste(raw):
@@ -2092,14 +2092,18 @@ def exercise_paragraph_draft_shortcuts(desktop, artifacts):
     def copy(description, expected):
         desktop.expect_copy(description, expected, refocus=False)
 
+    def inspect(description, expected):
+        desktop.key("ctrl+shift+m")  # Preview -> Split refocuses the Source editor
+        desktop.expect_copy(description, expected, refocus=False)
+
     open_paragraph()
-    copy("First raw root is focused before any Ctrl+Enter commit", first)
+    copy("First raw root is focused before any commit shortcut", first)
     paste(edited)
     copy("Three line replacement stays a local draft until Ctrl+Enter", edited)
     desktop.key("ctrl+Return")
     draft_title(False)
-    copy("Ctrl+Enter applies exactly one atomic Source edge and closes the draft", applied)
-    open_paragraph()
+    inspect("Ctrl+Enter applies exactly one atomic Source edge and closes the draft", applied)
+    open_paragraph(split=True)
     copy("Reopened committed root shows the applied raw bytes", edited)
     desktop.key("ctrl+Next")
     copy("Ctrl+PageDown applies and opens the exact next root without changing Source", second)
@@ -2117,7 +2121,7 @@ def exercise_paragraph_draft_shortcuts(desktop, artifacts):
     draft_title(False)
     copy("Escape cancels the boundary draft without touching committed Source", applied)
     desktop.key("ctrl+z")
-    copy("One Source Undo removes only the Ctrl+Enter Apply", source, )
+    copy("One Source Undo removes only the Ctrl+Enter Apply", source)
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)
     copy("Second Source Undo returns the clean welcome document", welcome)
