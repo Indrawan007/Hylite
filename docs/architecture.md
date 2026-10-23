@@ -871,3 +871,19 @@ fokus, jadi hanya draft `text_editor` yang dapat memakai shortcut commit7g; pane
 paragraf satu-baris dan sel tetap mengandalkan `on_submit`. Batasan ini
 didokumentasikan di helper agar tidak menjadi klaim fitur yang hilang.
 [Kontrak/tests/evidence7h](testing-stage7h.md).
+
+## Konteks draft dan umpan balik blokir (Stage 7i)
+
+`Document::multiline_context`/`paragraph_line` bersifat baca-saja dan selalu
+mengautentikasi target warm7b lebih dulu; offset UTF-8 diperiksa sebelum menghitung
+rentang baris1-based serta indeks/jumlah root multiline eligible dari proyeksi warm.
+Hasilnya disalin ke sesi draft saat dibuka/dipindah (`Draft::context` / `Draft::line`)
+dan **tidak** dihitung ulang dari byte kandidat, sehingga header tidak pernah
+mengklaim rentang yang belum ada di Source. Formatnya fungsi murni dan tinggi baris
+tetap20px agar koordinat input/tombol tidak bergeser.
+
+`app::Hylite::report_blocked_draft_action` memberi status ketika gesture pengguna
+(Save/SaveAs/New/Open/Export/mode/Undo/Redo/Find/FindNext/GoTo/sidebar/Zen/close)
+ditolak karena panel draft terbuka; ketikan, boundary mengetik, dan reply asinkron
+tetap senyap. Guard, urutan whitelist, dan semantik blokir tidak berubah.
+[Kontrak/tests/evidence7i](testing-stage7i.md).

@@ -1039,3 +1039,13 @@ refocus tidak berubah.
 Temuan yang dicatat: `text_input` Iced 0.13 menangkap Enter/PageUp/PageDown/Escape
 saat fokus, sehingga shortcut commit7g hanya mungkin untuk draft `text_editor`.
 [Kontrak7h](testing-stage7h.md).
+
+## Stage 7i: konteks draft dan umpan balik blokir, 20 suite dijalankan ulang
+
+Hanya teks header panel dan pesan status yang berubah; tombol, tinggi baris, dan
+koordinat tetap. Tidak ada suite ke-21. Ke-20 suite (**394 checks**) dan 28 badan
+exercise lama (AST-identical `bb37223`) lulus ulang pada commit `d22c7f3` —
+[CI 39901301577](https://github.com/Indrawan007/Hylite/actions/runs/39901301577),
+04:37:25–04:47:53 UTC, **921Cargo**, artifact `12479306282`, 3.238.614bytes,
+SHA256 `60eeac0c449c98f69ae5e1ce94f142e3c169ff1a991dd32fdd1d711ae9787adb`.
+[Kontrak7i](testing-stage7i.md).
