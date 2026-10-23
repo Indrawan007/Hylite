@@ -1049,3 +1049,42 @@ exercise lama (AST-identical `bb37223`) lulus ulang pada commit `d22c7f3` —
 04:37:25–04:47:53 UTC, **921Cargo**, artifact `12479306282`, 3.238.614bytes,
 SHA256 `60eeac0c449c98f69ae5e1ce94f142e3c169ff1a991dd32fdd1d711ae9787adb`.
 [Kontrak7i](testing-stage7i.md).
+
+## Stage 7j: suite ke-21 `paragraph-navigation-single` + 20 suite lama dijalankan ulang
+
+Stage7j menambah dua baris tombol di bawah baris `Apply`/`Cancel` pada panel paragraf
+satu baris (header, provenance20px, hint, input, dan baris `Apply`/`Cancel` tidak
+bergeser), sehingga koordinat suite lama tidak berubah — **seluruh 20 gate lama
+dijalankan ulang utuh** dan lulus. 28 badan exercise lama tetap AST-identical
+`bb37223`.
+
+Suite baru berjalan di Xvfb privat terpisah dengan alarm180s dan memakai tiga root
+eligible yang dipisahkan heading, quote, code fence, dan list:
+
+| Langkah | Oracle |
+|---|---|
+| Buka root pertama | payload raw persis + fokus input native |
+| `Next` dua kali | melewati heading/quote/fence/list, tiba di root kedua lalu ketiga |
+| Paste Unicode dua spasi lalu `Apply & Previous` | perubahan tetap lokal sampai Apply |
+| `Apply & Previous` (dua kali) | commit payload ketiga, lalu root tengah/pertama unchanged tanpa edge |
+| Tombol boundary pertama (disabled) + `Esc` | Source tidak berubah, hanya edge ketiga yang ada |
+| Undo/Redo Source | tepat satu edge per commit |
+| `# heading` + `Apply & Next` di Split | parser refusal, draft+fokus dipertahankan |
+| `final é🙂` + `Apply & Next` | commit root pertama, buka root tengah sebagai draft baru |
+| `Esc` lalu ketik `X` | fokus/caret Source kembali ke akhir payload yang baru diterapkan |
+| Empat Undo | ketikan, Apply & Next, Apply & Previous, lalu welcome tanpa edge tersembunyi |
+
+Dua screenshot (`single-paragraph-navigation-refused.png`,
+`single-paragraph-navigation-split.png`) tanpa asersi piksel. `Ctrl+PageUp` sengaja
+diuji sebagai **bukan** rute commit: `text_input` Iced0.13 menangkap
+`Enter`/`Escape`/`PageUp`/`PageDown` saat fokus.
+
+**Lulus** [CI 39906647794](https://github.com/Indrawan007/Hylite/actions/runs/39906647794),
+`ecb6693`, job120260038439, 23 Oktober2026 05:35:58–05:47:04 UTC /
+13:35:58–13:47:04 Makassar. **938 Cargo**, **21 suite / 419 pemeriksaan GUI**
+(385 clipboard — 289 Source + 96 draft input; 12 title konfirmasi; 22 exit native
+normal). Artifact `12481318417`, 3.315.303bytes, expires 2026-10-30T05:47:00Z;
+SHA256 tidak dapat diunduh dari sandbox ini. [Kontrak7j](testing-stage7j.md).
+
+Batas tetap: bukan bukti Hyprland/Wayland/portal/IME/RTL/HiDPI/GPU, screenshot bukan
+oracle piksel, dan navigasi hanya paragraf satu baris ↔ paragraf satu baris.

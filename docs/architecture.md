@@ -887,3 +887,33 @@ tetap20px agar koordinat input/tombol tidak bergeser.
 ditolak karena panel draft terbuka; ketikan, boundary mengetik, dan reply asinkron
 tetap senyap. Guard, urutan whitelist, dan semantik blokir tidak berubah.
 [Kontrak/tests/evidence7i](testing-stage7i.md).
+
+## Navigasi dan Apply & Previous/Next paragraf satu baris (Stage 7j)
+
+Panel7a hanya punya `Apply`/`Cancel`. Stage7j memberi paritas terbatas dengan draft
+multiline7d–7f: `Previous paragraph`/`Next paragraph` memindahkan draft **hanya** bila
+teks belum berubah (draft kotor → notice, draft dipertahankan), sedangkan
+`Apply & Previous`/`Apply & Next` meng-commit payload sekarang lalu membuka payload raw
+root tetangga sebagai draft fokus baru dalam satu langkah. Root eligible tetap
+`Kind::Paragraph` dengan `paragraph_payload` dan tanpa `multiline_paragraph_payload`,
+urutan Source, tanpa wrap, tanpa pembuatan paragraf.
+
+`SingleMovePlan` menyimpan hasil fase **rencana baca-saja** (`prepare_single_paragraph_*`,
+`&self`): kandidat Source, parse penuh, bukti payload hasil tetap satu root paragraf
+satu baris dengan rentang byte tepat, blok tetangga di kandidat (offset digeser untuk
+`Next`), byte payload tetangga, flag `[previous, next]`, provenance baris, dan native
+buffer dengan caret di akhir payload hasil. Draft tetangga dibangun **dari plan** —
+offset pasca-edit tidak pernah dibaca dari dokumen yang belum berubah. Fase commit
+(`commit_single_paragraph_move`) memeriksa ulang payload anchor dan `buffer_text()`,
+lalu mencatat tepat satu edge `EditKind::PreviewParagraph`; apply unchanged
+(`edit: None`) tidak menambah edge dan mempertahankan redo serta snapshot/render
+key/caret.
+
+`decide_preview_paragraph_adjacent` memisahkan keputusan baca-saja (`AdjacentDecision`)
+dari mutasi `&mut self` supaya borrow checker tidak memaksa dua fase bercampur.
+Boundary memakai `navigation_notice` sehingga `Apply` tetap aktif; error lain memakai
+`error`. Karena `text_input` Iced0.13 menangkap `Enter`/`Escape`/`PageUp`/`PageDown`
+saat fokus, tidak ada shortcut baru — hanya dua baris tombol tambahan di bawah baris
+`Apply`/`Cancel`, sehingga koordinat suite GUI lama tidak berubah.
+[Kontrak/tests/evidence/manual limits7j](testing-stage7j.md); suite21 independen,
+28old exercise bodies dan 20 gate sebelumnya preserved.
