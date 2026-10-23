@@ -74,7 +74,18 @@ pemeriksaan** tidak berubah.
 Local `cargo fmt --all -- --check`, **297 strict core**, **69 Python**,
 `git diff --check` PASS. Verification lokal memakai toolchain 1.88.0 yang dipasang
 ulang dari npm (`@rustbin/*`) karena sandbox di-reset; `cargo build` penuh tetap
-tidak mungkin di sini (crates.io diblokir), jadi suite Cargo/Clipy diverifikasi CI.
+tidak mungkin di sini (crates.io diblokir), jadi suite Cargo/Clippy diverifikasi CI.
+
+[CI 39927995762](https://github.com/Indrawan007/Hylite/actions/runs/39927995762),
+`c93f394`, job120329012858 **SUCCESS**, 2026-10-23 **08:54:31–09:06:30 UTC** /
+**16:54:31–17:06:30 Makassar** pada percobaan pertama. Format, strict core subset,
+Clippy `-D warnings`, build, **956 Cargo**, seluruh **23 suite** (**462
+pemeriksaan**: 426 clipboard — 307 Source + 119 draft input; 12 title konfirmasi;
+24 exit native normal) lulus, dan upload artifact lulus.
+
+Artifact `12490891463`, **3.359.497 bytes**, expires 2026-10-30T09:06:26Z; digest
+SHA256 yang dilaporkan API: `091b4af7fe8abc38d33eb5b78b3396b7f28c30eb4dc4bfd5fb02794c6470f090`
+(zip artefak tidak dapat diunduh dari sandbox ini).
 
 ## Manual / limits
 

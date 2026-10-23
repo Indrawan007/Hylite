@@ -986,3 +986,22 @@ ada state, file, thread, atau dependency baru, dan stack tetap hilang saat `Canc
 tombol, tinggi baris, atau koordinat suite lama.
 [Kontrak/tests/evidence/manual limits7m](testing-stage7m.md); suite ke-23
 independen, 28 badan exercise lama dan 22 gate sebelumnya preserved.
+
+## Umpan balik batas history draft (Stage 7n)
+
+Gestur history lokal yang tidak bisa bergerak tidak lagi mati senyap:
+`history_preview_paragraph`/`history_preview_cell` mengisi `navigation_notice`
+(`Nothing to undo/redo in this draft; Source is unchanged.`) ketika `History::target`
+kosong, dan `That draft snapshot is too large to restore; draft kept.` ketika target
+melebihi `MAX_BYTES` atau `step` menolak. Pesan memakai notice, bukan `error`, jadi
+`Apply` dan validasinya tidak berubah; restore efektif dan ketikan berikutnya
+membersihkan notice (panel paragraf sekarang konsisten dengan panel sel yang sudah
+membersihkannya di `change_preview_cell`).
+
+Batas yang dikunci: `Ctrl+PageUp`/`Ctrl+PageDown` tetap bukan rute commit untuk panel
+satu baris karena oracle suite 7j menetapkannya; mengubahnya adalah keputusan produk
+terpisah. Penguatan 7n bersifat test-only: RNG deterministik (LCG, tanpa dependency)
+plus reference model yang menghitung ulang total byte (bukan menyalin counter
+produksi) memverifikasi urutan eviksi, pembuangan redo, dan akuntansi byte pada 5 seed
+× 400 operasi; dua test controller memastikan pesan/gestur history tidak pernah
+menyentuh Source atau stack-nya. [Kontrak/tests/evidence/manual limits7n](testing-stage7n.md).

@@ -1171,3 +1171,25 @@ sandbox ini). [Kontrak7m](testing-stage7m.md).
 Batas: `text_input` yang fokus melaporkan `Ctrl+Z` sebagai *captured* walau tanpa
 undo stack, sehingga rute draft sengaja tidak memeriksa status event; fallback
 Preview tetap bergerbang mode dan tidak pernah menjalankan undo ganda di Source.
+
+## Stage 7n: umpan balik batas history, 23 suite dijalankan ulang tanpa suite baru
+
+Stage7n hanya mengubah teks footer kedua panel draft satu baris (notice untuk stack
+kosong atau snapshot yang terlalu besar) dan menambah test properti. Isi footer tidak
+dapat diobservasi oleh harness clipboard, jadi **tidak ada suite ke-24**: seluruh 23
+gate dijalankan ulang utuh pada commit ini dan lulus, termasuk `draft-history-single`
+(25), `draft-history-keys` (18), `paragraph-navigation-single` (25) dan
+`cell-apply-previous` (16). 28 badan exercise lama tetap AST-identical `bb37223`;
+bytes/koordinat/oracle/deadline/refocus tidak berubah.
+
+**Lulus** [CI 39927995762](https://github.com/Indrawan007/Hylite/actions/runs/39927995762),
+`c93f394`, job120329012858, 23 Oktober2026 08:54:31–09:06:30 UTC /
+16:54:31–17:06:30 Makassar. **956 Cargo**, **23 suite / 462 pemeriksaan GUI**
+(426 clipboard — 307 Source + 119 draft input; 12 title konfirmasi; 24 exit native
+normal). Artifact `12490891463`, 3.359.497bytes, expires 2026-10-30T09:06:26Z,
+digest SHA256 dilaporkan API `091b4af7…6470f090` (zip tidak dapat diunduh dari
+sandbox ini). [Kontrak7n](testing-stage7n.md).
+
+Batas: `Ctrl+PageUp`/`Ctrl+PageDown` tetap bukan rute commit panel satu baris;
+oracle suite 7j (`Ctrl+PageUp is not a commit route for the text_input draft`) sengaja
+tidak diubah.
