@@ -50,10 +50,6 @@ pub struct Hylite {
 
 /// ── Implementation ──────────────────────────────────────
 impl Hylite {
-    pub fn new() -> (Self, Task<Message>) {
-        Self::with_launch_path(None)
-    }
-
     /// `launch` is the optional command-line path: a folder opens a workspace,
     /// a file is opened in the single startup buffer.
     pub fn with_launch_path(launch: Option<std::path::PathBuf>) -> (Self, Task<Message>) {

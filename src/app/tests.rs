@@ -2,7 +2,7 @@ use super::*;
 use crate::operations::{OperationKind, OperationToken};
 use std::path::{Path, PathBuf};
 
-// Do not call Hylite::new(): tests must not read/write the user's config.
+// Do not call Hylite::with_launch_path(): tests must not read/write the user's config.
 // Returned Tasks are deliberately not executed; native dialogs stay closed.
 fn app() -> Hylite {
     Hylite {
