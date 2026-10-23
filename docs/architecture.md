@@ -1107,4 +1107,34 @@ melalui dialog simpan native dengan palet dari tema aktif
 untuk skrip. Keduanya menulis lewat `files::atomic_write`, dan jalur CLI menolak
 tujuan yang menimpa sumber Markdown lewat `files::ensure_distinct_destination`.
 Kegagalan ekspor tidak pernah mengubah path, dirty flag, atau riwayat dokumen.
+Pada Stage 8e, `pdf_build` sengaja memetakan `Run.math.source` (bukan teks hasil
+Preview) agar kontrak PDF lama tetap menampilkan math sebagai source monospace.
 [Kontrak/tests/evidence/batas 8d](testing-stage8d.md).
+
+## Math read-only subset (Stage 8e)
+
+`src/math.rs` adalah parser std-only yang dipanggil dari pemetaan event
+`InlineMath` / `DisplayMath` di `document/preview_model.rs`; tidak ada crate atau
+engine browser. Satu `Run` menyimpan teks yang terlihat, provenance range, dan
+`math::Projection` berisi delimiter source asli, flag display, serta error bila
+subset tidak menerima ekspresi. Source Markdown dan dokumen tidak pernah ditulis
+ulang.
+
+Parser memakai AST kecil untuk baris, `frac`, `sqrt`, satu pasangan sup/sub dan
+`left/right` berpasangan. Daftar Greek/operator/fungsi berada eksplisit di
+`symbol()`. Linearization menghasilkan satu baris/teks Unicode (misalnya
+fraction slash dan script glyph; compound part diberi tanda kurung), bukan
+layout dua dimensi. Spasi tepi dipangkas; batas 2.048 byte dan 32 tingkat group
+membatasi kerja. `\text`, macro bebas, matrix/alignment, nth-root, accent,
+KaTeX/MathJax dan peta balik glyph tidak diimplementasikan.
+
+Inline sukses memakai font serif italic sistem. Display-only math menjadi block
+panel berlabel; parser error atau sintaks di luar subset menghasilkan satu
+fallback monospace beraksen yang menyertakan source delimited beserta alasan.
+Tidak ada partial success yang menelan bagian source tak dikenal. Uji model
+mencakup inline, display, unsupported, tabel, batas byte/nesting dan kestabilan
+source; uji widget hanya membuktikan konstruk widget dua tema. Suite X11
+memeriksa copy byte-exact serta mode Preview/Split read-only. Screenshot bukan
+oracle piksel, jadi tidak membuktikan ketersediaan glyph atau kualitas rumus di
+mesin nyata.
+[Kontrak/tests/evidence/batas 8e](testing-stage8e.md).

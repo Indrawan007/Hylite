@@ -1309,3 +1309,25 @@ screenshot, 4 pemanggilan `export-pdf`, 1 usage run, 1 `request_close` + 1
 
 Batas: tidak ada oracle piksel, tidak ada otomasi dialog simpan, dan PDF tidak
 dibuka oleh pembaca PDF mana pun di CI — hanya strukturnya yang diperiksa.
+
+## Stage 8e: suite ke-28 `math` (subset read-only, tanpa oracle piksel)
+
+Suite ini boot lewat `hylite math.md` dengan fixture byte-exact. Fixture memuat
+rumus inline (`$x^2 + \frac{1}{2}$`, `$\alpha \le \beta$`), display
+(`\sqrt{x+1} = \frac{a+b}{c}`), serta
+`$\begin{matrix}a&b\\c&d\end{matrix}$` yang wajib menjadi fallback bertanda.
+Runner memeriksa clipboard Source persis sebelum dan sesudah siklus Preview/Split,
+menangkap screenshot Source/Preview/Split, mencoba paste saat Preview aktif, lalu
+memastikan dokumen tidak dirty dan client keluar normal.
+
+**7 pemeriksaan:** title dokumen; 2 `expect_copy` Source byte-exact; pembangunan
+Preview inline/display/fallback; pembangunan Split; paste tidak mengubah Source;
+native exit. Runner memakai 3 screenshot dan tiga `Ctrl+Shift+M` untuk siklus mode.
+CI **39963797627** (`97e586c`, job `120448270375`) lulus pada 23 Oktober 2026
+13:45:06–13:57:38 UTC. Total terkini: **1026 Cargo**, **28 suite / 505
+pemeriksaan GUI** (446 clipboard, 18 title, 28 exit native). Artifact
+`12507250289`, 4.172.220 byte, expires 2026-10-30T13:57:35Z.
+
+Batas: screenshot hanya evidence; tidak ada oracle piksel, pembaca equation,
+KaTeX/MathJax parity, pembuktian glyph/spacing, 2D typesetting atau Wayland /
+Hyprland. Lihat [kontrak Stage 8e](testing-stage8e.md).

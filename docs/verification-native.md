@@ -1,6 +1,24 @@
 # Verifikasi build dan tes native — 23 Oktober 2026
 
-## Stage 7d terbaru — navigasi unchanged multiline root drafts
+## Stage 8e terbaru — math read-only subset
+
+[CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
+`97e586c`, **success**, job `120448270375`, 23 Oktober 2026
+13:45:06–13:57:38 UTC / 21:45:06–21:57:38 Makassar. Lulus `cargo fmt`, strict
+Clippy `-D warnings`, build debug, dan **1026 Cargo**. Harness strict-core
+independen **335**, helper Python **88**, suite X11 **28 / 505 pemeriksaan**:
+446 clipboard, 18 title, 28 exit natural. Artefak `12507250289`, 4.172.220 byte,
+expires 2026-10-30T13:57:35Z. Screenshot hanya evidence, belum direview visual.
+
+Tambahan: parser murni std-only (9 test math), proyeksi inline/display, fallback
+source ber-marker untuk macro/struktur di luar subset, model/widget tests dan suite
+GUI `math` 7 pemeriksaan. CI juga mengulang 27 suite sebelumnya; audit lokal
+membandingkan 38 definisi `exercise_*` lama (body dispatch `exercise_suite`
+ditambah cabang suite baru, body exercise lainnya tak berubah), dan 28 body gate
+yang dilindungi tetap identik. Source bytes dan mode read-only diuji; tidak ada
+oracle piksel atau bukti KaTeX/2D/Wayland.
+
+## Stage 7d — navigasi unchanged multiline root drafts
 
 [CI 39886493920](https://github.com/Indrawan007/Hylite/actions/runs/39886493920),
 `13769acbbcca76ef055566b9035265b990faf7cf`, **success**,watcher exit0,
@@ -684,8 +702,8 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
   dan [Tahap 4](testing-stage4.md) pada salinan dokumen dan konfigurasi sementara.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
-Gate build/lint/tes native baseline terpenuhi. Stage 8d: **1014 Cargo / 326 strict core subset / 85 Python / 27 suite GUI 498 pemeriksaan** lulus [CI 39956545830](https://github.com/Indrawan007/Hylite/actions/runs/39956545830) (`f9d160b`). **Tahap 4 belum dinyatakan selesai.**
+Gate build/lint/tes native baseline terpenuhi. Stage 8e terbaru: **1026 Cargo / 335 strict core subset / 88 Python / 28 suite GUI 505 pemeriksaan** lulus [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627) (`97e586c`). **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia; hasil dan batas terbaru ada di [catatan Stage 8d](testing-stage8d.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia/8e math read-only subset berlinearization Unicode dan fallback source bertanda tersedia; hasil dan batas terbaru ada di [catatan Stage 8e](testing-stage8e.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

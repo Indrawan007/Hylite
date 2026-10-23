@@ -1,13 +1,13 @@
-# Roadmap Hylite — dari Stage 8c sampai rilis 1.0
+# Roadmap Hylite — dari Stage 8e sampai rilis 1.0
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `3652184`
-(**988 Cargo / 314 strict core / 79 Python / 26 suite GUI 488 pemeriksaan**, CI
-[39947223034](https://github.com/Indrawan007/Hylite/actions/runs/39947223034) hijau)
+**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `97e586c`
+(**1026 Cargo / 335 strict core / 88 Python / 28 suite GUI 505 pemeriksaan**, CI
+[39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627) hijau)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
-> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8c, 38 stage) tidak
+> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8e, 40 stage) tidak
 > diulang di sini; rinciannya ada di [`progress-report.md`](progress-report.md).
-> Stage 8c juga sudah lulus CI (988 Cargo / 26 suite / 488 pemeriksaan).
+> Stage 8e juga sudah lulus CI (1026 Cargo / 28 suite / 505 pemeriksaan).
 
 ---
 
@@ -21,10 +21,10 @@ Hylite 1.0 dinyatakan selesai bila **semua** ini benar:
 | 2 | **Dokumen nyata** ≥ 1 MB / 5000 baris tetap responsif | Harness benchmark dengan angka absolut (bukan klaim relatif), batas waktu di CI |
 | 3 | **Multi-dokumen**: tab, file tree, workspace folder | Suite GUI perpindahan buffer tanpa kehilangan history/dirty state |
 | 4 | **Ekspor PDF + HTML** dengan tema | Byte-compare HTML; PDF tervalidasi struktur, bukan piksel |
-| 5 | **Math + gambar** tampil di Preview | Golden test render; gambar tidak pernah dieksekusi/di-upload otomatis |
+| 5 | **Math subset + gambar** tampil read-only di Preview | Parser/model test; gambar tidak pernah dieksekusi/di-upload otomatis; bukan oracle piksel |
 | 6 | **Berjalan dan divalidasi di Arch + Hyprland/Wayland** (portal, IME, HiDPI, RTL) | Checklist manual tercentang di mesin target, bukan Xvfb |
 | 7 | **Terpasang**: PKGBUILD/AUR, build release reproducible | `makepkg` sukses + checksum |
-| 8 | Semua gate lama (26 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
+| 8 | Semua gate lama (27 suite, 28 badan exercise) tetap utuh | CI hijau tanpa satu pun gate dilonggarkan |
 
 **Yang eksplisit TIDAK termasuk 1.0** (supaya tidak ada klaim berlebih):
 kolaborasi/CRDT, cloud sync, plugin system, mobile, WYSIWYG penuh untuk semua
@@ -41,7 +41,7 @@ permukaan dokumen stabil.
 
 ### Fase A — Permukaan dokumen (Stage 8a–8e)
 
-Tujuannya: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF".
+Target Fase A: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF"; semua stage 8a–8e kini selesai, dengan math yang tetap terbatas read-only.
 
 | Stage | Isi | Kenapa sekarang | Usaha | Risiko |
 |---|---|---|---|---|
@@ -49,10 +49,13 @@ Tujuannya: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF".
 | **8b** ✅ | **File tree + workspace folder**: `hylite <folder>`, `Ctrl+Shift+O`, scan sekali tanpa watcher (F5/Refresh), batas 512 entri & kedalaman 8, symlink tidak diikuti, buka file dari tree lewat jalur Open yang sudah ada, `•` per file kotor, `Alt+J/K/Enter` | Melengkapi 8a menjadi alur kerja nyata | **selesai** — [catatan](testing-stage8b.md) | rendah — batas scan dideklarasikan; tanpa watcher |
 | **8c** ✅ | **Gambar read-only di Preview**: paragraf berisi satu gambar dirender (PNG/GIF/BMP/JPEG), path relatif terhadap folder dokumen, gerbang 4 MiB / 8192 px / 40 MP dari header, skema apa pun ditolak sebelum I/O, marker inert per alasan | `iced` sudah mengaktifkan fitur `image`, jadi biayanya rendah dan dampak visualnya besar | **selesai** — [catatan](testing-stage8c.md) | rendah — tanpa decoder sendiri, tanpa jaringan |
 | **8d** ✅ | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | **selesai** — [catatan](testing-stage8d.md) | sedang — ditulis sendiri (PDF 1.4, base-14, WinAnsi), tanpa browser dan tanpa crate |
-| **8e** | **Math read-only (subset)**: `$…$` dan `$$…$$` dikenali sebagai blok math dan dirender dengan **subset** operator/struktur yang dideklarasikan (pecahan, sup/sub, akar, operator umum), sisanya jatuh ke teks mentah yang ditandai | Menutup gap yang paling terlihat tanpa berpura-pura jadi KaTeX penuh | sedang–besar | tinggi — jangan mengklaim paritas KaTeX |
+| **8e** ✅ | **Math read-only (subset)**: `$…$` inline dan `$$…$$` display; parser std-only untuk `frac`, `sqrt`, sup/sub, delimiter, Greek/operator yang dideklarasikan; hasil dilinearkan ke Unicode, sintaks unsupported/malformed/batas 2048 byte atau 32 group menjadi source delimited ber-marker | Menutup gap yang terlihat tanpa berpura-pura jadi KaTeX penuh | **selesai** — [catatan](testing-stage8e.md) | tinggi — tidak ada KaTeX/MathJax, layout 2D, mapping glyph, atau oracle piksel |
 
-**Gate Fase A:** 5 suite GUI baru (tab, file tree, gambar, PDF, math), semua suite
-lama hijau, 0 regresi pada oracle byte/koordinat.
+**Gate Fase A terpenuhi:** 5 suite GUI baru (tab, file tree, gambar, PDF, math), semua
+27 suite sebelumnya hijau, dan tidak ada oracle byte/koordinat yang dikendurkan.
+Bukti terakhir: [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
+28 suite / 505 pemeriksaan GUI; suite math memberi 7 pemeriksaan. Screenshot bukan
+oracle piksel.
 
 ### Fase B — WYSIWYG inline (Stage 9a–9d) — gunung esnya
 
@@ -117,7 +120,7 @@ WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
                                        11c PKGBUILD ──► 11d 0.2.0 ──► 11e 1.0.0
 ```
 
-**Paralel yang aman:** 8c/8d/8e bisa dikerjakan kapan pun tanpa menyentuh 9x;
+**Paralel yang aman:** 8c/8d/8e selesai di cabang ini tanpa menyentuh 9x;
 10b (benchmark) sebaiknya **sebelum** 10a supaya regresi terukur sejak awal.
 
 ---
@@ -126,31 +129,28 @@ WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
 
 | Fase | Stage | Estimasi usaha | Sisa roadmap (bobot) |
 |---|---|---|---|
-| A — Permukaan dokumen | 8a–8e | ~25 % | 15 % |
+| A — Permukaan dokumen | 8a–8e | ~25 % | 0 % (selesai) |
 | B — WYSIWYG inline | 9a–9d | ~45 % | 60 % |
 | C — Skala & performa | 10a–10c | ~20 % | 15 % |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Artinya: kalau fase A selesai semua, **kesiapan rilis naik ke ≈ 55–60 %** (dari ≈ 43 %),
-tetapi **kemiripan pengalaman MarkText baru naik sedikit** — karena inti pengalaman
-ada di Fase B. Ini konsekuensi yang saya sampaikan di awal, bukan kejutan di akhir.
+Fase A kini selesai. Proyeksi lama **55–60 % kesiapan rilis** ternyata terlalu optimistis:
+snapshot setelah implementasi menilai kesiapan rilis **≈44 %**, karena Xvfb belum
+membuktikan Arch + Hyprland, math belum punya oracle visual, packaging belum ada,
+dan inti WYSIWYG tetap berada di Fase B. Progress roadmap (≈91 %) dan kesiapan rilis
+(≈44 %) adalah dua angka berbeda; lihat snapshot [`progress-report.md`](progress-report.md).
 
 ---
 
-## 5. Yang saya butuh darimu (keputusan)
+## 5. Keputusan yang sudah ditetapkan
 
-Empat hal ini mengubah isi roadmap, jadi saya tanyakan sebelum masuk Fase A:
-
-1. **Prioritas:** Fase A dulu (cepat kelihatan hasilnya, dokumen nyata bisa dipakai)
-   atau langsung Fase B (intinya, tapi berbulan-bulan dan berisiko)?
-2. **Math/diagram:** subset math buatan sendiri, atau tunda total (tetap inert)?
-3. **Dependency baru:** apakah boleh menambah crate untuk PDF/decode gambar, atau
-   harus tetap murni memakai yang sudah ada?
-4. **Verifikasi target:** kamu punya mesin Arch + Hyprland untuk menjalankan
-   checklist 11b, atau tetap di Xvfb sampai ada akses?
-
-Tanpa jawaban, default saya: **Fase A → B**, math **ditunda**, dependency **boleh
-minimal**, dan semua klaim tetap dibatasi ke Xvfb + tiny-skia.
+- Urutan **Fase A → B** dipertahankan; setelah 8e, kandidat berikut sesuai graf adalah
+  Stage 9a (spike inline terbatas), bukan ekspansi math di luar kontrak.
+- Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
+  Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
+- Crate baru boleh minimal; implementasi 8e tidak menambah dependency.
+- Sampai Stage 11b, klaim desktop tetap dibatasi ke Xvfb + tiny-skia, bukan
+  Arch + Hyprland/Wayland.
 
 ---
 
