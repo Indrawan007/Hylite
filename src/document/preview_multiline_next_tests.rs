@@ -87,7 +87,7 @@ fn apply_next_noop_preserves_identity_caret_cache_pointer_checkpoint_and_source_
 }
 #[test]
 fn last_boundary_and_lexical_or_structural_failures_preserve_every_source_state() {
-    let mut doc = Document::new(SOURCE);
+    let doc = Document::new(SOURCE);
     let t = roots(&doc);
     for value in ["changed\nlast", "third\nlast"] {
         assert!(doc.prepare_multiline_paragraph_next(&t[2], value).is_none());
