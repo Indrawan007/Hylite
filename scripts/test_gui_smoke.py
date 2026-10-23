@@ -313,7 +313,7 @@ class SmokeHelperTests(unittest.TestCase):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
-        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation"]:
+        for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next"]:
             with patch.object(gui.os, "environ", {"DISPLAY": ":0", "HYLITE_SMOKE_DISPLAY": ":999"}), \
                  patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite]), \
                  patch("sys.stderr", new_callable=io.StringIO), \
@@ -961,6 +961,49 @@ class SmokeHelperTests(unittest.TestCase):
             new = stack.enter_context(patch.object(gui, "exercise_paragraph_navigation"))
             gui.exercise_suite(desktop, artifacts, binary, "paragraph-navigation")
             new.assert_called_once_with(desktop, artifacts)
+            for probe in old:
+                probe.assert_not_called()
+
+    def test_paragraph_apply_next_probe_locks_fresh_raw_target_noop_boundary_refusal_focus_and_history(self):
+        desktop = Mock(window="42")
+        with patch.object(gui.time, "sleep"):
+            gui.exercise_paragraph_apply_next(desktop, Path("/unused-evidence"))
+        first = "café🙂 **first**  \na\\|b &amp;".encode("utf-8")
+        middle = b"\n\n# gap\n\nsingle line\n\n> nested\n> paragraph\n\n```text\nliteral\nparagraph\n```\n\n"
+        second = "second é🙂\nraw **tail**  ".encode("utf-8")
+        suffix = b"\n\nterminal\n\t"
+        value = "grown **é🙂**\nline two  \nthird &amp;".encode("utf-8")
+        final = "final é🙂\nnext  ".encode("utf-8")
+        source, applied = first+middle+second+suffix, value+middle+second+suffix
+        final_source, typed = final+middle+second+suffix, final+b"X"+middle+second+suffix
+        copies = desktop.expect_copy.call_args_list
+        self.assertEqual(len(copies), 22)
+        self.assertEqual([c.args[1] for c in copies[1:-1]], [source,first,value,second,second,value,second,b"last\npending",applied,source,applied,b"one\n# heading",b"one\n# heading",applied,final,second,typed,final_source,applied,source])
+        self.assertEqual(copies[0].args[1],copies[-1].args[1])
+        self.assertEqual(desktop.paste_from_clean.call_args.args[0],source)
+        self.assertTrue(all(c.kwargs=={"refocus":False} for c in copies))
+        def at(x,y):
+            return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
+        clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
+        self.assertEqual(clicks,[at(984,151),at(625,408),at(280,408),at(625,408),at(625,408),at(1144,151),at(625,408),at(1144,151),at(625,408)])
+        keys=[c.args[0] for c in desktop.key.call_args_list]
+        self.assertEqual(keys.count("ctrl+z"),6)
+        self.assertEqual(keys.count("ctrl+y"),1)
+        self.assertEqual(keys.count("ctrl+shift+m"),8)
+        self.assertEqual(keys.count("Escape"),3)
+        self.assertEqual([c.args[0] for c in desktop.type_ascii.call_args_list],["X"])
+        desktop.request_close.assert_called_once_with()
+        desktop.expect_native_exit.assert_called_once()
+        self.assertEqual(desktop.screenshot.call_count,2)
+
+    def test_paragraph_apply_next_dispatch_is_exclusive_and_keeps_all_seventeen_previous_suites(self):
+        desktop, artifacts, binary = Mock(), Path("/unused"), Path("/unused/binary")
+        names=["exercise","exercise_task_batch","exercise_table_alignment","exercise_table_rows","exercise_table_cells","exercise_cell_navigation","exercise_table_insert","exercise_table_columns","exercise_table_column_delete","exercise_table_row_move","exercise_table_column_move","exercise_table_column_duplicate","exercise_cell_apply_previous","exercise_paragraph_draft","exercise_paragraph_multiline","exercise_paragraph_draft_history","exercise_paragraph_navigation"]
+        with contextlib.ExitStack() as stack:
+            old=[stack.enter_context(patch.object(gui,name)) for name in names]
+            new=stack.enter_context(patch.object(gui,"exercise_paragraph_apply_next"))
+            gui.exercise_suite(desktop,artifacts,binary,"paragraph-apply-next")
+            new.assert_called_once_with(desktop,artifacts)
             for probe in old:
                 probe.assert_not_called()
 

@@ -41,6 +41,7 @@ pub enum Message {
     OpenMultilineParagraph(crate::preview_paragraph::Target),
     EditMultilineParagraphDraft(text_editor::Action),
     ApplyMultilineParagraph,
+    ApplyMultilineParagraphNext,
     MultilineDraftHistory(bool),
     MoveMultilineParagraph(crate::document::ParagraphDirection),
     CancelMultilineParagraph,

@@ -103,6 +103,9 @@ jobs:
       - name: Smoke test multiline paragraph navigation on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite paragraph-navigation --artifacts "$RUNNER_TEMP/hylite-gui-smoke/paragraph-navigation"
+      - name: Smoke test multiline Apply and Next on a separate isolated X11 display
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite paragraph-apply-next --artifacts "$RUNNER_TEMP/hylite-gui-smoke/paragraph-apply-next"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

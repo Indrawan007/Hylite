@@ -128,6 +128,67 @@ impl Hylite {
             self.restore_input_focus()
         }
     }
+    pub(super) fn apply_multiline_paragraph_next(&mut self) -> Task<Message> {
+        use crate::document::ParagraphDirection::Next;
+        if !self.multiline_operation_allowed() {
+            return Task::none();
+        }
+        let Some(draft) = &mut self.multiline_draft else {
+            return Task::none();
+        };
+        let value = draft.value();
+        if draft.error.is_some() || !preview_paragraph_multiline::valid_value(&value) {
+            draft.error =
+                Some("Invalid multiline draft; correct it or Cancel before Apply & Next.");
+            return self.restore_input_focus();
+        }
+        if self
+            .document
+            .multiline_paragraph_payload(&draft.target)
+            .is_none()
+        {
+            draft.error = Some("Multiline target is stale; Cancel and reopen. Draft kept.");
+            return self.restore_input_focus();
+        }
+        if self
+            .document
+            .adjacent_multiline_paragraph(&draft.target, Next)
+            .is_none()
+        {
+            draft.navigation_notice =
+                Some("Last supported multiline paragraph: use Apply or Cancel. Nothing applied.");
+            return self.restore_input_focus();
+        }
+        let Some(plan) = self
+            .document
+            .prepare_multiline_paragraph_next(&draft.target, &value)
+        else {
+            draft.error = Some("Apply & Next must preserve the complete root paragraph and next payload. Nothing applied.");
+            return self.restore_input_focus();
+        };
+        let [previous, next] = plan.neighbors();
+        let Some(next_draft) = Draft::new(plan.next_target(), plan.next_value()) else {
+            draft.error = Some("Next raw native draft cannot be preserved. Nothing applied.");
+            return self.restore_input_focus();
+        };
+        let Some((target, changed)) = self.document.commit_multiline_paragraph_next(plan) else {
+            draft.error = Some("Multiline transition became stale. Draft and Source kept.");
+            return self.restore_input_focus();
+        };
+        let mut next_draft = next_draft.with_neighbors(previous, next);
+        next_draft.target = target;
+        self.multiline_draft = Some(next_draft);
+        self.status_message = if changed {
+            "Paragraph applied atomically; next multiline draft opened"
+        } else {
+            "Unchanged paragraph; next multiline draft opened without Source history"
+        }
+        .into();
+        if changed {
+            self.edited();
+        }
+        self.restore_input_focus()
+    }
     pub(super) fn cancel_multiline_paragraph(&mut self) -> Task<Message> {
         if self.multiline_draft.take().is_some() {
             self.status_message = "Multiline paragraph draft cancelled; document kept".into();

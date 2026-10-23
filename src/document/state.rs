@@ -25,6 +25,35 @@ pub struct Document {
     preview: OnceCell<Vec<Block>>,
 }
 
+/// Opaque two-phase transition. Candidate buffers/provenance are private; callers
+/// can verify the next native draft before any Source/history mutation.
+pub(crate) struct MultilineNextPlan {
+    anchor: crate::preview_paragraph::Target,
+    original: String,
+    source_before: String,
+    next: crate::preview_paragraph::Target,
+    value: String,
+    neighbors: [bool; 2],
+    edit: Option<PreparedMultilineEdit>,
+}
+struct PreparedMultilineEdit {
+    content: text_editor::Content,
+    text: String,
+    blocks: Vec<Block>,
+}
+impl MultilineNextPlan {
+    /// Provisional ranges in candidate text, not an authenticated live target.
+    pub(crate) fn next_target(&self) -> crate::preview_paragraph::Target {
+        self.next.clone()
+    }
+    pub(crate) fn next_value(&self) -> &str {
+        &self.value
+    }
+    pub(crate) fn neighbors(&self) -> [bool; 2] {
+        self.neighbors
+    }
+}
+
 impl Document {
     pub fn new(text: &str) -> Self {
         // with_text drops the terminal empty line in Iced 0.13. Use the
@@ -469,6 +498,119 @@ impl Document {
             block: next.source.clone(),
             payload: next.multiline_paragraph_payload.clone()?,
         })
+    }
+
+    pub(crate) fn prepare_multiline_paragraph_next(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> Option<MultilineNextPlan> {
+        use crate::document::ParagraphDirection::{Next, Previous};
+        let original = self.multiline_paragraph_payload(target)?;
+        if !crate::preview_paragraph_multiline::valid_value(value) {
+            return None;
+        }
+        let old_next = self.adjacent_multiline_paragraph(target, Next)?;
+        let next_value = self.multiline_paragraph_payload(&old_next)?;
+        let source_before = self.buffer_text();
+        if original == value {
+            return Some(MultilineNextPlan {
+                anchor: target.clone(),
+                original,
+                source_before,
+                next: old_next.clone(),
+                value: next_value,
+                neighbors: [
+                    self.adjacent_multiline_paragraph(&old_next, Previous)
+                        .is_some(),
+                    self.adjacent_multiline_paragraph(&old_next, Next).is_some(),
+                ],
+                edit: None,
+            });
+        }
+        let mut candidate = self.buffer_text();
+        let change =
+            crate::preview_paragraph_multiline::plan(&candidate, self.snapshot, target, value)?;
+        candidate.replace_range(change.range, &change.replacement);
+        let blocks = preview_model::parse(&candidate);
+        let end = target
+            .block
+            .start
+            .checked_add(value.len())?
+            .checked_add(1)?;
+        if !blocks.iter().any(|b| {
+            b.kind == preview_model::Kind::Paragraph
+                && b.source == (target.block.start..end)
+                && b.multiline_paragraph_payload.as_ref() == Some(&(target.block.start..end - 1))
+        }) {
+            return None;
+        }
+        let shift = |n: usize| n.checked_sub(original.len())?.checked_add(value.len());
+        let block = shift(old_next.block.start)?..shift(old_next.block.end)?;
+        let payload = shift(old_next.payload.start)?..shift(old_next.payload.end)?;
+        let next = blocks.iter().find(|b| {
+            b.kind == preview_model::Kind::Paragraph
+                && b.source == block
+                && b.multiline_paragraph_payload.as_ref() == Some(&payload)
+        })?;
+        if candidate.get(payload.clone())? != next_value {
+            return None;
+        }
+        let neighbors = [
+            blocks.iter().any(|b| {
+                b.multiline_paragraph_payload.is_some() && b.source.start < next.source.start
+            }),
+            blocks.iter().any(|b| {
+                b.multiline_paragraph_payload.is_some() && b.source.start > next.source.start
+            }),
+        ];
+        let content = content_at(&candidate, target.payload.start.checked_add(value.len())?)?;
+        Some(MultilineNextPlan {
+            anchor: target.clone(),
+            original,
+            source_before,
+            next: crate::preview_paragraph::Target {
+                snapshot: self.snapshot,
+                block,
+                payload,
+            },
+            value: next_value,
+            neighbors,
+            edit: Some(PreparedMultilineEdit {
+                content,
+                text: candidate,
+                blocks,
+            }),
+        })
+    }
+
+    pub(crate) fn commit_multiline_paragraph_next(
+        &mut self,
+        plan: MultilineNextPlan,
+    ) -> Option<(crate::preview_paragraph::Target, bool)> {
+        if self.multiline_paragraph_payload(&plan.anchor)? != plan.original
+            || self.buffer_text() != plan.source_before
+        {
+            return None;
+        }
+        let changed = plan.edit.is_some();
+        if let Some(edit) = plan.edit {
+            // All parsing, Source reconstruction and caller's native draft
+            // construction precede mutation. Reuse atomic history identity/caps.
+            self.break_undo_group();
+            let before = self.record();
+            self.replace_content(edit.content);
+            self.record_edit(
+                before,
+                &edit.text,
+                EditKind::PreviewParagraph,
+                Instant::now(),
+            );
+            self.preview = OnceCell::from(edit.blocks);
+        }
+        let mut next = plan.next;
+        next.snapshot = self.snapshot;
+        Some((next, changed))
     }
 
     pub(crate) fn edit_multiline_paragraph(
@@ -1090,3 +1232,7 @@ mod preview_multiline_paragraph_tests;
 #[cfg(test)]
 #[path = "preview_multiline_navigation_tests.rs"]
 mod preview_multiline_navigation_tests;
+
+#[cfg(test)]
+#[path = "preview_multiline_next_tests.rs"]
+mod preview_multiline_next_tests;
