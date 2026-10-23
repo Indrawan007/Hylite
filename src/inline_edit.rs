@@ -401,6 +401,14 @@ mod tests {
         assert_eq!(projection.source_offset_at(bold + 4), Some(raw_bold + 4));
         assert_eq!(projection.caret_style_at(bold), Some(Style::Strong));
         assert_eq!(projection.style_at(bold + 1), Some(Style::Strong));
+        assert_eq!(
+            projection
+                .segments()
+                .iter()
+                .filter(|segment| segment.style != Style::Plain)
+                .count(),
+            3
+        );
 
         let italic = projection.visible().find("ital").unwrap();
         let code = projection.visible().find("code").unwrap();
@@ -548,6 +556,10 @@ mod tests {
             projection.plan_edit(projection.visible(), bold + 2, bold + 2),
             Err(Error::UnsupportedEdit)
         ));
+        assert_eq!(
+            Error::UnsupportedEdit.label(),
+            "only one-character insert/delete edits are supported"
+        );
 
         let mut multi = projection.visible().to_owned();
         multi.insert_str(bold + 2, "XY");
