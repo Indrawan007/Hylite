@@ -361,3 +361,286 @@ fn apply_next_save_ack_and_branch_keep_atomic_checkpoint_semantics() {
     assert!(doc.edit_preview_cell_and_next(&fresh, "branch").is_some());
     assert!(!doc.can_redo());
 }
+
+#[test]
+fn apply_previous_commits_raw_unicode_and_reopens_fresh_cells_back_across_header_boundary() {
+    let source =
+        "| Name | Count |\n  | ---  | --: |\n | café🙂 **raw** | a\\|b &amp; |\n\nafter\n\t";
+    let mut doc = Document::new(source);
+    let old = target(&doc, 1, 1);
+    let (previous, changed) = doc
+        .edit_preview_cell_and_previous(&old, "long **é🙂** x\\|y")
+        .unwrap();
+    assert!(changed);
+    assert_eq!((previous.row, previous.column), (1, 0));
+    assert_eq!(previous.snapshot, doc.snapshot());
+    assert_eq!(
+        doc.preview_cell_payload(&previous).as_deref(),
+        Some("café🙂 **raw**")
+    );
+    assert_eq!(
+        doc.caret_offset(),
+        old.payload.start + "long **é🙂** x\\|y".len()
+    );
+    let once = source.replacen("a\\|b &amp;", "long **é🙂** x\\|y", 1);
+    assert_eq!(doc.buffer_text(), once);
+    let (header, changed) = doc
+        .edit_preview_cell_and_previous(&previous, "first")
+        .unwrap();
+    assert!(changed);
+    assert_eq!((header.row, header.column), (0, 1));
+    assert_eq!(doc.preview_cell_payload(&header).as_deref(), Some("Count"));
+    let twice = once.replacen("café🙂 **raw**", "first", 1);
+    assert_eq!(doc.buffer_text(), twice);
+    let (first, changed) = doc
+        .edit_preview_cell_and_previous(&header, "new **header🙂**")
+        .unwrap();
+    assert!(changed);
+    assert_eq!((first.row, first.column), (0, 0));
+    assert_eq!(first.snapshot, doc.snapshot());
+    assert_eq!(doc.preview_cell_payload(&first).as_deref(), Some("Name"));
+    assert_eq!(
+        doc.buffer_text(),
+        twice.replacen("Count", "new **header🙂**", 1)
+    );
+    assert!(doc.preview.get().is_some());
+    for expected in [twice.as_str(), once.as_str(), source] {
+        assert!(doc.restore_preview_history(false));
+        assert_eq!(doc.buffer_text(), expected);
+    }
+    assert!(!doc.can_undo() && !doc.is_dirty());
+    for _ in 0..3 {
+        assert!(doc.restore_preview_history(true));
+    }
+    assert_eq!(
+        doc.buffer_text(),
+        twice.replacen("Count", "new **header🙂**", 1)
+    );
+}
+#[test]
+fn unchanged_apply_previous_preserves_snapshot_cache_caret_checkpoint_and_redo() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    assert!(doc.change(TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(doc.undo());
+    let t = target(&doc, 1, 0);
+    let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+    let (previous, changed) = doc.edit_preview_cell_and_previous(&t, "x").unwrap();
+    assert!(!changed);
+    assert_eq!((previous.row, previous.column), (0, 1));
+    assert_eq!(previous.snapshot, t.snapshot);
+    assert_eq!(doc.preview_cell_payload(&previous).as_deref(), Some("b"));
+    assert_eq!(
+        (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+        before
+    );
+    assert!(doc.preview.get().is_some() && doc.can_redo() && !doc.can_undo() && !doc.is_dirty());
+    assert_eq!(doc.buffer_text(), source);
+}
+#[test]
+fn apply_previous_cold_forged_invalid_and_stale_transitions_never_partially_apply() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    let good = target(&doc, 1, 1);
+    doc.preview.take();
+    assert!(doc
+        .edit_preview_cell_and_previous(&good, "changed")
+        .is_none());
+    let _ = doc.preview_blocks();
+    for case in 0..12 {
+        let mut t = good.clone();
+        match case {
+            0 => t.snapshot.document_id += 1,
+            1 => t.snapshot.revision += 1,
+            2 => t.snapshot.state_id += 1,
+            3 => t.table.end -= 1,
+            4 => t.table.start = usize::MAX,
+            5 => t.rows += 1,
+            6 => t.columns += 1,
+            7 => t.row = usize::MAX,
+            8 => t.column = usize::MAX,
+            9 => t.payload.start += 1,
+            10 => t.payload.end += 1,
+            _ => t.payload = 0..0,
+        }
+        let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+        assert!(doc.edit_preview_cell_and_previous(&t, "changed").is_none());
+        assert_eq!(
+            (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+            before
+        );
+        assert_eq!(doc.buffer_text(), source);
+    }
+    for value in [
+        "bad|pipe".to_owned(),
+        "odd\\".into(),
+        "line\nbreak".into(),
+        "\0".into(),
+        "x".repeat(crate::preview_cell::MAX_BYTES + 1),
+    ] {
+        assert!(doc.edit_preview_cell_and_previous(&good, &value).is_none());
+    }
+    assert!(!doc.can_undo() && !doc.is_dirty());
+    assert!(doc
+        .edit_preview_cell_and_previous(&good, "changed")
+        .is_some());
+    assert!(doc.restore_preview_history(false));
+    let _ = doc.preview_blocks();
+    assert!(doc.edit_preview_cell_and_previous(&good, "late").is_none());
+    assert!(doc.can_redo());
+    doc.replace(None, source);
+    let _ = doc.preview_blocks();
+    assert!(doc.edit_preview_cell_and_previous(&good, "late").is_none());
+}
+#[test]
+fn first_cell_apply_previous_refuses_changed_and_unchanged_without_wrap_or_history() {
+    for source in ["|a|b|\n|-|-|\n|x|y|\n", "|  |\n|---|\n"] {
+        let mut doc = Document::new(source);
+        assert!(doc.change(TextChange {
+            range: 0..0,
+            replacement: "X".into(),
+            caret: 1
+        }));
+        assert!(doc.undo());
+        let first = target(&doc, 0, 0);
+        let current = doc.preview_cell_payload(&first).unwrap();
+        for value in [&current, "changed"] {
+            let before = (doc.snapshot(), doc.render_key(), doc.caret_offset());
+            assert!(doc.edit_preview_cell_and_previous(&first, value).is_none());
+            assert_eq!(
+                (doc.snapshot(), doc.render_key(), doc.caret_offset()),
+                before
+            );
+            assert_eq!(doc.buffer_text(), source);
+            assert!(
+                doc.can_redo() && doc.preview.get().is_some() && !doc.can_undo() && !doc.is_dirty()
+            );
+        }
+    }
+}
+#[test]
+fn apply_previous_supports_header_only_empty_single_column_and_renderer_capacity() {
+    for (source, row, column) in [
+        ("|a|  |\n|-|--:|\n".to_owned(), 0, 1),
+        ("   |a|\n   |---|\n  |  |\n\nend\n\t".to_owned(), 1, 0),
+        (
+            format!("|a|b|c|d|\n|-|-|-|-|\n{}", "|x|y|z|w|\n".repeat(127)),
+            127,
+            3,
+        ),
+        (
+            format!(
+                "|{}\n|{}\n|{}\n",
+                "h|".repeat(12),
+                "---|".repeat(12),
+                "x|".repeat(12)
+            ),
+            1,
+            11,
+        ),
+    ] {
+        let mut doc = Document::new(&source);
+        let t = target(&doc, row, column);
+        let expected =
+            crate::preview_cell::neighbor(&t, crate::preview_cell::Direction::Previous).unwrap();
+        let (previous, changed) = doc
+            .edit_preview_cell_and_previous(&t, "new **é🙂**")
+            .unwrap();
+        assert!(changed);
+        assert_eq!((previous.row, previous.column), expected);
+        assert_eq!(previous.snapshot, doc.snapshot());
+        assert!(doc.preview_cell_payload(&previous).is_some());
+        assert!(doc.restore_preview_history(false));
+        assert_eq!(doc.buffer_text(), source);
+    }
+}
+#[test]
+fn apply_previous_rejects_exact_inner_literal_nested_ragged_and_fallback_targets() {
+    for source in [
+        "```\n|a|b|\n|-|-|\n|x|y|\n```\n",
+        "> |a|b|\n> |-|-|\n> |x|y|\n",
+        "|a|b|\n|-|-|\n|x|\n",
+        "<div>\n|a|b|\n|-|-|\n|x|y|\n</div>\n",
+    ] {
+        let mut doc = Document::new(source);
+        let _ = doc.preview_blocks();
+        let t = Target {
+            snapshot: doc.snapshot(),
+            table: if source.starts_with("```") {
+                4..22
+            } else {
+                0..source.len()
+            },
+            row: 1,
+            column: 1,
+            rows: 2,
+            columns: 2,
+            payload: if source.starts_with("```") {
+                19..20
+            } else {
+                15..16
+            },
+        };
+        assert!(doc.edit_preview_cell_and_previous(&t, "changed").is_none());
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.can_undo());
+    }
+    let source = format!(
+        "|{}\n|{}\n|{}\n",
+        "h|".repeat(13),
+        "---|".repeat(13),
+        "x|".repeat(13)
+    );
+    let mut doc = Document::new(&source);
+    let _ = doc.preview_blocks();
+    let t = Target {
+        snapshot: doc.snapshot(),
+        table: 0..source.len(),
+        row: 1,
+        column: 1,
+        rows: 2,
+        columns: 13,
+        payload: 0..0,
+    };
+    assert!(doc.edit_preview_cell_and_previous(&t, "changed").is_none());
+    assert_eq!(doc.buffer_text(), source);
+}
+#[test]
+fn apply_previous_stale_targets_source_barrier_delayed_save_and_branch_identity_remain() {
+    let source = "|a|b|\n|-|-|\n|x|y|\n";
+    let mut doc = Document::new(source);
+    let t = target(&doc, 1, 1);
+    let (previous, _) = doc.edit_preview_cell_and_previous(&t, "saved").unwrap();
+    let saved = doc.snapshot();
+    assert!(doc.restore_preview_history(false));
+    assert!(doc.mark_saved(saved, "previous.md".into()));
+    assert!(doc.is_dirty());
+    assert!(doc.restore_preview_history(true));
+    assert!(!doc.is_dirty());
+    assert!(doc
+        .edit_preview_cell_and_previous(&previous, "stale")
+        .is_none());
+    let fresh = target(&doc, 1, 0);
+    assert!(doc
+        .edit_preview_cell_and_previous(&fresh, "next edge")
+        .is_some());
+    assert!(doc.change(TextChange {
+        range: 0..0,
+        replacement: "X".into(),
+        caret: 1
+    }));
+    assert!(!doc.restore_preview_history(false));
+    assert!(doc.undo());
+    assert!(doc.restore_preview_history(false));
+    assert!(!doc.is_dirty());
+    assert!(doc.restore_preview_history(false));
+    let fresh = target(&doc, 0, 1);
+    assert!(doc
+        .edit_preview_cell_and_previous(&fresh, "branch")
+        .is_some());
+    assert!(!doc.can_redo() && doc.is_dirty());
+}

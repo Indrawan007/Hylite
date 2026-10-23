@@ -42,6 +42,7 @@ pub enum Message {
     ApplyPreviewCell,
     MovePreviewCell(crate::preview_cell::Direction),
     ApplyPreviewCellNext,
+    ApplyPreviewCellPrevious,
     CancelPreviewCell,
     EditPreviewTableRow(
         crate::preview_table_row::Target,

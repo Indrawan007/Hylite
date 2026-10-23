@@ -470,14 +470,31 @@ impl Document {
         target: &crate::preview_cell::Target,
         value: &str,
     ) -> Option<(crate::preview_cell::Target, bool)> {
+        self.edit_preview_cell_and_adjacent(target, value, crate::preview_cell::Direction::Next)
+    }
+
+    pub(crate) fn edit_preview_cell_and_previous(
+        &mut self,
+        target: &crate::preview_cell::Target,
+        value: &str,
+    ) -> Option<(crate::preview_cell::Target, bool)> {
+        self.edit_preview_cell_and_adjacent(target, value, crate::preview_cell::Direction::Previous)
+    }
+
+    fn edit_preview_cell_and_adjacent(
+        &mut self,
+        target: &crate::preview_cell::Target,
+        value: &str,
+        direction: crate::preview_cell::Direction,
+    ) -> Option<(crate::preview_cell::Target, bool)> {
         let before_payload = self.preview_cell_payload(target)?;
-        let position = crate::preview_cell::neighbor(target, crate::preview_cell::Direction::Next)?;
+        let position = crate::preview_cell::neighbor(target, direction)?;
         if !crate::preview_cell::valid_value(value) {
             return None;
         }
         if before_payload == value {
             return self
-                .adjacent_preview_cell(target, crate::preview_cell::Direction::Next)
+                .adjacent_preview_cell(target, direction)
                 .map(|next| (next, false));
         }
         let source = self.buffer_text();

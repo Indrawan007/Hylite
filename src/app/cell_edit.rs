@@ -116,6 +116,12 @@ impl Hylite {
         self.restore_input_focus()
     }
     pub(super) fn apply_preview_cell_next(&mut self) -> Task<Message> {
+        self.apply_preview_cell_adjacent(preview_cell::Direction::Next)
+    }
+    pub(super) fn apply_preview_cell_previous(&mut self) -> Task<Message> {
+        self.apply_preview_cell_adjacent(preview_cell::Direction::Previous)
+    }
+    fn apply_preview_cell_adjacent(&mut self, direction: preview_cell::Direction) -> Task<Message> {
         if !self.cell_operation_allowed() {
             return Task::none();
         }
@@ -123,26 +129,51 @@ impl Hylite {
             return Task::none();
         };
         if draft.error.is_some() || !preview_cell::valid_value(&draft.value) {
-            draft.error = Some("Invalid draft; correct it or Cancel before Apply & Next.");
+            draft.error = Some(match direction {
+                preview_cell::Direction::Next => {
+                    "Invalid draft; correct it or Cancel before Apply & Next."
+                }
+                preview_cell::Direction::Previous => {
+                    "Invalid draft; correct it or Cancel before Apply & Previous."
+                }
+            });
             return Task::none();
         }
-        if preview_cell::neighbor(&draft.target, preview_cell::Direction::Next).is_none() {
-            draft.navigation_notice =
-                Some("Last cell: use Apply to finish, or Cancel. No change applied.");
+        if preview_cell::neighbor(&draft.target, direction).is_none() {
+            draft.navigation_notice = Some(match direction {
+                preview_cell::Direction::Next => {
+                    "Last cell: use Apply to finish, or Cancel. No change applied."
+                }
+                preview_cell::Direction::Previous => {
+                    "First cell: use Apply to finish, or Cancel. No change applied."
+                }
+            });
             return Task::none();
         }
-        let Some((next, changed)) = self
-            .document
-            .edit_preview_cell_and_next(&draft.target, &draft.value)
-        else {
+        let transition = match direction {
+            preview_cell::Direction::Next => self
+                .document
+                .edit_preview_cell_and_next(&draft.target, &draft.value),
+            preview_cell::Direction::Previous => self
+                .document
+                .edit_preview_cell_and_previous(&draft.target, &draft.value),
+        };
+        let Some((next, changed)) = transition else {
             draft.error = Some("Cell transition is stale or unsupported; draft and document kept.");
             return Task::none();
         };
         let Some(value) = self.document.preview_cell_payload(&next) else {
             // The preflight projection is installed atomically by Document.
             self.cell_draft = None;
-            self.status_message =
-                "Cell applied; next cell unavailable. Reopen from Preview.".into();
+            self.status_message = match direction {
+                preview_cell::Direction::Next => {
+                    "Cell applied; next cell unavailable. Reopen from Preview."
+                }
+                preview_cell::Direction::Previous => {
+                    "Cell applied; previous cell unavailable. Reopen from Preview."
+                }
+            }
+            .into();
             if changed {
                 self.edited();
             }
@@ -154,10 +185,17 @@ impl Hylite {
             error: None,
             navigation_notice: None,
         });
-        self.status_message = if changed {
-            "Cell applied; next raw cell draft opened"
-        } else {
-            "Unchanged cell; next draft opened without a history step"
+        self.status_message = match (direction, changed) {
+            (preview_cell::Direction::Next, true) => "Cell applied; next raw cell draft opened",
+            (preview_cell::Direction::Next, false) => {
+                "Unchanged cell; next draft opened without a history step"
+            }
+            (preview_cell::Direction::Previous, true) => {
+                "Cell applied; previous raw cell draft opened"
+            }
+            (preview_cell::Direction::Previous, false) => {
+                "Unchanged cell; previous draft opened without a history step"
+            }
         }
         .into();
         if changed {

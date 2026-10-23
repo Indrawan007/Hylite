@@ -18,6 +18,9 @@ pub fn input_id() -> text_input::Id {
 fn can_move(draft: &Draft, direction: Direction) -> bool {
     draft.error.is_none() && preview_cell::neighbor(&draft.target, direction).is_some()
 }
+fn apply_previous_message(draft: &Draft) -> Option<Message> {
+    can_move(draft, Direction::Previous).then_some(Message::ApplyPreviewCellPrevious)
+}
 pub fn view(draft: &Draft) -> Element<'_, Message> {
     let input = text_input("Single-line raw Markdown", &draft.value)
         .id(input_id())
@@ -32,8 +35,9 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             button("Cancel (Esc)").height(32).on_press(Message::CancelPreviewCell)].spacing(8).height(32),
         row![button(text("Previous").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Previous).then_some(Message::MovePreviewCell(Direction::Previous))),
             button(text("Next").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
-            button(text("Apply & Next").size(14)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext))].spacing(8).height(32),
-        text(draft.error.or(draft.navigation_notice).unwrap_or("Previous/Next require an unchanged draft · Apply & Next commits one cell · Enter = Apply and close · Esc = Cancel current draft")).size(13),
+            button(text("Apply & Next").size(14)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
+            button(text("Apply & Previous").size(14)).width(160).height(32).on_press_maybe(apply_previous_message(draft))].spacing(8).height(32),
+        text(draft.error.or(draft.navigation_notice).unwrap_or("Previous/Next require an unchanged draft · Apply & Next/Previous commits one cell · Enter = Apply and close · Esc = Cancel current draft")).size(13),
     ].spacing(12).width(Length::Fill);
     // Stable top-aligned controls; footer/error wrapping never moves the input
     // or navigation buttons. No impact on the normal Preview/Split action bar.
@@ -82,5 +86,32 @@ mod tests {
         d.navigation_notice = Some("Apply first");
         assert!(d.error.is_none());
         assert!(can_move(&d, Direction::Next));
+    }
+    #[test]
+    fn apply_previous_button_is_disabled_at_first_cell_and_for_invalid_drafts() {
+        let mut d = draft(0, 0);
+        assert!(apply_previous_message(&d).is_none());
+        d.target.column = 1;
+        assert!(matches!(
+            apply_previous_message(&d),
+            Some(Message::ApplyPreviewCellPrevious)
+        ));
+        d.error = Some("invalid");
+        assert!(apply_previous_message(&d).is_none());
+    }
+    #[test]
+    fn apply_previous_button_allows_valid_dirty_draft_and_boundary_notice_without_discard() {
+        let mut d = draft(1, 0);
+        d.value = "changed".into();
+        d.navigation_notice = Some("Apply first");
+        assert!(matches!(
+            apply_previous_message(&d),
+            Some(Message::ApplyPreviewCellPrevious)
+        ));
+        assert_eq!(d.value, "changed");
+        d.target.rows = 1;
+        d.target.row = 0;
+        d.target.column = 1;
+        assert!(apply_previous_message(&d).is_some());
     }
 }

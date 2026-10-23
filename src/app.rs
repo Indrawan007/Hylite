@@ -112,6 +112,7 @@ impl Hylite {
                 Message::PreviewCellChanged(_)
                     | Message::ApplyPreviewCell
                     | Message::ApplyPreviewCellNext
+                    | Message::ApplyPreviewCellPrevious
                     | Message::MovePreviewCell(_)
                     | Message::CancelPreviewCell
                     | Message::EndTypingGroup
@@ -138,6 +139,7 @@ impl Hylite {
             Message::PreviewCellChanged(value) => self.change_preview_cell(value),
             Message::ApplyPreviewCell => self.apply_preview_cell(),
             Message::ApplyPreviewCellNext => self.apply_preview_cell_next(),
+            Message::ApplyPreviewCellPrevious => self.apply_preview_cell_previous(),
             Message::MovePreviewCell(direction) => self.move_preview_cell(direction),
             Message::CancelPreviewCell => self.cancel_preview_cell(),
             Message::EndTypingGroup => Task::none(),
