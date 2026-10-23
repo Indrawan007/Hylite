@@ -7136,6 +7136,8 @@ fn inline_spike_moves_visible_caret_and_writes_the_exact_bold_source_delta() {
 
     let _ = app.update(Message::FinishInlineSpike);
     assert!(app.inline_spike.is_none());
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    assert_eq!(app.mode, EditMode::Split);
     let _ = app.update(Message::Undo);
     assert_eq!(app.document.buffer_text(), source);
     let _ = app.update(Message::Redo);
