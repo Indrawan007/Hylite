@@ -140,14 +140,15 @@ mod tests {
             "Row 0 = header · body starts at 1 · Source line 9 · changes only on Apply"
         );
         // Provenance never changes any affordance.
-        assert!(can_move(&d, Direction::Next));
+        assert!(can_move(&d, Direction::Previous));
+        assert!(!can_move(&d, Direction::Next));
         d.error = Some("stale");
         assert_eq!(
             context_line(&d),
             "Row 0 = header · body starts at 1 · Source line 9 · changes only on Apply"
         );
         d.line = None;
-        assert!(!can_move(&d, Direction::Next));
+        assert!(!can_move(&d, Direction::Previous));
         assert_eq!(
             context_line(&d),
             "Row 0 = header · body starts at 1 · Source changes only on Apply"
