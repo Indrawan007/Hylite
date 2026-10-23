@@ -253,9 +253,15 @@ fn multiline_roots_are_skipped_and_never_appear_as_single_line_neighbors() {
 fn sequential_apply_next_has_one_edge_each_and_typing_is_a_barrier() {
     let mut doc = Document::new(SOURCE);
     let t = singles(&doc);
-    let (second, _) = transition(&mut doc, &t[0], "first edited", true).unwrap();
+    let (second, changed) = transition(&mut doc, &t[0], "first edited", true).unwrap();
+    assert!(changed);
+    assert_eq!(
+        doc.preview_paragraph_payload(&second).as_deref(),
+        Some(SECOND)
+    );
     let after_first = doc.buffer_text();
-    let (third, _) = transition(&mut doc, &second, "second edited", true).unwrap();
+    let (third, changed) = transition(&mut doc, &second, "second edited", true).unwrap();
+    assert!(changed);
     assert_eq!(
         doc.preview_paragraph_payload(&third).as_deref(),
         Some("third 🙂  ")
@@ -265,6 +271,9 @@ fn sequential_apply_next_has_one_edge_each_and_typing_is_a_barrier() {
     assert_eq!(doc.buffer_text(), after_first);
     assert!(doc.undo());
     assert_eq!(doc.buffer_text(), SOURCE);
+    assert!(doc.redo());
+    assert_eq!(doc.buffer_text(), after_first);
+    // Typing is a barrier: the top edge is Source input, not a paragraph apply.
     assert!(doc.change(TextChange {
         range: 0..0,
         replacement: "X".into(),
@@ -272,8 +281,10 @@ fn sequential_apply_next_has_one_edge_each_and_typing_is_a_barrier() {
     }));
     assert!(!doc.restore_preview_history(false));
     assert!(doc.undo());
-    assert!(doc.restore_preview_history(false));
     assert_eq!(doc.buffer_text(), after_first);
+    // Undoing the barrier restores exactly the earlier apply as the top edge.
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), SOURCE);
     assert!(doc.redo());
-    assert_eq!(doc.buffer_text(), after_second);
+    assert_eq!(doc.buffer_text(), after_first);
 }

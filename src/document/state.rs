@@ -49,6 +49,9 @@ impl MultilineMovePlan {
     pub(crate) fn move_value(&self) -> &str {
         &self.value
     }
+    pub(crate) fn move_line(&self) -> usize {
+        self.line
+    }
     pub(crate) fn neighbors(&self) -> [bool; 2] {
         self.neighbors
     }
@@ -61,6 +64,7 @@ pub(crate) struct SingleMovePlan {
     source_before: String,
     moved: crate::preview_paragraph::Target,
     value: String,
+    line: usize,
     neighbors: [bool; 2],
     edit: Option<PreparedSingleEdit>,
 }
@@ -587,6 +591,9 @@ impl Document {
         }
         let old_next = self.adjacent_single_paragraph(target, direction)?;
         let next_value = self.preview_paragraph_payload(&old_next)?;
+        // A single-line replacement never changes the line of any neighbour, so
+        // the pre-edit provenance stays exact for the freshly opened draft.
+        let line = self.paragraph_line(&old_next)?;
         let source_before = self.buffer_text();
         if original == value {
             return Some(SingleMovePlan {
@@ -595,6 +602,7 @@ impl Document {
                 source_before,
                 moved: old_next.clone(),
                 value: next_value,
+                line,
                 neighbors: [
                     self.adjacent_single_paragraph(&old_next, Previous)
                         .is_some(),
@@ -661,6 +669,7 @@ impl Document {
                 payload,
             },
             value: next_value,
+            line,
             neighbors,
             edit: Some(PreparedSingleEdit {
                 content,

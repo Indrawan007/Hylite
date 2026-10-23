@@ -12,8 +12,6 @@ enum AdjacentRefusal {
     StaleTarget,
     Boundary,
     Unpreparable,
-    NeighborLost,
-    NeighborChanged,
 }
 
 impl AdjacentRefusal {
@@ -25,8 +23,6 @@ impl AdjacentRefusal {
             Self::Unpreparable => {
                 "Apply & Next/Previous must preserve both root paragraphs. Nothing applied."
             }
-            Self::NeighborLost => "Next raw paragraph draft cannot be preserved. Nothing applied.",
-            Self::NeighborChanged => "Next raw paragraph bytes changed; nothing applied.",
         }
     }
 }
@@ -205,14 +201,17 @@ impl Hylite {
         let Some(plan) = plan else {
             return Some(AdjacentDecision::Refused(AdjacentRefusal::Unpreparable));
         };
-        let Some(mut moved) = self.paragraph_draft_for(plan.move_target()) else {
-            return Some(AdjacentDecision::Refused(AdjacentRefusal::NeighborLost));
+        // The neighbour draft is built from the authenticated plan: after a
+        // length-changing edit its raw bytes and block offsets exist only in
+        // the candidate parse, never in the still-unmodified document.
+        let moved = Draft {
+            target: plan.move_target(),
+            value: plan.move_value().to_owned(),
+            error: None,
+            line: Some(plan.move_line()),
+            navigation_notice: None,
+            neighbors: plan.neighbors(),
         };
-        if moved.value != plan.move_value() {
-            return Some(AdjacentDecision::Refused(AdjacentRefusal::NeighborChanged));
-        }
-        let [previous, next] = plan.neighbors();
-        moved.neighbors = [previous, next];
         Some(AdjacentDecision::Proceed {
             plan: Box::new(plan),
             moved: Box::new(moved),
