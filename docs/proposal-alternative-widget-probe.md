@@ -1,8 +1,8 @@
-# Rancangan probe widget alternatif setelah Stage 9b
+# Rancangan dan hasil probe widget alternatif setelah Stage 9b
 
 **Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite`
 
-**Status:** rancangan saja — belum ada kode probe, perubahan produk, atau bukti GUI baru.
+**Status:** probe test-only/opt-in telah diimplementasikan dan dijalankan; hasil GUI untuk kandidat alternatif ini **NO-GO terbatas**. Dokumen ini tetap menjadi kontrak eksperimen, bukan spesifikasi fitur editing produksi.
 
 **Keputusan scope:** studi kelayakan terbatas untuk widget Iced alternatif; bukan implementasi editor produksi.
 
@@ -130,23 +130,33 @@ sampling. Jika layout, marker, fokus, build, atau batas waktu tidak
 memungkinkan pengukuran yang sah, catat **INCONCLUSIVE**, bukan NO-GO. Kegagalan
 immutability tetap kegagalan keselamatan, bukan verdict kelayakan.
 
-## 5. Batas implementasi bila tahap ini dilanjutkan
+## 5. Implementasi terisolasi (sudah diterapkan)
 
-Implementasi percobaan nanti harus terpisah, misalnya sebagai modul UI dan jalur
-app khusus `inline-advanced-probe`, dengan flag CLI dan suite GUI baru. Suite
-tersebut harus menjadi step CI tersendiri dan tidak mengurangi/mengubah gate
-Stage 9a/9b, jumlah assertion lama, deadline, oracle byte/koordinat, maupun
-perilaku focus/refocus yang sudah ada. Dokumentasikan artefak dan verdictnya
-secara terpisah.
+Probe dibuat sebagai modul UI `src/ui/inline_advanced_probe.rs`, controller
+`src/app/inline_advanced_probe.rs`, renderer Preview terpisah, dan jalur CLI
+opt-in `--inline-alt-widget-probe <file>`. Custom widget memakai
+`advanced::Widget`/`Paragraph::hit_test`; hasil hanya offset teks tampak serta
+geometri paragraf dan tidak dipetakan ke byte Source. Saat probe aktif, app
+menolak aksi dokumen lain; pointer hanya memperbarui diagnostik dan Escape
+menutup probe. Preview default, Stage 9a/9b, serta panel editing produksi tidak
+diganti.
+
+Suite `inline-alt-probe` ditambahkan sebagai step CI terpisah. Ia menggunakan
+fixture yang sama, mencatat scan maju/balik serta drag berulang, dan membatasi
+koordinat x unik hingga 256 per lintasan. Timeout/pergerakan native yang tak
+terkonfirmasi menghentikan scan dan mengklasifikasikan hasil sebagai
+INCONCLUSIVE; tidak ada fallback sweep yang lebih lebar. Safety checks wajib
+membandingkan Source memory dan disk, dirty/history, serta natural close.
+Implementasi tidak menambah dependency.
 
 `Cargo.toml` sudah mengaktifkan fitur Iced `advanced`; fitur `canvas` belum
-aktif. Rancangan ini memilih `advanced::Widget` + `advanced::text::Paragraph`
+aktif. Implementasi memilih `advanced::Widget` + `advanced::text::Paragraph`
 agar tidak perlu menambah dependency atau mengubah fitur Cargo. API Iced yang
-menjadi dasar rancangan menyediakan `Paragraph::hit_test`,
-`Paragraph::grapheme_position`, dan renderer paragraph. Sebelum menulis kode,
-verifikasi kembali signature terhadap versi yang dikunci di `Cargo.lock`
-(`iced 0.13.1`, `iced_core 0.13.2`, `iced_widget 0.13.4`); rancangan ini bukan
-bukti compile atau runtime.
+dipakai menyediakan `Paragraph::hit_test`, `Paragraph::grapheme_position`, dan
+renderer paragraph. Signature terhadap versi di `Cargo.lock` (`iced 0.13.1`,
+`iced_core 0.13.2`, `iced_widget 0.13.4`) kini terverifikasi melalui lint, build,
+tes Rust, dan runtime suite X11 pada CI yang dirujuk di bawah; bukti runtime
+tetap hanya berlaku untuk konfigurasi tersebut.
 
 Tetap di luar scope: Source mapping/editing, general selection/glyph mapping,
 Unicode, IME, RTL, scroll sync, pixel oracle, klaim performa, Arch + Hyprland /
@@ -167,6 +177,37 @@ historis dan final untuk probe yang sudah dijalankan.**
   [app routing](../src/app.rs), [Stage 9b UI](../src/ui/inline_spike.rs), dan
   [Stage 9b controller](../src/app/inline_spike.rs).
 
-Signature tersebut menjadi dasar rancangan, bukan bukti compile terhadap seluruh
-versi transitive yang dikunci. Uji kompilasi tetap menjadi gate wajib bila probe
-terpisah kelak diimplementasikan.
+## 6. Hasil implementasi dan GUI
+
+**CI:** [run 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616),
+commit `ea2f4de`, job `120802247347` — seluruh workflow **success**. Lint semua
+target, build aplikasi, 1.052 tes Cargo, 344 tes Source core, 93 helper Python,
+dan 31 suite GUI / 528 pemeriksaan lulus. Suite baru menyumbang 9 pemeriksaan;
+run ini juga menjalankan gate Stage 9b yang lama tanpa perubahan.
+
+Pada fixture disk `ab**CDEFGH**ijk\n` dengan visible ASCII
+`abCDEFGHijk`, widget melaporkan geometry dan hit pada baris yang dimaksud.
+Masing-masing sweep maju dan balik menguji 113 posisi x unik (di bawah cap
+256); koordinat yang sama repeatable, tetapi kedua pemetaan x→offset tidak
+monoton. Kedua arah hanya mencapai offset `[0, 1, 2, 3, 4, 5, 6]`, bukan
+`7..11`. Karena offset 7 tidak ditemukan, drag 3→7 dan 7→3 tidak dijalankan;
+anchor/focus/arah selection dari gesture native tidak teramati.
+
+Verdict yang dicatat adalah **NO-GO terbatas**: percobaan sah dan mencapai
+sampling berulang, tetapi gagal syarat cakupan caret serta monotonicity pada
+kandidat ini. Ini bukan INCONCLUSIVE dan bukan klaim bahwa semua Iced/backend
+mustahil; cakupannya hanya fixture, kombinasi widget kustom dan
+X11 + Xvfb + tiny-skia yang diuji. Kegagalan mengamati drag tidak dinilai
+sebagai kegagalan drag yang teruji.
+
+Keselamatan lolos: 9 pemeriksaan suite mencakup Source byte-exact, dirty state,
+file fixture di disk, ketiadaan history Undo baru, penolakan aksi paste/Undo/
+mode-switch ketika probe terbuka, dan natural close. Artefak `gui-x11-smoke`
+[id `12551795605`](https://github.com/Indrawan007/Hylite/actions/runs/40070349616/artifacts/12551795605)
+tersedia sampai `2026-10-31T06:44:22Z`. Screenshot pendamping bukan oracle
+piksel.
+
+Stage 9b asli tetap ditutup **NO-GO historis** pada widget `text_editor` dan
+hasil [catatan Stage 9b](testing-stage9b.md) tidak ditimpa oleh percobaan
+terpisah ini. Tidak ada mapping Source, editing inline produksi, perubahan
+Preview default, klaim WYSIWYG umum, atau persetujuan untuk Stage 9c/9d.

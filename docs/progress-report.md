@@ -1,8 +1,8 @@
-# Laporan Progress — Hylite (snapshot Stage 9b)
+# Laporan Progress — Hylite (probe alternatif pasca-Stage 9b)
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `0599141`
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `ea2f4de`
 
-**Basis:** commit `0599141` lulus [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359); semua gate workflow sukses, sementara verdict feasibility Stage 9b adalah **NO-GO**. Status kerja: **belum di-merge ke `main`**. Scope lanjutan yang dipilih hanya rancangan probe widget alternatif; belum ada kode atau bukti GUI baru ([proposal](proposal-alternative-widget-probe.md)).
+**Basis:** commit `ea2f4de` lulus [CI 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616); seluruh gate workflow sukses. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga berakhir **NO-GO terbatas**. Status kerja: **belum di-merge ke `main`**. Probe alternatif hanya test-only/opt-in/read-only, bukan editing produksi ([kontrak dan hasil](proposal-alternative-widget-probe.md)).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -12,8 +12,8 @@
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai feasibility probe 9b ditutup; 9b berakhir NO-GO dan tidak menambah fitur produk |
-| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; probe NO-GO tidak mengubah kesiapan produksi |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai probe 9b asli ditutup; probe custom-widget terpisah adalah studi test-only di luar milestone produk |
+| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; dua NO-GO feasibility tidak mengubah kesiapan produksi |
 
 Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 93 %
 tinggi karena roadmap tahap yang dideklarasikan sengaja terbatas pada editor
@@ -89,16 +89,17 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 | Hasil GUI 9b | 325 posisi x yang berulang maju/balik hanya melaporkan caret 0; dense band `x=256..511` juga hanya 0; offset 1–11 tidak teramati | **NO-GO** untuk fixture/jalur X11 + Xvfb + tiny-skia ini |
 | Selection | Drag tidak dikirim karena offset 3 dan 7 tidak ditemukan; anchor/arah selection tidak teramati | Bukan bukti bahwa selection gagal pada semua backend; tidak ada implementasi mapping |
 | Pengamanan | Source, dirty state, file fixture dan history tetap utuh; jendela keluar natural | 7 pemeriksaan Stage 9b lulus sebagai smoke/safety checks, bukan verdict feasibility GO |
+| Probe custom-widget pasca-9b (terpisah, test-only) | 113 x berulang maju/balik mencapai offset 0–6; keduanya non-monotone; offset 7–11 tidak teramati sehingga drag tidak dijalankan | **NO-GO terbatas**; 9 safety/harness checks lulus; [hasil](proposal-alternative-widget-probe.md) |
 
 ### Verifikasi otomatis — semua gate CI lulus
 
 | Metrik | Nilai |
 |---|---|
-| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40058088359` |
+| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40070349616`; 1.052 tes Cargo dan 344 strict Source core lulus |
 | Helper Python | **93 tes**; kompilasi helper lulus |
-| Suite GUI X11 | **30 suite / 519 pemeriksaan**; suite 9b menambah 7 tanpa mengganti gate lama |
+| Suite GUI X11 | **31 suite / 528 pemeriksaan**; suite custom-widget terpisah menambah 9, semua suite sebelumnya tetap lulus |
 | Main regression smoke | **116 pemeriksaan** tetap lulus |
-| Gate GUI terdahulu | 29 suite yang sudah ada tetap dijalankan dan lulus; tidak ada assertion atau deadline yang dilonggarkan |
+| Gate GUI terdahulu | Seluruh gate GUI lama tetap dijalankan; tidak ada assertion, byte/coordinate oracle, deadline atau perilaku focus/refocus yang dilonggarkan |
 
 ### Status fitur dan gap yang tersisa
 
@@ -106,7 +107,8 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 |---|---|
 | Validasi desktop Arch + Hyprland/Wayland | **belum** — semua bukti dari Xvfb + tiny-skia |
 | Portal/dialog file nyata, IME, RTL, HiDPI, GPU | **belum** |
-| Stage 9b: hit-testing caret per glyph + selection anchor/arah | **probe selesai, NO-GO** — hanya offset 0 teramati pada fixture X11; drag/anchor/arah tidak teruji |
+| Stage 9b asli: caret hit-testing + selection anchor/arah pada widget `text_editor` | **probe selesai, NO-GO historis** — hanya offset 0 teramati pada fixture X11; drag/anchor/arah tidak teruji |
+| Probe custom-widget alternatif | **selesai, NO-GO terbatas** — 113 x berulang hanya mencapai offset 0–6/non-monotone; drag tidak dijalankan; tidak ada Source mapping atau editing produksi |
 | Selection mapping umum, drag, multi-cell | **belum** |
 | Sinkronisasi scroll Preview↔Source | **belum** |
 | WYSIWYG inline bebas ala MarkText | **belum** (masih panel draft terbatas) |
@@ -149,8 +151,8 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
-| 1 | Implementasi dan run GUI probe opt-in custom Iced widget/`Paragraph::hit_test` sesuai [rancangan](proposal-alternative-widget-probe.md) | membedakan jalur event `text_editor` dari hit-test paragraf langsung pada fixture ASCII yang sama | belum dilakukan; hanya kandidat test-only terpisah, bukan production mapping/9c/9d |
-| 2 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target | sedang; butuh mesin target |
+| 1 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target yang tidak dapat dibuktikan oleh CI X11 | sedang; butuh mesin target dan verifikasi manual |
+| 2 | Tentukan scope produk terpisah sebelum Stage 9c/9d | menghindari perubahan editor yang tidak disetujui; dua probe feasibility telah ditutup dengan NO-GO terbatas | perlu keputusan eksplisit; bukan kelanjutan otomatis probe |
 | 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
 | 4 | Packaging AUR + release build | distribusi | sedang |
 
@@ -159,22 +161,27 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 - **≈93 % roadmap**: 42 milestone yang dideklarasikan sampai Stage 9b (5a–5e,
   6a–6p, 7a–7n, 8a–8e, 9a–9b) telah ditutup dengan bukti CI. Stage 9b dihitung
   sebagai penutupan gate feasibility dengan verdict NO-GO, bukan implementasi
-  fitur. Kenaikan ≈92 % → ≈93 % hanya progres rencana/keputusan.
-- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**; probe
-  9b tidak menambah kemampuan produk. Tanpa validasi compositor, packaging, dan
-  WYSIWYG umum, aplikasi belum layak disebut siap produksi.
+  fitur. Probe custom-widget terpisah juga studi feasibility test-only di luar
+  milestone produk, sehingga angka roadmap tidak berubah.
+- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**; dua probe
+  NO-GO tidak menambah kemampuan produk. Tanpa validasi compositor, packaging,
+  dan WYSIWYG umum, aplikasi belum layak disebut siap produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
   bukan jumlah baris. Semua angka bisa direvisi bila prioritas proyek berubah.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [rancangan probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- CI terkini: `40058088359` (`0599141`) **success** — format, strict core, Clippy,
-  build, unit tests dan seluruh 30 suite GUI lulus; **93 tes Python / 519
-  pemeriksaan GUI**. Stage 9b menghasilkan NO-GO tanpa mengganti gate lama.
-  Artifact `12546617100`, 4.779.552 byte, expires 2026-10-31T03:37:53Z.
-- Verifikasi lokal: 93 tes Python, kompilasi helper dan `git diff --check` lulus.
-  Cargo/rustc tidak tersedia lokal; format/build/Clippy/tes Rust terbaru dibuktikan
-  oleh CI, bukan oleh pemeriksaan lokal.
+- CI terkini: `40070349616` (`ea2f4de`) **success** — format, strict core, Clippy,
+  build, **1.052 tes Cargo**, **344 Source core**, 93 tes Python, dan **31 suite GUI /
+  528 pemeriksaan** lulus. Probe alternatif menghasilkan NO-GO terbatas; artifact
+  `12551795605`, 5.070.204 byte, tersedia sampai 2026-10-31T06:44:22Z. Stage 9b
+  asli tetap NO-GO historis; bukti lengkap dipisahkan di [catatan Stage 9b](testing-stage9b.md)
+  dan [hasil probe alternatif](proposal-alternative-widget-probe.md).
+- CI historis Stage 9b: `40058088359` (`0599141`) success, **30 suite / 519
+  pemeriksaan GUI**, artifact `12546617100`; hasil itu tidak ditimpa oleh probe baru.
+- Verifikasi lokal: `py_compile`, 91 tes `test_gui_smoke.py`, dan `git diff --check`
+  lulus. Cargo/rustc tidak tersedia lokal; format/build/Clippy/tes Rust terbaru
+  dibuktikan oleh CI, bukan pemeriksaan lokal.

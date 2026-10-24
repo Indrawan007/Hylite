@@ -1,8 +1,27 @@
-# Verifikasi build dan tes native — riwayat sampai Stage 9b
+# Verifikasi build dan tes native — riwayat dan hasil probe alternatif
 
-**Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode terakhir diverifikasi `0599141`.
+**Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode terakhir diverifikasi `ea2f4de`.
 
-## Stage 9b terbaru — probe kelayakan read-only, verdict NO-GO
+## Probe custom-widget pasca-9b — test-only/read-only, verdict NO-GO terbatas
+
+[CI 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616),
+`ea2f4de`, **success**, job `120802247347`. Lulus format, strict core, Clippy,
+build, **1.052 tes Cargo**, **344 Source core**, **93 helper Python**, dan
+**31 suite GUI / 528 pemeriksaan**. Suite alternatif menyumbang 9 pemeriksaan;
+smoke regresi utama 116 pemeriksaan tetap lulus. Artifact `gui-x11-smoke`
+`12551795605`, 5.070.204 byte, tersedia sampai 2026-10-31T06:44:22Z.
+
+Pada fixture ASCII yang sama, masing-masing pass menguji 113 posisi x unik;
+hasil posisi berulang, tetapi x→offset tidak monoton. Sweep maju/balik hanya
+mencapai `[0, 1, 2, 3, 4, 5, 6]`, bukan 7–11. Endpoint 7 tidak teramati,
+sehingga drag dan native anchor/focus/direction tidak diuji. Verdict **NO-GO
+terbatas** untuk custom widget + fixture + X11/Xvfb/tiny-skia ini, bukan klaim
+universal tentang Iced/backend. Sembilan safety checks mengonfirmasi Source
+byte-exact/clean, history Undo tak bertambah, disk fixture tetap sama, aksi
+lain terblokir ketika probe aktif, dan natural close. Hasil bukan fitur editing
+produksi; lihat [kontrak dan hasil probe](proposal-alternative-widget-probe.md).
+
+## Stage 9b historis — probe kelayakan read-only, verdict NO-GO
 
 [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359),
 `0599141`, **success**, job `120765424636`, selesai 24 Oktober 2026

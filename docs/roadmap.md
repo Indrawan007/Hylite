@@ -1,14 +1,16 @@
 # Roadmap Hylite — dari Stage 9b sampai rilis 1.0
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `0599141`
-(CI [40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359) hijau;
-93 tes Python / 30 suite GUI / 519 pemeriksaan. Verdict feasibility 9b: **NO-GO**.)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `ea2f4de`
+(CI [40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616) hijau;
+93 tes Python / 31 suite GUI / 528 pemeriksaan. Stage 9b asli dan probe custom-widget
+terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
 > **estimasi**, bukan pengukuran. Stage 9a membuktikan hanya caret keyboard
-> ASCII/X11; probe read-only 9b selesai dengan NO-GO karena sweep klik hanya
-> mengamati offset 0. Tidak ada bukti mapping per glyph, anchor/arah selection,
-> atau WYSIWYG umum.
+> ASCII/X11; Stage 9b asli tetap NO-GO pada widget `text_editor`, dan eksperimen
+> custom-widget pasca-9b yang test-only juga NO-GO pada fixture/backend terbatas.
+> Tidak ada bukti mapping Source per glyph, anchor/arah selection native, atau
+> WYSIWYG umum. Kedua hasil bukan klaim universal tentang Iced/backend.
 
 ---
 
@@ -67,7 +69,7 @@ fondasi → perluasan**, bukan big bang.
 |---|---|---|---|
 | **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; hit-testing/selection tetap belum terbukti setelah probe 9b NO-GO |
 | **9b** ⚠️ NO-GO (probe selesai) | **Feasibility terbatas**: satu fixture ASCII, hit-testing caret dan selection pada widget native, tanpa Source edit atau implementasi mapping. Hasil: hanya caret 0 yang teramati; drag tidak dijalankan karena endpoint 3/7 tidak ditemukan — [bukti lengkap](testing-stage9b.md) | kecil–sedang | probe tertutup; hit-testing/selection belum layak dibuktikan |
-| **9c** | **HOLD — belum disetujui**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah verdict 9b NO-GO. Rancangan probe alternatif pasca-9b tidak mengizinkan implementasi 9c; tetap perlu keputusan scope produk terpisah | sedang–besar | sedang |
+| **9c** | **HOLD — belum disetujui**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah verdict 9b asli NO-GO maupun NO-GO terbatas probe custom-widget. Probe alternatif selesai hanya sebagai alat test-only; tidak mengizinkan implementasi 9c. Tetap perlu keputusan scope produk terpisah | sedang–besar | sedang |
 | **9d** | **HOLD — belum disetujui**. Perluasan editing langsung ke heading/list/quote/sel tabel dan pensiun panel draft tidak dimulai; perlu gate dan scope produk baru yang eksplisit | besar | tinggi |
 
 **Hasil gate 9a:** CI 40039268185 lulus 1041 Cargo / 344 strict core / 90
@@ -84,15 +86,22 @@ Karena titik 3 dan 7 tidak ditemukan, drag tidak dijalankan dan anchor/arah
 selection tidak teramati. Source, dirty state, file fixture dan history tidak
 berubah. Lihat [catatan hasil 9b](testing-stage9b.md).
 
-**Aturan berhenti:** verdict NO-GO menutup probe Stage 9b; jangan tambahkan
-mapping/hack, jangan mengubahnya menjadi editing production, dan jangan mulai
-9c/9d. Scope terpisah yang dipilih sesudahnya hanya **rancangan** probe widget
-alternatif berbasis `advanced::Widget` + `Paragraph::hit_test`
-([rancangan probe alternatif](proposal-alternative-widget-probe.md)); belum ada
-implementasi atau hasil GUI. Rancangan itu tidak mengulang scan Stage 9b, tidak
-mengubah kesimpulan historis, dan tidak mengizinkan production mapping.
-Tidak ada klaim bahwa semua Iced/backend mustahil; bukti Stage 9b hanya berlaku
-pada fixture dan konfigurasi X11 + Xvfb + tiny-skia ini. Gate lama tidak diubah.
+**Scope terpisah pasca-9b — selesai, NO-GO terbatas:** atas persetujuan
+terpisah, custom widget `advanced::Widget` + `Paragraph::hit_test` dibuat sebagai
+probe opt-in/read-only dan diuji dengan suite khusus. CI
+[40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616)
+mencapai 113 posisi x berulang per pass; hanya offset 0–6 teramati, kedua
+pemetaan tidak monoton, dan offset 7–11 tidak ditemukan. Drag tidak dijalankan;
+Source, dirty/history, file, dan natural close terjaga. Verdict **NO-GO** hanya
+untuk fixture ASCII dan X11 + Xvfb + tiny-skia; bukan penilaian drag yang tidak
+diuji dan bukan klaim universal. Lihat [kontrak dan hasil probe
+alternatif](proposal-alternative-widget-probe.md).
+
+**Aturan berhenti:** NO-GO Stage 9b asli tetap historis dan final; probe
+alternatif terpisah tidak menimpanya. Kedua hasil tidak memulai 9c/9d dan tidak
+membenarkan mapping Source, editing inline produksi, atau WYSIWYG. Implementasi
+alternatif hanya alat studi test-only/opt-in; Preview default dan seluruh gate
+lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 
 ### Fase C — Skala dan performa (Stage 10a–10c)
 
@@ -126,7 +135,7 @@ pada fixture dan konfigurasi X11 + Xvfb + tiny-skia ini. Gate lama tidak diubah.
   │
   └──► 9a spike ──► 9b feasibility probe (NO-GO)
                          │
-                         └──► [rancangan probe widget alternatif selesai; implementasi/uji GUI terpisah]
+                         └──► [probe custom-widget test-only selesai; NO-GO terbatas]
                                       │
                                       └──► 9c/9d tetap HOLD; tidak ada production mapping
                                        10a incremental ◄┘ (baru bermakna setelah 9d)
@@ -151,25 +160,26 @@ pada fixture dan konfigurasi X11 + Xvfb + tiny-skia ini. Gate lama tidak diubah.
 | C — Skala & performa | 10a–10c | ~20 % | 15 % |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Fase A, spike 9a, dan gate feasibility 9b kini ditutup. Estimasi roadmap naik
-**≈92 % → ≈93 %** untuk satu milestone bukti kecil; 9b berakhir NO-GO dan tidak
-menambah kapabilitas produk. **Kesiapan rilis tetap ≈44 %**: Stage 9a hanya bukti
-keyboard ASCII dan Stage 9b tidak membuktikan mapping glyph/selection. Arch +
-Hyprland belum diuji, math belum punya oracle visual, packaging belum ada, dan
-WYSIWYG umum belum dibangun. Rancangan probe alternatif pasca-9b adalah studi
-dokumentasi saja, bukan milestone/fitur, sehingga tidak mengubah salah satu
-angka. Progress roadmap dan kesiapan rilis adalah dua angka berbeda; lihat
-snapshot [`progress-report.md`](progress-report.md).
+Fase A, spike 9a, dan gate feasibility 9b asli kini ditutup. Estimasi roadmap
+**≈93 %** dan kesiapan rilis **≈44 %** tetap dipisah dan tidak berubah oleh probe
+alternatif: kedua probe berakhir NO-GO dan tidak menambah kapabilitas produk.
+Angka readiness tetap rendah karena Stage 9a hanya bukti keyboard ASCII,
+sedangkan kedua probe tidak membuktikan mapping Source glyph/selection umum;
+Arch + Hyprland belum diuji, math belum punya oracle visual, packaging belum
+ada, dan WYSIWYG umum belum dibangun. Probe custom-widget telah dijalankan,
+tetapi tetap studi kelayakan test-only, bukan milestone/fitur produk, sehingga
+tidak mengubah angka roadmap maupun readiness. Lihat snapshot
+[`progress-report.md`](progress-report.md).
 
 ---
 
 ## 5. Keputusan yang sudah ditetapkan
 
-- Urutan **Fase A → B** dipertahankan. Stage 9b telah diuji dan ditutup dengan
-  verdict NO-GO; tidak ada izin otomatis untuk Stage 9c/9d, production mapping,
-  atau WYSIWYG umum. Scope terpisah yang dipilih adalah rancangan probe widget
-  alternatif saja ([rancangan](proposal-alternative-widget-probe.md)); implementasi
-  atau bukti GUI belum dilakukan dan harus tetap terisolasi dari produk.
+- Urutan **Fase A → B** dipertahankan. Stage 9b asli telah ditutup NO-GO;
+  percobaan custom-widget terpisah juga berakhir NO-GO terbatas. Tidak ada izin
+  otomatis untuk Stage 9c/9d, production mapping, atau WYSIWYG umum. Probe
+  alternatif yang telah selesai tetap terisolasi sebagai alat test-only/opt-in
+  ([kontrak dan hasil](proposal-alternative-widget-probe.md)).
 - Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
   Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
 - Crate baru boleh minimal; implementasi 8e tidak menambah dependency.

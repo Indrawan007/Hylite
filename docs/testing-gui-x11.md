@@ -1389,3 +1389,32 @@ Artifact `gui-x11-smoke` id `12546617100` (4.779.552 byte) tersedia sampai
 2026-10-31T03:37:53Z. Kontrak, hasil lengkap, dan cara mengulang ada di
 [catatan Stage 9b](testing-stage9b.md). Tidak ada gate lama yang diganti atau
 dilonggarkan.
+
+## Probe custom widget pasca-Stage 9b: suite ke-31 `inline-alt-probe`
+
+Suite baru ini adalah eksperimen **test-only, opt-in, dan read-only** yang
+terpisah dari Stage 9b. Jalur CLI `--inline-alt-widget-probe <file>` merender
+widget `advanced::Widget` dengan `Paragraph::hit_test` pada fixture ASCII yang
+sama, tanpa memetakan hit ke byte Source. Ia mengulang klik maju/balik dan drag
+maju/balik bila offset endpoint ditemukan. Setiap pass memiliki batas keras 256
+posisi x unik; tidak ada fallback sweep lebar. Hasil berlaku hanya pada fixture
+`ab**CDEFGH**ijk\n` dan CI X11 + Xvfb + tiny-skia.
+
+**Hasil final:** [CI 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616),
+commit `ea2f4de`, job `120802247347`, seluruh workflow **success**. Marker
+geometry dan hit pada baris terlihat terdeteksi. Kedua sweep memiliki 113 x
+berulang dan mencapai offset `[0, 1, 2, 3, 4, 5, 6]`; pemetaan tidak monoton
+dan offset `7..11` tidak tercapai. Karena offset 7 tidak ditemukan, drag tidak
+dikirim dan anchor/arah selection tidak teramati. Verdict kandidat alternatif
+adalah **NO-GO terbatas**, bukan INCONCLUSIVE; ini bukan klaim terhadap semua
+Iced/backend dan bukan penilaian kegagalan drag yang tidak diuji.
+
+Sembilan safety checks lulus: Source tetap byte-exact dan clean, Paste/Undo/
+mode-switch ditolak ketika probe aktif, Undo pasca-probe tidak menemukan edge
+baru, file fixture tidak berubah, dan jendela keluar natural. Suite baru
+menambahkan 9 pemeriksaan; total workflow menjadi **31 suite / 528 pemeriksaan**
+dan smoke regresi utama tetap 116. Artifact `gui-x11-smoke` id
+`12551795605` (5.070.204 byte) tersedia sampai `2026-10-31T06:44:22Z`.
+Lihat [kontrak dan hasil terperinci](proposal-alternative-widget-probe.md). Stage
+9b asli tetap NO-GO historis; tidak ada gate lama, editing produksi, atau
+Preview default yang diganti.
