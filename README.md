@@ -60,9 +60,10 @@ Preview memakai model block/inline dan rich text Iced: heading, bold/italic/stri
 ## Roadmap
 
 Rencana sampai rilis 1.0 (fase A–D, Stage 8a–11e) beserta definisi "selesai" ada di
-[`docs/roadmap.md`](docs/roadmap.md). Ringkasnya: permukaan dokumen (tab, file tree,
-gambar, PDF, math subset) → WYSIWYG inline bertahap → performa/incremental parse →
-validasi target Arch + Hyprland dan packaging.
+[`docs/roadmap.md`](docs/roadmap.md). Harness dan baseline mentah Stage 10b dicatat
+terpisah di [`docs/performance.md`](docs/performance.md), tanpa klaim performa.
+Ringkasnya: permukaan dokumen (tab, file tree, gambar, PDF, math subset) → WYSIWYG
+inline bertahap → incremental parse → validasi target Arch + Hyprland dan packaging.
 
 ## Build di Arch Linux
 
@@ -111,13 +112,13 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 `Cargo.lock` disimpan ke Git agar versi dependensi konsisten. Gunakan `--locked` untuk build/lint/test biasa. Pembaruan dependensi dilakukan secara eksplisit melalui `cargo update`, ditinjau, lalu diuji ulang.
 
-### Status verifikasi — 24 Oktober 2026 (Stage 9b + probe alternatif)
+### Status verifikasi — 24 Oktober 2026 (Stage 10b; hasil probe 9b tetap terpisah)
 
-- CI [40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616), commit kode `ea2f4de`, lulus format, strict-core, strict Clippy `-D warnings`, build, 1.052 tes Cargo, 344 tes Source core, 93 helper Python, dan seluruh workflow. Total GUI: **31 suite / 528 pemeriksaan**; smoke regresi utama tetap 116.
+- CI [40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422), commit `39e8168`, lulus format, strict-core, strict Clippy `-D warnings`, build, **1.052 tes Cargo + 1 harness diabaikan di suite normal**, 344 tes Source core, 93 helper Python, dan seluruh workflow. Benchmark Stage 10b dijalankan eksplisit dan lulus; total GUI tetap **31 suite / 528 pemeriksaan**, smoke regresi utama 116.
 - Stage 9b asli tetap berstatus **NO-GO** pada widget `text_editor`: 325 koordinat x yang berulang pada sweep maju/balik hanya memberi caret 0; dense band `x=256..511` juga tidak mencapai offset 1–11. Karena offset 3 dan 7 tidak ditemukan, drag tidak dijalankan; anchor/arah selection tidak teramati. Source, dirty state dan file fixture tidak berubah; jendela tutup natural. Ini hasil historis yang tidak ditimpa probe alternatif.
 - Probe custom-widget terpisah (`--inline-alt-widget-probe <file>`) adalah **test-only/opt-in/read-only** dan memberi verdict **NO-GO terbatas**: 113 posisi x berulang hanya mencapai offset 0–6, pemetaan tidak monoton, dan offset 7–11 tidak teramati. Karena endpoint tidak lengkap, drag tidak dijalankan. Source, dirty state, history Undo, file fixture dan natural close diverifikasi tetap aman; suite baru menambah 9 pemeriksaan.
 - Kedua NO-GO hanya berlaku pada fixture ASCII yang diuji dan X11 + Xvfb + tiny-skia; bukan bukti bahwa semua versi Iced/backend mustahil, dan bukan bukti selection gagal secara terpisah. Stage 9a sebelumnya hanya membuktikan caret keyboard ASCII dan splice Source/Undo/Redo byte-exact pada satu run strong. Lihat [catatan Stage 9a](docs/testing-stage9a.md), [Stage 9b asli](docs/testing-stage9b.md), dan [kontrak/hasil probe alternatif](docs/proposal-alternative-widget-probe.md).
-- Unicode/IME, RTL, Wayland/Hyprland, GPU/HiDPI, selection umum, scroll sync, portal/file dialog nyata, packaging/AUR, incremental parsing, dan klaim performa tetap belum selesai. Lulus CI X11/unit test tidak menggantikan checklist desktop; lihat [roadmap](docs/roadmap.md) dan [laporan progress](docs/progress-report.md).
+- Stage 10b memiliki harness opt-in dan satu baseline mentah; rincian absolut serta batas metodologinya ada di [docs/performance.md](docs/performance.md), tanpa klaim performa. Incremental parsing, validasi Unicode/IME/RTL/Wayland/Hyprland/GPU/HiDPI, selection umum, scroll sync, portal/file dialog nyata, dan packaging/AUR tetap belum selesai. Lulus CI X11/unit test tidak menggantikan checklist desktop; lihat [roadmap](docs/roadmap.md) dan [laporan progress](docs/progress-report.md).
 
 ## Konfigurasi
 

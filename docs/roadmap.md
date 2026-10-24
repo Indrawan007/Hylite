@@ -1,9 +1,9 @@
 # Roadmap Hylite — dari Stage 9b sampai rilis 1.0
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `ea2f4de`
-(CI [40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616) hijau;
-93 tes Python / 31 suite GUI / 528 pemeriksaan. Stage 9b asli dan probe custom-widget
-terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `39e8168`
+(CI [40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422) hijau;
+Stage 10b harness dan baseline mentah tercatat di [`docs/performance.md`](performance.md).
+Stage 9b asli dan probe custom-widget terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
 > **estimasi**, bukan pengukuran. Stage 9a membuktikan hanya caret keyboard
@@ -108,7 +108,7 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
 | **10a** | **Incremental parse**: parse hanya blok yang berubah (block-level cache + dirty range), bukan seluruh dokumen | besar | sedang |
-| **10b** | **Harness benchmark**: dokumen sintetis 100 KB/1 MB/5 MB, metrik absolut (ms) untuk buka, ketik, parse, render; batas waktu di CI supaya regresi tertangkap | kecil–sedang | rendah |
+| **10b** ✅ | **Harness benchmark**: dokumen sintetis 100 KB/1 MB/5 MB, metrik absolut (ms) untuk buka, ketik, parse, render; batas waktu CI; baseline mentah pertama tercatat di [`docs/performance.md`](performance.md) | kecil–sedang | rendah |
 | **10c** | **Viewport culling** untuk dokumen sangat besar (render hanya blok yang terlihat) + sinkronisasi scroll Preview↔Source | sedang–besar | sedang |
 
 **Gate Fase C:** angka absolut terdokumentasi di `docs/performance.md`, plus
@@ -139,7 +139,7 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
                                       │
                                       └──► 9c/9d tetap HOLD; tidak ada production mapping
                                        10a incremental ◄┘ (baru bermakna setelah 9d)
-                                       10b benchmark (boleh paralel kapan saja)
+                                       10b benchmark ✅ (boleh paralel kapan saja; baseline di docs/performance.md)
                                        10c culling + scroll sync
                                                         │
                                        11a instrumentasi ──► 11b manual (kamu)
@@ -157,18 +157,19 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 |---|---|---|---|
 | A — Permukaan dokumen | 8a–8e | ~25 % | 0 % (selesai) |
 | B — WYSIWYG inline | 9a–9d | ~45 % | ≈58 % |
-| C — Skala & performa | 10a–10c | ~20 % | 15 % |
+| C — Skala & performa | 10a–10c | ~20 % | ≈15 % (10b selesai; 10a/10c tersisa) |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Fase A, spike 9a, dan gate feasibility 9b asli kini ditutup. Estimasi roadmap
-**≈93 %** dan kesiapan rilis **≈44 %** tetap dipisah dan tidak berubah oleh probe
-alternatif: kedua probe berakhir NO-GO dan tidak menambah kapabilitas produk.
-Angka readiness tetap rendah karena Stage 9a hanya bukti keyboard ASCII,
-sedangkan kedua probe tidak membuktikan mapping Source glyph/selection umum;
-Arch + Hyprland belum diuji, math belum punya oracle visual, packaging belum
-ada, dan WYSIWYG umum belum dibangun. Probe custom-widget telah dijalankan,
-tetapi tetap studi kelayakan test-only, bukan milestone/fitur produk, sehingga
-tidak mengubah angka roadmap maupun readiness. Lihat snapshot
+Fase A, spike 9a, dan gate feasibility 9b asli kini ditutup; Stage 10b juga
+selesai sebagai harness pengukuran paralel. Estimasi roadmap **≈93 %** tetap
+khusus untuk denominator Stage 5a–9b yang dideklarasikan sebelumnya; 10b
+dilaporkan terpisah. Kesiapan rilis **≈44 %** juga tetap terpisah dan tidak
+berubah oleh probe atau harness, karena tidak ada kapabilitas produk baru maupun
+optimasi editor. Angka readiness tetap rendah karena Stage 9a hanya bukti
+keyboard ASCII, kedua probe tidak membuktikan mapping Source glyph/selection
+umum, Arch + Hyprland belum diuji, math belum punya oracle visual, packaging
+belum ada, dan WYSIWYG umum belum dibangun. Probe custom-widget tetap studi
+kelayakan test-only, bukan milestone/fitur produk. Lihat snapshot
 [`progress-report.md`](progress-report.md).
 
 ---

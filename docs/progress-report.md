@@ -1,8 +1,8 @@
-# Laporan Progress — Hylite (probe alternatif pasca-Stage 9b)
+# Laporan Progress — Hylite (Stage 10b benchmark)
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `ea2f4de`
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `39e8168`
 
-**Basis:** commit `ea2f4de` lulus [CI 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616); seluruh gate workflow sukses. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga berakhir **NO-GO terbatas**. Status kerja: **belum di-merge ke `main`**. Probe alternatif hanya test-only/opt-in/read-only, bukan editing produksi ([kontrak dan hasil](proposal-alternative-widget-probe.md)).
+**Basis:** commit `39e8168` lulus [CI 40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422); seluruh gate workflow sukses, termasuk benchmark Stage 10b. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Harness Stage 10b hanya test-only/opt-in dan tidak mengubah editor runtime. Status kerja: **belum di-merge ke `main`**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -12,15 +12,16 @@
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai probe 9b asli ditutup; probe custom-widget terpisah adalah studi test-only di luar milestone produk |
-| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; dua NO-GO feasibility tidak mengubah kesiapan produksi |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai probe 9b asli ditutup; Stage 10b paralel kini selesai dan dilaporkan terpisah, bukan ditambahkan ke denominator lama |
+| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; probe dan harness benchmark tidak mengubah kesiapan produksi |
 
 Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 93 %
 tinggi karena roadmap tahap yang dideklarasikan sengaja terbatas pada editor
 native dan prototipe editing blok. Kenaikan ≈92 % → ≈93 % hanya menandai
 penutupan milestone feasibility 9b dengan hasil NO-GO; itu **bukan** lompatan
-kemampuan produk atau kesiapan rilis. Skor kategori 82,3 % pada bagian 3 adalah
-estimasi berbobot lain, bukan angka roadmap atau kesiapan rilis.
+kemampuan produk atau kesiapan rilis. Stage 10b menambahkan harness dan observasi
+angka mentah, bukan optimasi editor atau klaim performa. Skor kategori 82,3 % pada
+bagian 3 adalah estimasi berbobot lain, bukan angka roadmap atau kesiapan rilis.
 
 ## 2. Capaian per stage
 
@@ -91,11 +92,25 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 | Pengamanan | Source, dirty state, file fixture dan history tetap utuh; jendela keluar natural | 7 pemeriksaan Stage 9b lulus sebagai smoke/safety checks, bukan verdict feasibility GO |
 | Probe custom-widget pasca-9b (terpisah, test-only) | 113 x berulang maju/balik mencapai offset 0–6; keduanya non-monotone; offset 7–11 tidak teramati sehingga drag tidak dijalankan | **NO-GO terbatas**; 9 safety/harness checks lulus; [hasil](proposal-alternative-widget-probe.md) |
 
+### Stage 10b — benchmark harness (selesai; test-only)
+
+Harness opt-in di `src/performance_benchmarks.rs` membangun dokumen Markdown
+sintetis tepat 100 KB, 1 MB, dan 5 MB, lalu mengukur buka file lokal + inisialisasi
+`Document`, satu edit karakter, parse preview dingin, dan konstruksi pohon widget
+Preview. Satu warm-up diikuti tiga sampel; angka min/median/maks absolut (ms) dan
+batas cakupannya dicatat di [docs/performance.md](performance.md). CI
+[40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422)
+menjalankan tes yang diabaikan secara eksplisit; test selesai dalam 3,17 detik.
+Budget 180 detik untuk harness dan timeout langkah CI 5 menit bersifat pagar
+kasar, bukan target tiap operasi. `render_tree` tidak mengukur layout, paint,
+GPU, window, atau frame. Hasil satu run tidak dijadikan klaim performa dan tidak
+mengubah Stage 9c/9d yang masih HOLD atau Stage 10a yang menunggu keputusan 9d.
+
 ### Verifikasi otomatis — semua gate CI lulus
 
 | Metrik | Nilai |
 |---|---|
-| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40070349616`; 1.052 tes Cargo dan 344 strict Source core lulus |
+| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40086623422`; 1.052 tes Cargo lulus, satu harness benchmark diabaikan di suite normal, dan 344 strict Source core lulus |
 | Helper Python | **93 tes**; kompilasi helper lulus |
 | Suite GUI X11 | **31 suite / 528 pemeriksaan**; suite custom-widget terpisah menambah 9, semua suite sebelumnya tetap lulus |
 | Main regression smoke | **116 pemeriksaan** tetap lulus |
@@ -116,7 +131,7 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 | Gambar di Preview | **ya, terbatas** — PNG/GIF/BMP/JPEG lokal ≤4 MiB & ≤8192 px; tanpa oracle piksel, SVG/WebP, atau jaringan |
 | Ekspor PDF | **ya, terbatas** — PDF 1.4 ditulis sendiri, palet tema aktif, tabel + code block, tanpa browser; math tetap source inert; tanpa gambar/link/font embedding/kompresi |
 | Math subset | **ya, terbatas** — inline/display, `frac`/`sqrt`/sup-sub/Greek/operator eksplisit, Unicode linearized; unsupported source ber-marker; tanpa KaTeX, 2D layout, glyph oracle |
-| Incremental parsing / klaim performa | **belum** — semua jalur O(n) salin+parse |
+| Harness Stage 10b / incremental parsing / klaim performa | **harness selesai** dengan angka mentah satu run di [docs/performance.md](performance.md); incremental parse belum dikerjakan dan belum ada klaim performa |
 | Packaging/AUR/release build | **belum** |
 | Checklist manual Tahap 2–4 | **belum dicentang** |
 
@@ -158,30 +173,30 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 ## 6. Basis perhitungan persentase
 
-- **≈93 % roadmap**: 42 milestone yang dideklarasikan sampai Stage 9b (5a–5e,
-  6a–6p, 7a–7n, 8a–8e, 9a–9b) telah ditutup dengan bukti CI. Stage 9b dihitung
-  sebagai penutupan gate feasibility dengan verdict NO-GO, bukan implementasi
-  fitur. Probe custom-widget terpisah juga studi feasibility test-only di luar
-  milestone produk, sehingga angka roadmap tidak berubah.
-- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**; dua probe
-  NO-GO tidak menambah kemampuan produk. Tanpa validasi compositor, packaging,
-  dan WYSIWYG umum, aplikasi belum layak disebut siap produksi.
+- **≈93 % roadmap Stage 5a–9b**: denominator lama berisi 42 milestone (5a–5e,
+  6a–6p, 7a–7n, 8a–8e, 9a–9b). Stage 9b menutup gate feasibility dengan verdict
+  NO-GO, bukan implementasi fitur. Probe custom-widget adalah studi test-only di
+  luar milestone produk. Stage 10b selesai sebagai pekerjaan paralel dan
+  dilaporkan terpisah; angka 93 % tidak diperluas diam-diam ke stage berikutnya.
+- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**. Stage 10b
+  memberi alat ukur, bukan optimasi atau kemampuan produk; tanpa validasi
+  compositor, packaging, dan WYSIWYG umum, aplikasi belum layak disebut siap
+  produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
   bukan jumlah baris. Semua angka bisa direvisi bila prioritas proyek berubah.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 10b benchmark](performance.md) · [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- CI terkini: `40070349616` (`ea2f4de`) **success** — format, strict core, Clippy,
-  build, **1.052 tes Cargo**, **344 Source core**, 93 tes Python, dan **31 suite GUI /
-  528 pemeriksaan** lulus. Probe alternatif menghasilkan NO-GO terbatas; artifact
-  `12551795605`, 5.070.204 byte, tersedia sampai 2026-10-31T06:44:22Z. Stage 9b
-  asli tetap NO-GO historis; bukti lengkap dipisahkan di [catatan Stage 9b](testing-stage9b.md)
-  dan [hasil probe alternatif](proposal-alternative-widget-probe.md).
-- CI historis Stage 9b: `40058088359` (`0599141`) success, **30 suite / 519
-  pemeriksaan GUI**, artifact `12546617100`; hasil itu tidak ditimpa oleh probe baru.
-- Verifikasi lokal: `py_compile`, 91 tes `test_gui_smoke.py`, dan `git diff --check`
-  lulus. Cargo/rustc tidak tersedia lokal; format/build/Clippy/tes Rust terbaru
-  dibuktikan oleh CI, bukan pemeriksaan lokal.
+- CI terkini: `40086623422` (`39e8168`) **success** — format, strict core, Clippy,
+  build, **1.052 tes Cargo + 1 harness diabaikan di suite normal**, **344 Source core**,
+  93 tes Python, **31 suite GUI / 528 pemeriksaan**, dan benchmark Stage 10b eksplisit
+  (1 test lulus) lulus. Smoke regresi utama tetap 116. Baseline mentah tercatat di
+  [docs/performance.md](performance.md); tidak ada klaim speed atau hasil lintas mesin.
+  Probe alternatif tetap NO-GO terbatas; Stage 9b asli tetap NO-GO historis.
+- CI Stage 9b: `40058088359` (`0599141`) success, **30 suite / 519 pemeriksaan GUI**,
+  artifact `12546617100`; hasil historis itu tidak ditimpa oleh probe baru.
+- Verifikasi lokal untuk kode Rust: toolchain Cargo/rustc tidak tersedia; format,
+  build, Clippy, tes, dan benchmark dibuktikan oleh CI. `git diff --check` lulus.
