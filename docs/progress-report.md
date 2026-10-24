@@ -2,7 +2,7 @@
 
 **Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `0599141`
 
-**Basis:** commit `0599141` lulus [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359); semua gate workflow sukses, sementara verdict feasibility Stage 9b adalah **NO-GO**. Status kerja: **belum di-merge ke `main`**.
+**Basis:** commit `0599141` lulus [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359); semua gate workflow sukses, sementara verdict feasibility Stage 9b adalah **NO-GO**. Status kerja: **belum di-merge ke `main`**. Scope lanjutan yang dipilih hanya rancangan probe widget alternatif; belum ada kode atau bukti GUI baru ([proposal](proposal-alternative-widget-probe.md)).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -149,7 +149,7 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
-| 1 | Keputusan scope terpisah setelah Stage 9b NO-GO; jangan mulai 9c atau mapping secara otomatis | menentukan apakah tetap pada panel draft atau merancang studi kelayakan lain yang disetujui | belum ada implementasi yang diotorisasi |
+| 1 | Implementasi dan run GUI probe opt-in custom Iced widget/`Paragraph::hit_test` sesuai [rancangan](proposal-alternative-widget-probe.md) | membedakan jalur event `text_editor` dari hit-test paragraf langsung pada fixture ASCII yang sama | belum dilakukan; hanya kandidat test-only terpisah, bukan production mapping/9c/9d |
 | 2 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target | sedang; butuh mesin target |
 | 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
 | 4 | Packaging AUR + release build | distribusi | sedang |
@@ -168,7 +168,7 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [rancangan probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
 - CI terkini: `40058088359` (`0599141`) **success** — format, strict core, Clippy,

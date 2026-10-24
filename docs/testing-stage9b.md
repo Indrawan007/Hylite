@@ -85,8 +85,11 @@ kemudian dibatasi ke sweep kasar/refinement/band aktif, lalu run final
 Stage 9b sebagai **feasibility probe** ditutup dengan hasil NO-GO; tidak ada
 implementasi mapping caret/selection, dukungan drag umum, pengeditan Source dari
 Preview, atau klaim WYSIWYG yang mengikuti hasil ini. Stage 9c/9d tidak dimulai
-oleh probe ini dan tetap memerlukan keputusan scope terpisah. Jalur panel draft
-serta seluruh gate lama tidak berubah.
+oleh probe ini. Scope lanjutan yang dipilih pada 24 Oktober 2026 hanya
+merancang probe terpisah untuk custom Iced widget/paragraph hit-test; lihat
+[rancangan alternatif](proposal-alternative-widget-probe.md). Dokumen itu adalah
+rancangan saja—belum ada kode atau bukti GUI baru, dan Stage 9b tidak dibuka
+kembali. Jalur panel draft serta seluruh gate lama tidak berubah.
 
 Tidak terbukti di sini: Unicode, RTL/IME, glyph kompleks, scroll, drag di luar
 satu baris, renderer selain tiny-skia, GPU/HiDPI, portal, Arch + Hyprland/Wayland,
