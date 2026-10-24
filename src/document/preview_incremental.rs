@@ -279,6 +279,13 @@ fn shift_block_after(
 mod tests {
     use super::*;
 
+    fn contains_task(blocks: &[Block]) -> bool {
+        blocks.iter().any(|block| {
+            matches!(&block.kind, Kind::Item(Some(task)) if task.source.is_some())
+                || contains_task(&block.children)
+        })
+    }
+
     #[test]
     fn unicode_edit_reparses_only_an_isolated_plain_paragraph_and_matches_full_parse() {
         let previous_source = concat!(
@@ -311,9 +318,7 @@ mod tests {
         assert!(incremental
             .iter()
             .any(|block| matches!(&block.kind, Kind::Table(_))));
-        assert!(incremental.iter().any(|block| {
-            matches!(&block.kind, Kind::Item(Some(task)) if task.source.is_some())
-        }));
+        assert!(contains_task(&incremental));
         assert!(incremental
             .iter()
             .any(|block| matches!(&block.kind, Kind::Code { .. })));
