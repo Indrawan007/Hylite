@@ -2833,8 +2833,9 @@ INLINE_SPIKE_SCOPE = ("Opt-in Stage 9a Iced text_editor spike: ASCII caret movem
 INLINE_PROBE_DOCUMENT = b"ab**CDEFGH**ijk\n"
 INLINE_PROBE_VISIBLE = "abCDEFGHijk"
 INLINE_PROBE_SCOPE = ("Opt-in read-only Stage 9b feasibility probe on one unique-character ASCII "
-                      "bold-run fixture: two repeatable coarse-to-dense client-x click sweeps record "
-                      "native Iced caret columns, "
+                      "bold-run fixture: coarse client-x sampling plus a bounded dense pass over the "
+                      "editor's leading 256-pixel band, with repeated reverse clicks recording native "
+                      "Iced caret columns, "
                       "then forward and backward mouse drags (each repeated once) inspect the "
                       "diagnostic selection range, anchor and focus direction; Source bytes/history "
                       "must stay unchanged "
@@ -3155,12 +3156,12 @@ def exercise_inline_probe(desktop, artifacts, document):
                 deadline = time.monotonic() + 0.045
                 latest = None
                 while time.monotonic() < deadline:
+                    time.sleep(0.008)
                     latest, _ = read_inline_probe_state(desktop)
                     if latest is not None and latest["event"] > event:
                         trace.append((x, latest["caret"]))
                         event = latest["event"]
                         break
-                    time.sleep(0.002)
                 if latest is None:
                     continue
             return trace
@@ -3190,6 +3191,18 @@ def exercise_inline_probe(desktop, artifacts, document):
         refinement_xs.difference_update(x for x, _ in coarse_trace)
         if refinement_xs:
             forward_trace.extend(sweep(sorted(refinement_xs)))
+        expected_carets = set(range(len(INLINE_PROBE_VISIBLE) + 1))
+        observed_carets = {caret for _, caret in forward_trace}
+        dense_active_band = None
+        if observed_carets != expected_carets and forward_trace:
+            active_xs = [x for x, _ in forward_trace]
+            dense_left = min(active_xs)
+            dense_right = min(max(active_xs), dense_left + 255)
+            dense_active_band = [dense_left, dense_right]
+            dense_xs = set(range(dense_left, dense_right + 1))
+            dense_xs.difference_update(x for x, _ in forward_trace)
+            if dense_xs:
+                forward_trace.extend(sweep(sorted(dense_xs)))
         caret_zero_xs = [x for x, caret in forward_trace if caret == 0]
         caret_end_xs = [
             x for x, caret in forward_trace if caret == len(INLINE_PROBE_VISIBLE)
@@ -3294,6 +3307,7 @@ def exercise_inline_probe(desktop, artifacts, document):
         "visible_ascii": INLINE_PROBE_VISIBLE,
         "focus_y": focus_y,
         "client_width": width,
+        "dense_active_band": dense_active_band,
         "drag_xs": drag_xs,
         "selection_directions_repeatable": (
             forward_selection == forward_repeat_selection == INLINE_PROBE_FORWARD
@@ -3315,6 +3329,7 @@ def exercise_inline_probe(desktop, artifacts, document):
         f"offsets forward={result['forward_reached_offsets']} "
         f"reverse={result['reverse_reached_offsets']}; "
         f"repeatable x samples={result['repeatable_x_samples']}; "
+        f"dense active band={dense_active_band!r}; "
         f"selections forward={forward_selection!r}/{forward_repeat_selection!r} "
         f"backward={backward_selection!r}/{backward_repeat_selection!r}",
         flush=True,
