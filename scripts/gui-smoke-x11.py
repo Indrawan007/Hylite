@@ -3565,7 +3565,7 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
     desktop.title_is_dirty(False)
     desktop.title_ends_with(
         "inline-alt-probe.md [InlineAlt event=0 phase=idle hit=none anchor=none "
-        "focus=none direction=none] — Hylite\\n"
+        "focus=none direction=none] — Hylite\n"
     )
     desktop.screenshot(artifacts / "inline-alt-probe-before.png")
 
