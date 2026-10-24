@@ -70,10 +70,7 @@ impl Hylite {
         Task::none()
     }
 
-    pub(super) fn inline_alt_probe_pointer(
-        &mut self,
-        event: InlineAltProbeEvent,
-    ) -> Task<Message> {
+    pub(super) fn inline_alt_probe_pointer(&mut self, event: InlineAltProbeEvent) -> Task<Message> {
         let snapshot = self.document.snapshot();
         let Some(probe) = self.inline_alt_probe.as_mut() else {
             return Task::none();

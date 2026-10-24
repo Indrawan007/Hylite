@@ -7337,7 +7337,10 @@ fn inline_alt_probe_reports_visible_pointer_hits_and_preserves_source_snapshot()
     enable_inline_alt_probe(&mut app, source);
     let before = app.document.snapshot();
     let _ = app.open_first_inline_alt_probe();
-    let probe = app.inline_alt_probe.as_ref().expect("eligible fixture opens");
+    let probe = app
+        .inline_alt_probe
+        .as_ref()
+        .expect("eligible fixture opens");
     assert_eq!(probe.visible(), "abCDEFGHijk");
     assert_eq!(probe.events, 0);
     assert!(app.title().contains("[InlineAlt event=0 phase=idle"));

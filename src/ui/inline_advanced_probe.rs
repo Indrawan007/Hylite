@@ -62,10 +62,12 @@ impl Probe {
             .collect();
         if runs.is_empty()
             || runs[0].visible.start != 0
-            || runs.iter().any(|run| {
-                run.visible.start >= run.visible.end || run.visible.end > visible.len()
-            })
-            || runs.windows(2).any(|pair| pair[0].visible.end != pair[1].visible.start)
+            || runs
+                .iter()
+                .any(|run| run.visible.start >= run.visible.end || run.visible.end > visible.len())
+            || runs
+                .windows(2)
+                .any(|pair| pair[0].visible.end != pair[1].visible.start)
             || next != visible.len()
         {
             return None;
