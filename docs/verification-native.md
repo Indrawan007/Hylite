@@ -1,6 +1,26 @@
-# Verifikasi build dan tes native — 23 Oktober 2026
+# Verifikasi build dan tes native — riwayat sampai Stage 9a
 
-## Stage 8e terbaru — math read-only subset
+**Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode `7b8f82f`.
+
+## Stage 9a terbaru — spike inline terbatas
+
+[CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185),
+`7b8f82f`, **success**, job `120706229866`, selesai 23 Oktober 2026 23:36:28 UTC.
+Lulus `cargo fmt`, strict Clippy `-D warnings`, build debug, **1041 Cargo**,
+**344 strict-core**, **90 Python**, dan **29 suite GUI / 512 pemeriksaan**
+(449 clipboard, 21 title, 29 exit native). Suite Stage 9a menyumbang 7 pemeriksaan;
+smoke X11 utama 116 pemeriksaan juga tetap lulus. Artefak `gui-x11-smoke`
+`12538559588`, 4.415.012 byte, tersedia sampai 2026-10-30T23:36:23Z.
+
+Bukti Stage 9a terbatas pada caret keyboard ASCII satu baris di X11 + Xvfb +
+tiny-skia: posisi 0→1 untuk membuktikan fokus, `Home`, lalu 7 `Right` mencapai
+caret 7. Ketikan `X` memberi Source `left **boXld** right\n`; satu Undo dan Redo
+memulihkan dua keadaan byte-exact. Klik harness hanya mencari fokus, bukan
+hit-testing glyph. Selection, Unicode/IME, RTL, Wayland/Hyprland dan WYSIWYG umum
+tetap tidak terbukti. Keputusan berikut hanya feasibility probe Stage 9b; lihat
+[catatan Stage 9a](testing-stage9a.md). Tidak ada dependency baru.
+
+## Stage 8e (riwayat saat milestone ditutup) — math read-only subset
 
 [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
 `97e586c`, **success**, job `120448270375`, 23 Oktober 2026
@@ -702,8 +722,8 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
   dan [Tahap 4](testing-stage4.md) pada salinan dokumen dan konfigurasi sementara.
   Jangan mencentang skenario desktop hanya karena suite Cargo lulus.
 
-Gate build/lint/tes native baseline terpenuhi. Stage 8e terbaru: **1026 Cargo / 335 strict core subset / 88 Python / 28 suite GUI 505 pemeriksaan** lulus [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627) (`97e586c`). **Tahap 4 belum dinyatakan selesai.**
+Gate build/lint/tes native terkini terpenuhi pada Stage 9a: **1041 Cargo / 344 strict core subset / 90 Python / 29 suite GUI, 512 pemeriksaan** lulus [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) (`7b8f82f`). Metrik 8e di bagian atas adalah snapshot historis saat milestone itu ditutup, bukan hasil terkini. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia/8e math read-only subset berlinearization Unicode dan fallback source bertanda tersedia; hasil dan batas terbaru ada di [catatan Stage 8e](testing-stage8e.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia/8e math read-only subset berlinearization Unicode dan fallback source bertanda tersedia; rekaman milestone ada di [catatan Stage 8e](testing-stage8e.md). Stage 9a spike inline terbatas, opt-in, ASCII satu baris; hasil dan batas ada di [catatan Stage 9a](testing-stage9a.md).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

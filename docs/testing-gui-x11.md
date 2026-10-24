@@ -1324,10 +1324,30 @@ memastikan dokumen tidak dirty dan client keluar normal.
 Preview inline/display/fallback; pembangunan Split; paste tidak mengubah Source;
 native exit. Runner memakai 3 screenshot dan tiga `Ctrl+Shift+M` untuk siklus mode.
 CI **39963797627** (`97e586c`, job `120448270375`) lulus pada 23 Oktober 2026
-13:45:06–13:57:38 UTC. Total terkini: **1026 Cargo**, **28 suite / 505
-pemeriksaan GUI** (446 clipboard, 18 title, 28 exit native). Artifact
-`12507250289`, 4.172.220 byte, expires 2026-10-30T13:57:35Z.
+13:45:06–13:57:38 UTC. Snapshot saat penutupan Stage 8e: **1026 Cargo**,
+**28 suite / 505 pemeriksaan GUI** (446 clipboard, 18 title, 28 exit native).
+Artifact `12507250289`, 4.172.220 byte, expires 2026-10-30T13:57:35Z.
 
 Batas: screenshot hanya evidence; tidak ada oracle piksel, pembaca equation,
 KaTeX/MathJax parity, pembuktian glyph/spacing, 2D typesetting atau Wayland /
 Hyprland. Lihat [kontrak Stage 8e](testing-stage8e.md).
+
+## Stage 9a: suite ke-29 `inline-spike` (keyboard caret terbatas)
+
+Suite ini boot hanya dengan flag opt-in `--inline-edit-spike` dan fixture satu
+paragraf ASCII. Harness mencari titik klik yang memberi fokus dengan memeriksa
+perubahan judul `[Stage 9a caret N]` saat `Home` + `Right`; klik tidak dipakai
+sebagai oracle hit-testing glyph. `Home` mereset caret, tujuh `Right` harus
+menunjukkan offset 7 di dalam run strong, lalu `X` harus menghasilkan Source
+`left **boXld** right\n`. Sesudah `Esc`, Source dibaca lewat clipboard; Undo dan
+Redo harus memulihkan fixture/hasil byte-exact.
+
+**7 pemeriksaan** Stage 9a. Lulus [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185),
+`7b8f82f`, job `120706229866`, pada 23 Oktober 2026. Snapshot keseluruhan:
+**1041 Cargo**, **29 suite / 512 pemeriksaan GUI** (449 clipboard, 21 title,
+29 exit native); artifact `12538559588`, 4.415.012 byte, expires
+2026-10-30T23:36:23Z. Main X11 regression smoke 116 pemeriksaan tetap lulus.
+
+Batas: bukti hanya gerak caret keyboard ASCII di satu baris pada X11 + Xvfb +
+tiny-skia. Tidak membuktikan click hit-testing per glyph, selection, Unicode/IME,
+RTL, renderer lain, Hyprland/Wayland, atau WYSIWYG umum. Lihat [kontrak Stage 9a](testing-stage9a.md); langkah berikut hanya probe kelayakan 9b.

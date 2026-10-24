@@ -1,12 +1,15 @@
 # Stage 9a — spike inline terbatas
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite`
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Kode:** `7b8f82f` · [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) hijau
 
 Stage ini menguji satu prasyarat teknis sebelum keputusan terpisah tentang 9b:
-apakah native Iced `text_editor` bisa mempertahankan caret berbasis karakter saat
-bergerak melewati teks yang ditampilkan tebal, dan apakah satu ketikan di dalam
-teks itu dapat menghasilkan splice Source yang tepat. Ini **spike opt-in**, bukan
-pengganti panel draft dan bukan dukungan WYSIWYG umum.
+apakah native Iced `text_editor` bisa mempertahankan caret byte/karakter pada
+teks yang terlihat tebal, dan apakah satu ketikan di dalam teks itu dapat
+menghasilkan splice Source yang tepat. Buktinya **positif untuk gerak keyboard
+ASCII satu-baris yang diuji**: caret native berakhir di byte tampak 7, lalu satu
+`X` menghasilkan Source delta yang tepat; Undo/Redo memulihkan kedua versi.
+Ini **spike opt-in**, bukan pengganti panel draft dan bukan dukungan WYSIWYG umum.
+Bukti ini tidak mencakup hit-testing klik per glyph atau mapping selection.
 
 ## Kontrak spike
 
@@ -20,7 +23,8 @@ pengganti panel draft dan bukan dukungan WYSIWYG umum.
   teks Unicode/control, dan baris struktural lain ditolak.
 - Editor native menampilkan teks yang terlihat saja. Range format highlight
   memakai byte range ASCII pada teks tampak; delimiter Source tidak ikut masuk
-  ke widget.
+  ke widget. Selama spike aktif, judul jendela menampilkan `[Stage 9a caret N]`
+  sebagai diagnostik posisi byte tampak (bukan koordinat glyph atau oracle piksel).
 - Hanya gerakan caret dan satu karakter ASCII aman untuk insert/delete. Paste,
   seleksi, drag, baris baru, delimiters Markdown, atau aksi yang tak terverifikasi
   ditolak. Seleksi yang muncul atau caret tanpa posisi byte membatalkan aksi;
@@ -45,10 +49,14 @@ Untuk mengulang gate GUI X11/tiny-skia (tidak memerlukan dialog file):
   --artifacts /tmp/hylite-stage9a
 ```
 
-Suite memulai lewat flag opt-in, memfokuskan editor, menekan `Home`, bergerak
-kanan tujuh langkah melewati karakter-karakter tampak, lalu mengetik `X`.
-Setelah `Esc`, suite berpindah ke Split dan membaca Source widget melalui
-clipboard. Fixture byte-exact dan oracle-nya:
+Suite memulai lewat flag opt-in dan memastikan judul menunjukkan caret byte 0.
+Untuk fokus keyboard, harness mencoba titik klik aman pada `x=600`, `y=120..400`
+(step 8); setelah setiap klik ia menekan `Home` lalu `Right` dan hanya menerima
+fokus ketika judul native berubah ke caret byte 1. `Home` berikutnya mereset
+posisi klik; klik ini **tidak** dipakai untuk menguji hit-testing glyph. Setelah
+itu tujuh `Right` harus membuat judul menunjukkan caret byte 7, lalu suite
+mengetik `X`. Setelah `Esc`, suite berpindah ke Split dan membaca Source widget
+melalui clipboard. Fixture byte-exact dan oracle-nya:
 
 ```text
 sebelum: left **bold** right\n
@@ -69,24 +77,34 @@ Tes otomatis yang menjadi pagar sebelum suite GUI:
   ambigu.
 - `src/ui/inline_spike.rs` memeriksa posisi caret byte `text_editor::Content`
   sepanjang run strong dan memastikan highlighter hanya menandai range teks
-  tampak.
+  tampak. Tes ini menguji `Content`/aksi native; bukan renderer atau hit-testing.
 - `src/app/tests.rs` menjalankan aksi native ke controller dan memeriksa delta
-  persis `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo, serta
-  rollback Source/history ketika kandidat menghilangkan kelayakan paragraf root.
+  persis `left **bold** right\n` → `left **boXld** right\n`, marker caret pada
+  judul, Undo/Redo, serta rollback Source/history ketika kandidat menghilangkan
+  kelayakan paragraf root.
 - `scripts/test_gui_smoke.py` mengunci fixture, urutan keyboard, oracle Source,
   dispatch suite eksklusif, dan syarat dokumen untuk harness GUI.
 
 ## Cara membaca bukti dan batas klaim
 
-Bukti GUI yang lulus hanya mencakup **keyboard caret motion ASCII pada satu
-baris dan satu posisi di dalam strong run pada X11 + Xvfb + tiny-skia**. Itu
-menunjukkan bahwa satu karakter yang diketik di sana masuk ke byte Source yang
-diharapkan. Ini belum membuktikan hit-testing klik per glyph, kestabilan pada
-font/ukuran/zoom lain, seluruh posisi caret, seleksi dua arah, IME, Unicode,
-RTL, ZWJ, paste, drag, scroll, GPU/HiDPI, portal, atau Hyprland/Wayland. Tes
-`Content` saja bukan pengganti bukti renderer native; hasil GUI tetap bersifat
-sempit dan tidak membenarkan klaim WYSIWYG.
+Bukti GUI yang lulus mencakup **keyboard caret motion ASCII pada satu baris** di
+X11 + Xvfb + tiny-skia: judul mencatat caret byte 0 → 1 (fokus) → 0 (Home) → 7,
+dan satu `X` pada posisi itu mengubah Source ke `left **boXld** right\n`.
+Undo dan Redo mengembalikan fixture/hasil secara byte-exact. Suite inline-spike
+lulus 7 pemeriksaan; seluruh CI lulus 1041 tes Cargo, 344 tes strict core, 90
+tes Python, serta 29 suite GUI / 512 pemeriksaan. Artefak `12538559588`
+(4.415.012 bytes) tersedia sampai 2026-10-30T23:36:23Z.
 
-Stage 9b **belum dimulai**. Keputusan tentang mapping glyph/selection dua arah
-harus memakai hasil gate ini dan tetap mempertimbangkan keterbatasan di atas;
-spike ini tidak menambah dependency dan tidak mengubah gate lama.
+Ini **belum** membuktikan hit-testing klik per glyph—klik harness hanya mencari
+fokus, lalu `Home` menghapus pengaruh posisi klik—atau kestabilan pada font,
+ukuran/zoom lain, seluruh titik caret yang dirender, seleksi dua arah, IME,
+Unicode, RTL, ZWJ, paste, drag, scroll, GPU/HiDPI, portal, maupun
+Hyprland/Wayland. Tes `Content` bukan pengganti bukti renderer native; hasil ini
+tidak membenarkan klaim WYSIWYG.
+
+**Keputusan setelah Stage 9a:** lanjut hanya ke **feasibility probe Stage 9b**
+untuk hit-testing/caret glyph dan anchor/arah selection, bukan implementasi
+WYSIWYG umum. Bukti positif saat ini terbatas pada byte-column melalui keyboard;
+probe berikutnya harus punya oracle GUI terpisah dan berhenti bila pemetaan tidak
+stabil. Stage 9b sendiri belum dimulai. Stage 9a tidak menambah dependency dan
+tidak mengubah gate lama.

@@ -1,13 +1,14 @@
-# Roadmap Hylite — dari Stage 8e sampai rilis 1.0
+# Roadmap Hylite — dari Stage 9a sampai rilis 1.0
 
-**Tanggal:** 23 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis:** `97e586c`
-(**1026 Cargo / 335 strict core / 88 Python / 28 suite GUI 505 pemeriksaan**, CI
-[39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627) hijau)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode:** `7b8f82f`
+(**1041 Cargo / 344 strict core / 90 Python / 29 suite GUI / 512 pemeriksaan**, CI
+[40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) hijau)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
-> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–8e, 40 stage) tidak
+> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–9a, 41 stage) tidak
 > diulang di sini; rinciannya ada di [`progress-report.md`](progress-report.md).
-> Stage 8e juga sudah lulus CI (1026 Cargo / 28 suite / 505 pemeriksaan).
+> Stage 9a lulus hanya sebagai spike keyboard ASCII/X11 yang sempit; tidak ada
+> bukti hit-testing per glyph atau dukungan WYSIWYG umum.
 
 ---
 
@@ -51,11 +52,11 @@ Target Fase A: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF"
 | **8d** ✅ | **Ekspor PDF**: dokumen → PDF dengan tema aktif, tabel dan code block ter-render | MarkText punya PDF; ini gap ekspor terbesar | **selesai** — [catatan](testing-stage8d.md) | sedang — ditulis sendiri (PDF 1.4, base-14, WinAnsi), tanpa browser dan tanpa crate |
 | **8e** ✅ | **Math read-only (subset)**: `$…$` inline dan `$$…$$` display; parser std-only untuk `frac`, `sqrt`, sup/sub, delimiter, Greek/operator yang dideklarasikan; hasil dilinearkan ke Unicode, sintaks unsupported/malformed/batas 2048 byte atau 32 group menjadi source delimited ber-marker | Menutup gap yang terlihat tanpa berpura-pura jadi KaTeX penuh | **selesai** — [catatan](testing-stage8e.md) | tinggi — tidak ada KaTeX/MathJax, layout 2D, mapping glyph, atau oracle piksel |
 
-**Gate Fase A terpenuhi:** 5 suite GUI baru (tab, file tree, gambar, PDF, math), semua
-27 suite sebelumnya hijau, dan tidak ada oracle byte/koordinat yang dikendurkan.
-Bukti terakhir: [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
-28 suite / 505 pemeriksaan GUI; suite math memberi 7 pemeriksaan. Screenshot bukan
-oracle piksel.
+**Gate Fase A terpenuhi saat Stage 8e ditutup:** 5 suite GUI baru (tab, file tree,
+gambar, PDF, math), semua 27 suite sebelumnya hijau, dan tidak ada oracle
+byte/koordinat yang dikendurkan. Snapshot penutupan Fase A: [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
+28 suite / 505 pemeriksaan GUI; suite math memberi 7 pemeriksaan. Ini metrik historis
+pada CI 8e, bukan verifikasi terkini setelah Stage 9a. Screenshot bukan oracle piksel.
 
 ### Fase B — WYSIWYG inline (Stage 9a–9d) — gunung esnya
 
@@ -64,21 +65,33 @@ fondasi → perluasan**, bukan big bang.
 
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
-| **9a** | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". Bukti: caret bergerak benar, mengetik di dalam teks tebal menghasilkan delta Source yang tepat. **Belum** menggantikan panel draft mana pun | besar | tinggi |
-| **9b** | **Mapping glyph/selection dua arah** yang benar: caret ↔ byte, seleksi arah/anchor, IME-safe offset, tab/emoji/ZWJ. Diuji dengan properti deterministik (round-trip caret untuk ribuan posisi acak) | besar | tinggi |
-| **9c** | **Marker hiding**: `**`, `_`, `` ` ``, `#` disembunyikan saat caret di luar span, muncul saat caret masuk; satu Source tetap sumber kebenaran; undo tetap satu edge per edit efektif | sedang–besar | sedang |
-| **9d** | **Perluas ke blok lain + pensiun bertahap panel draft**: heading, list, quote, dan sel tabel langsung editable di Preview. Panel draft 6h/7a/7b tetap ada sebagai **jalur "raw mode"** yang eksplisit, bukan jalur utama | besar | tinggi |
+| **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; klik per glyph/selection belum diuji |
+| **9b** | **Probe kelayakan terbatas saja**: pada satu fixture ASCII, ukur hit-testing caret per glyph dan selection anchor/arah pada widget native; tanpa mengedit Source atau mengimplementasikan mapping/WYSIWYG. Catat oracle GUI minimal dan hasil go/no-go; Unicode/IME di luar probe ini | kecil–sedang | tinggi; belum dimulai |
+| **9c** | **(Bersyarat, belum disetujui)** Marker hiding: `**`, `_`, `` ` ``, `#` disembunyikan saat caret di luar span, muncul saat caret masuk; satu Source tetap sumber kebenaran; undo tetap satu edge per edit efektif. Hanya dipertimbangkan setelah hasil 9b dan keputusan scope terpisah | sedang–besar | sedang |
+| **9d** | **(Bersyarat, belum disetujui)** Perluas ke blok lain + pensiun bertahap panel draft: heading, list, quote, dan sel tabel langsung editable di Preview. Panel draft 6h/7a/7b tetap ada sebagai **jalur "raw mode"** yang eksplisit, bukan jalur utama. Tidak dimulai tanpa gate eksplisit | besar | tinggi |
 
-**Gate Fase B:** properti round-trip caret (≥10k posisi acak, 0 mismatch),
-suite GUI untuk edit inline per konstruksi, dan **tidak ada satu pun oracle lama
-yang dilonggarkan** — bila perilaku lama berubah, itu diumumkan sebagai perubahan
-kontrak, bukan patch diam-diam.
+**Hasil gate 9a / keputusan:** CI 40039268185 lulus 1041 Cargo / 344 strict
+core / 90 Python / 29 suite GUI / 512 pemeriksaan. Tes `Content` mencakup
+perjalanan caret byte ASCII melintasi teks strong; smoke X11 mengonfirmasi
+caret keyboard di byte 7 dan splice Source/Undo/Redo yang byte-exact. Ini cukup
+untuk **melanjutkan hanya ke feasibility probe 9b**. Klik probe 9a dipakai untuk
+fokus saja dan diikuti `Home`; hit-testing per glyph, selection, IME, UTF-8,
+RTL, dan Hyprland/Wayland tetap belum terbukti. Stage 9b bukan izin untuk
+mengaktifkan WYSIWYG umum.
 
-**Aturan berhenti:** kalau 9a gagal secara fundamental (mis. `text_editor` Iced tidak
-bisa memberi posisi caret per-glyph yang stabil), saya **tidak** akan memaksakan
-lapisan hack. Opsi mundurnya: (a) editor inline kustom berbasis `canvas`/`advanced`
-Iced, atau (b) tetap di model draft-panel dan mengumumkan bahwa Hylite bukan
-WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
+**Gate probe 9b:** hasil GUI harus menunjukkan posisi caret per glyph dan anchor/arah
+selection yang dapat dibedakan secara repeatable pada fixture ASCII yang dibatasi;
+jika tidak, probe berhenti dengan no-go. Probe tidak menulis ke Source dan tidak
+membuka gate implementasi. Properti round-trip caret (≥10k posisi acak, 0 mismatch),
+suite GUI edit inline per konstruksi, dan **tidak ada satu pun oracle lama yang
+dilonggarkan** tetap menjadi gate implementasi lanjutan, hanya jika ada keputusan
+terpisah untuk melanjutkan setelah 9b.
+
+**Aturan berhenti:** bila feasibility probe 9b menunjukkan caret/hit-testing atau
+selection tidak stabil, jangan tambahkan lapisan hack. Opsi mundurnya: (a) editor
+inline kustom berbasis `canvas`/`advanced` Iced, atau (b) tetap di model draft-panel
+dan mengumumkan bahwa Hylite bukan WYSIWYG. Keputusan itu harus memakai bukti
+probe; hasil 9a sendiri hanya mendukung gerak caret keyboard ASCII yang diuji.
 
 ### Fase C — Skala dan performa (Stage 10a–10c)
 
@@ -110,7 +123,7 @@ WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
   │
   ├──► 8c gambar ──► 8d PDF ──► 8e math
   │
-  └──► 9a spike ──► 9b mapping ──► 9c marker hiding ──► 9d perluasan
+  └──► 9a spike ──► 9b feasibility probe ──► [keputusan terpisah] ──► 9c marker hiding ──► 9d perluasan
                                                         │
                                        10a incremental ◄┘ (baru bermakna setelah 9d)
                                        10b benchmark (boleh paralel kapan saja)
@@ -130,22 +143,25 @@ WYSIWYG — keputusan itu saya serahkan ke kamu dengan data dari spike.
 | Fase | Stage | Estimasi usaha | Sisa roadmap (bobot) |
 |---|---|---|---|
 | A — Permukaan dokumen | 8a–8e | ~25 % | 0 % (selesai) |
-| B — WYSIWYG inline | 9a–9d | ~45 % | 60 % |
+| B — WYSIWYG inline | 9a–9d | ~45 % | ≈58 % |
 | C — Skala & performa | 10a–10c | ~20 % | 15 % |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Fase A kini selesai. Proyeksi lama **55–60 % kesiapan rilis** ternyata terlalu optimistis:
-snapshot setelah implementasi menilai kesiapan rilis **≈44 %**, karena Xvfb belum
-membuktikan Arch + Hyprland, math belum punya oracle visual, packaging belum ada,
-dan inti WYSIWYG tetap berada di Fase B. Progress roadmap (≈91 %) dan kesiapan rilis
-(≈44 %) adalah dua angka berbeda; lihat snapshot [`progress-report.md`](progress-report.md).
+Fase A dan spike opt-in 9a kini selesai. Estimasi roadmap naik **≈91 % → ≈92 %**
+karena satu stage kecil yang baru dinyatakan selesai; angka itu **bukan** pengukuran
+cakupan fitur. Kesiapan rilis tetap **≈44 %**: spike 9a hanya bukti keyboard ASCII
+pada Xvfb + tiny-skia, bukan fitur WYSIWYG produksi. Arch + Hyprland belum diuji,
+math belum punya oracle visual, packaging belum ada, dan mapping glyph/selection
+masih belum dibangun. Progress roadmap dan kesiapan rilis adalah dua angka berbeda;
+lihat snapshot [`progress-report.md`](progress-report.md).
 
 ---
 
 ## 5. Keputusan yang sudah ditetapkan
 
-- Urutan **Fase A → B** dipertahankan; setelah 8e, kandidat berikut sesuai graf adalah
-  Stage 9a (spike inline terbatas), bukan ekspansi math di luar kontrak.
+- Urutan **Fase A → B** dipertahankan. Stage 9a selesai dengan bukti keyboard ASCII
+  yang sempit; kandidat berikut adalah feasibility probe Stage 9b untuk hit-testing
+  caret dan selection, bukan implementasi WYSIWYG umum.
 - Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
   Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
 - Crate baru boleh minimal; implementasi 8e tidak menambah dependency.
