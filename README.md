@@ -2,7 +2,7 @@
 
 Editor Markdown native berbasis **Rust + Iced** untuk **Arch Linux + Hyprland**, dengan pengalaman MarkText sebagai acuan. Hylite tidak menggunakan Electron atau WebView.
 
-> **Status: prototipe awal (0.1.0), belum siap untuk dokumen penting.** WYSIWYG umum ala MarkText belum tersedia; Stage 6a–8e mencakup checkbox task, level heading ATX/Setext, operasi tabel terbatas, panel draft raw Markdown, dan math read-only subset. Stage 9a menambahkan spike inline **opt-in** (`hylite --inline-edit-spike <file-yang-ada>`): bukti GUI hanya mencakup caret keyboard ASCII di satu paragraf pada X11, bukan hit-testing per glyph atau selection, dan tidak mengganti panel draft. Lihat [batas dan bukti Stage 9a](docs/testing-stage9a.md). Simpan salinan cadangan sebelum mencoba aplikasi.
+> **Status: prototipe awal (0.1.0), belum siap untuk dokumen penting.** WYSIWYG umum ala MarkText belum tersedia; Stage 6a–8e mencakup checkbox task, level heading ATX/Setext, operasi tabel terbatas, panel draft raw Markdown, dan math read-only subset. Stage 9a hanya membuktikan caret keyboard ASCII pada satu paragraf; probe Stage 9b yang opt-in/read-only berakhir **NO-GO** pada X11 + Xvfb + tiny-skia: 325 koordinat client-x yang muncul pada kedua sweep hanya melaporkan caret 0, sehingga drag selection tidak dijalankan. Source tetap tidak berubah. Tidak ada production mapping atau dukungan selection/WYSIWYG; panel draft tetap menjadi jalur edit. Lihat [bukti Stage 9b](docs/testing-stage9b.md) dan [batas Stage 9a](docs/testing-stage9a.md). Simpan salinan cadangan sebelum mencoba aplikasi.
 
 ## Fitur yang sudah diimplementasikan
 
@@ -111,12 +111,12 @@ Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan tersebut pada Linux 
 
 `Cargo.lock` disimpan ke Git agar versi dependensi konsisten. Gunakan `--locked` untuk build/lint/test biasa. Pembaruan dependensi dilakukan secara eksplisit melalui `cargo update`, ditinjau, lalu diuji ulang.
 
-### Status verifikasi — 24 Oktober 2026 (Stage 9a)
+### Status verifikasi — 24 Oktober 2026 (Stage 9b)
 
-- CI [40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185), commit `7b8f82f`, lulus format, strict Clippy `-D warnings`, build debug, **1041 tes Cargo**, **344 tes strict-core** (subset Cargo), **90 tes Python**, dan **29 suite GUI / 512 pemeriksaan** (449 clipboard, 21 title, 29 exit native).
-- Suite Stage 9a menambah **7 pemeriksaan**; smoke X11 utama tetap lulus **116 pemeriksaan**, dan gate lama tidak dilonggarkan. Artefak GUI `12538559588` tersedia sampai 2026-10-30T23:36:23Z. Rincian per-suite ada di [riwayat GUI X11](docs/testing-gui-x11.md).
-- Bukti spike: harness memverifikasi fokus melalui caret marker 0→1, mereset dengan `Home`, lalu tujuh `Right` mencapai caret byte 7 dalam run strong. Satu ketikan `X` mengubah Source dari `left **bold** right\n` menjadi `left **boXld** right\n`; Undo/Redo memulihkan kedua keadaan byte-exact.
-- Ini hanya bukti gerak caret **keyboard ASCII pada satu baris** di X11 + Xvfb + tiny-skia. Klik harness mencari fokus saja, bukan hit-testing per glyph. Selection, Unicode/IME, RTL, Wayland/Hyprland, GPU/HiDPI, dan WYSIWYG umum belum terbukti; spike opt-in tidak menggantikan panel draft. Batas, oracle, dan langkah berikut hanya probe kelayakan Stage 9b ada di [catatan Stage 9a](docs/testing-stage9a.md).
+- CI [40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359), commit kode `0599141`, lulus format, strict-core, strict Clippy `-D warnings`, build, unit tests, dan seluruh workflow. Python helper: **93 tes**; GUI: **30 suite / 519 pemeriksaan**.
+- Stage 9b menambah **7 pemeriksaan keselamatan/harness**. Hasil feasibility adalah **NO-GO**: 325 koordinat x yang berulang pada sweep maju/balik hanya memberi caret 0; dense band `x=256..511` juga tidak mencapai offset 1–11. Karena offset 3 dan 7 tidak ditemukan, drag tidak dijalankan; anchor/arah selection tetap tidak teramati. Source, dirty state dan file fixture tidak berubah; jendela tutup natural.
+- Stage 9a sebelumnya membuktikan caret keyboard ASCII 0→7 dan splice Source/Undo/Redo byte-exact pada satu run strong; Stage 9b tidak memperluas bukti tersebut. Rincian dua hasil ada di [catatan Stage 9a](docs/testing-stage9a.md) dan [Stage 9b](docs/testing-stage9b.md).
+- Verdict NO-GO Stage 9b berlaku hanya untuk fixture ASCII dan X11 + Xvfb + tiny-skia. Itu bukan bukti bahwa semua versi Iced/backend mustahil, dan juga bukan bukti selection gagal secara terpisah: drag tidak dijalankan. Unicode/IME, RTL, Wayland/Hyprland, GPU/HiDPI, dan WYSIWYG umum tetap belum terbukti; panel draft tidak diganti.
 - Validasi desktop Arch + Hyprland, portal/file dialog nyata, IME/RTL/HiDPI, sinkronisasi scroll, packaging/AUR, incremental parsing, dan klaim performa tetap belum selesai. Lihat [roadmap](docs/roadmap.md) serta [laporan progress](docs/progress-report.md); lulus CI X11/unit test tidak menggantikan checklist desktop.
 
 ## Konfigurasi

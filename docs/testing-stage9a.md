@@ -102,9 +102,10 @@ Unicode, RTL, ZWJ, paste, drag, scroll, GPU/HiDPI, portal, maupun
 Hyprland/Wayland. Tes `Content` bukan pengganti bukti renderer native; hasil ini
 tidak membenarkan klaim WYSIWYG.
 
-**Keputusan setelah Stage 9a:** lanjut hanya ke **feasibility probe Stage 9b**
-untuk hit-testing/caret glyph dan anchor/arah selection, bukan implementasi
-WYSIWYG umum. Bukti positif saat ini terbatas pada byte-column melalui keyboard;
-probe berikutnya harus punya oracle GUI terpisah dan berhenti bila pemetaan tidak
-stabil. Stage 9b sendiri belum dimulai. Stage 9a tidak menambah dependency dan
-tidak mengubah gate lama.
+**Pembaruan setelah Stage 9a:** feasibility probe Stage 9b kini selesai dengan
+verdict **NO-GO**: sweep mouse pada fixture ASCII hanya melaporkan caret 0,
+dan selection anchor/arah tidak dapat diuji karena endpoint drag tidak
+teridentifikasi. Rincian GUI, metrik, dan batas klaim ada di
+[catatan Stage 9b](testing-stage9b.md). Hasil Stage 9a tetap hanya bukti caret
+keyboard; tidak mengizinkan implementasi mapping/WYSIWYG. Stage 9a tidak
+menambah dependency dan gate lama tidak berubah.

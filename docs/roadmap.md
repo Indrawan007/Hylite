@@ -1,14 +1,14 @@
-# Roadmap Hylite — dari Stage 9a sampai rilis 1.0
+# Roadmap Hylite — dari Stage 9b sampai rilis 1.0
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode:** `7b8f82f`
-(**1041 Cargo / 344 strict core / 90 Python / 29 suite GUI / 512 pemeriksaan**, CI
-[40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) hijau)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `0599141`
+(CI [40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359) hijau;
+93 tes Python / 30 suite GUI / 519 pemeriksaan. Verdict feasibility 9b: **NO-GO**.)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
-> **estimasi**, bukan pengukuran. Stage yang sudah selesai (5a–9a, 41 stage) tidak
-> diulang di sini; rinciannya ada di [`progress-report.md`](progress-report.md).
-> Stage 9a lulus hanya sebagai spike keyboard ASCII/X11 yang sempit; tidak ada
-> bukti hit-testing per glyph atau dukungan WYSIWYG umum.
+> **estimasi**, bukan pengukuran. Stage 9a membuktikan hanya caret keyboard
+> ASCII/X11; probe read-only 9b selesai dengan NO-GO karena sweep klik hanya
+> mengamati offset 0. Tidak ada bukti mapping per glyph, anchor/arah selection,
+> atau WYSIWYG umum.
 
 ---
 
@@ -56,7 +56,7 @@ Target Fase A: keluar dari "satu dokumen, satu jendela, tanpa gambar, tanpa PDF"
 gambar, PDF, math), semua 27 suite sebelumnya hijau, dan tidak ada oracle
 byte/koordinat yang dikendurkan. Snapshot penutupan Fase A: [CI 39963797627](https://github.com/Indrawan007/Hylite/actions/runs/39963797627),
 28 suite / 505 pemeriksaan GUI; suite math memberi 7 pemeriksaan. Ini metrik historis
-pada CI 8e, bukan verifikasi terkini setelah Stage 9a. Screenshot bukan oracle piksel.
+pada CI 8e, bukan verifikasi terkini setelah Stage 9b. Screenshot bukan oracle piksel.
 
 ### Fase B — WYSIWYG inline (Stage 9a–9d) — gunung esnya
 
@@ -65,33 +65,31 @@ fondasi → perluasan**, bukan big bang.
 
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
-| **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; klik per glyph/selection belum diuji |
-| **9b** | **Probe kelayakan terbatas saja**: pada satu fixture ASCII, ukur hit-testing caret per glyph dan selection anchor/arah pada widget native; tanpa mengedit Source atau mengimplementasikan mapping/WYSIWYG. Catat oracle GUI minimal dan hasil go/no-go; Unicode/IME di luar probe ini | kecil–sedang | tinggi; belum dimulai |
-| **9c** | **(Bersyarat, belum disetujui)** Marker hiding: `**`, `_`, `` ` ``, `#` disembunyikan saat caret di luar span, muncul saat caret masuk; satu Source tetap sumber kebenaran; undo tetap satu edge per edit efektif. Hanya dipertimbangkan setelah hasil 9b dan keputusan scope terpisah | sedang–besar | sedang |
-| **9d** | **(Bersyarat, belum disetujui)** Perluas ke blok lain + pensiun bertahap panel draft: heading, list, quote, dan sel tabel langsung editable di Preview. Panel draft 6h/7a/7b tetap ada sebagai **jalur "raw mode"** yang eksplisit, bukan jalur utama. Tidak dimulai tanpa gate eksplisit | besar | tinggi |
+| **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; hit-testing/selection tetap belum terbukti setelah probe 9b NO-GO |
+| **9b** ⚠️ NO-GO (probe selesai) | **Feasibility terbatas**: satu fixture ASCII, hit-testing caret dan selection pada widget native, tanpa Source edit atau implementasi mapping. Hasil: hanya caret 0 yang teramati; drag tidak dijalankan karena endpoint 3/7 tidak ditemukan — [bukti lengkap](testing-stage9b.md) | kecil–sedang | probe tertutup; hit-testing/selection belum layak dibuktikan |
+| **9c** | **HOLD — belum disetujui**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah verdict 9b NO-GO; perlu keputusan scope terpisah | sedang–besar | sedang |
+| **9d** | **HOLD — belum disetujui**. Perluasan editing langsung ke heading/list/quote/sel tabel dan pensiun panel draft tidak dimulai; perlu gate dan scope baru yang eksplisit | besar | tinggi |
 
-**Hasil gate 9a / keputusan:** CI 40039268185 lulus 1041 Cargo / 344 strict
-core / 90 Python / 29 suite GUI / 512 pemeriksaan. Tes `Content` mencakup
-perjalanan caret byte ASCII melintasi teks strong; smoke X11 mengonfirmasi
-caret keyboard di byte 7 dan splice Source/Undo/Redo yang byte-exact. Ini cukup
-untuk **melanjutkan hanya ke feasibility probe 9b**. Klik probe 9a dipakai untuk
-fokus saja dan diikuti `Home`; hit-testing per glyph, selection, IME, UTF-8,
-RTL, dan Hyprland/Wayland tetap belum terbukti. Stage 9b bukan izin untuk
-mengaktifkan WYSIWYG umum.
+**Hasil gate 9a:** CI 40039268185 lulus 1041 Cargo / 344 strict core / 90
+Python / 29 suite GUI / 512 pemeriksaan. Tes `Content` mencakup perjalanan caret
+byte ASCII melintasi teks strong; smoke X11 mengonfirmasi caret keyboard di byte
+7 dan splice Source/Undo/Redo yang byte-exact. Itu hanya mendukung kelanjutan ke
+probe 9b, bukan WYSIWYG umum.
 
-**Gate probe 9b:** hasil GUI harus menunjukkan posisi caret per glyph dan anchor/arah
-selection yang dapat dibedakan secara repeatable pada fixture ASCII yang dibatasi;
-jika tidak, probe berhenti dengan no-go. Probe tidak menulis ke Source dan tidak
-membuka gate implementasi. Properti round-trip caret (≥10k posisi acak, 0 mismatch),
-suite GUI edit inline per konstruksi, dan **tidak ada satu pun oracle lama yang
-dilonggarkan** tetap menjadi gate implementasi lanjutan, hanya jika ada keputusan
-terpisah untuk melanjutkan setelah 9b.
+**Hasil gate 9b — probe ditutup NO-GO:** CI [40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359)
+lulus seluruh langkah workflow (93 Python / 30 suite GUI / 519 pemeriksaan),
+tetapi feasibility runner hanya menemukan caret `[0]` pada 325 posisi x yang
+berulang maju/balik; dense band `x=256..511` juga tidak mencapai offset 1–11.
+Karena titik 3 dan 7 tidak ditemukan, drag tidak dijalankan dan anchor/arah
+selection tidak teramati. Source, dirty state, file fixture dan history tidak
+berubah. Lihat [catatan hasil 9b](testing-stage9b.md).
 
-**Aturan berhenti:** bila feasibility probe 9b menunjukkan caret/hit-testing atau
-selection tidak stabil, jangan tambahkan lapisan hack. Opsi mundurnya: (a) editor
-inline kustom berbasis `canvas`/`advanced` Iced, atau (b) tetap di model draft-panel
-dan mengumumkan bahwa Hylite bukan WYSIWYG. Keputusan itu harus memakai bukti
-probe; hasil 9a sendiri hanya mendukung gerak caret keyboard ASCII yang diuji.
+**Aturan berhenti:** verdict NO-GO menutup probe; jangan tambahkan mapping/hack,
+jangan mengubahnya menjadi editing production, dan jangan mulai 9c/9d. Opsi
+jangka panjang—tetap pada panel draft atau menyusun studi terpisah dengan
+renderer/input lain—memerlukan keputusan scope eksplisit. Tidak ada klaim bahwa
+semua Iced/backend mustahil; bukti hanya berlaku pada fixture dan konfigurasi
+X11 + Xvfb + tiny-skia ini. Gate lama tidak diubah.
 
 ### Fase C — Skala dan performa (Stage 10a–10c)
 
@@ -123,7 +121,7 @@ probe; hasil 9a sendiri hanya mendukung gerak caret keyboard ASCII yang diuji.
   │
   ├──► 8c gambar ──► 8d PDF ──► 8e math
   │
-  └──► 9a spike ──► 9b feasibility probe ──► [keputusan terpisah] ──► 9c marker hiding ──► 9d perluasan
+  └──► 9a spike ──► 9b feasibility probe (NO-GO) ──► [keputusan scope terpisah; 9c/9d HOLD]
                                                         │
                                        10a incremental ◄┘ (baru bermakna setelah 9d)
                                        10b benchmark (boleh paralel kapan saja)
@@ -147,21 +145,21 @@ probe; hasil 9a sendiri hanya mendukung gerak caret keyboard ASCII yang diuji.
 | C — Skala & performa | 10a–10c | ~20 % | 15 % |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Fase A dan spike opt-in 9a kini selesai. Estimasi roadmap naik **≈91 % → ≈92 %**
-karena satu stage kecil yang baru dinyatakan selesai; angka itu **bukan** pengukuran
-cakupan fitur. Kesiapan rilis tetap **≈44 %**: spike 9a hanya bukti keyboard ASCII
-pada Xvfb + tiny-skia, bukan fitur WYSIWYG produksi. Arch + Hyprland belum diuji,
-math belum punya oracle visual, packaging belum ada, dan mapping glyph/selection
-masih belum dibangun. Progress roadmap dan kesiapan rilis adalah dua angka berbeda;
-lihat snapshot [`progress-report.md`](progress-report.md).
+Fase A, spike 9a, dan gate feasibility 9b kini ditutup. Estimasi roadmap naik
+**≈92 % → ≈93 %** untuk satu milestone bukti kecil; 9b berakhir NO-GO dan tidak
+menambah kapabilitas produk. **Kesiapan rilis tetap ≈44 %**: Stage 9a hanya bukti
+keyboard ASCII dan Stage 9b tidak membuktikan mapping glyph/selection. Arch +
+Hyprland belum diuji, math belum punya oracle visual, packaging belum ada, dan
+WYSIWYG umum belum dibangun. Progress roadmap dan kesiapan rilis adalah dua angka
+berbeda; lihat snapshot [`progress-report.md`](progress-report.md).
 
 ---
 
 ## 5. Keputusan yang sudah ditetapkan
 
-- Urutan **Fase A → B** dipertahankan. Stage 9a selesai dengan bukti keyboard ASCII
-  yang sempit; kandidat berikut adalah feasibility probe Stage 9b untuk hit-testing
-  caret dan selection, bukan implementasi WYSIWYG umum.
+- Urutan **Fase A → B** dipertahankan. Stage 9b telah diuji dan ditutup dengan
+  verdict NO-GO; tidak ada izin otomatis untuk Stage 9c/9d, production mapping,
+  atau WYSIWYG umum. Keputusan scope lanjutan harus terpisah.
 - Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
   Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
 - Crate baru boleh minimal; implementasi 8e tidak menambah dependency.

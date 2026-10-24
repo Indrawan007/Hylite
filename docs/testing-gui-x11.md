@@ -33,7 +33,9 @@ Lihat [hasil dan batas lifecycle](testing-lifecycle-x11.md) untuk rincian.
 Runner `scripts/test-gui-x11.sh` membuka **aplikasi Hylite sebenarnya**, bukan test
 controller atau widget tiruan, pada X server Xvfb privat dengan renderer CPU
 `tiny-skia`. Ia mengirim event mouse/keyboard menggunakan `xdotool` dan membaca
-clipboard X11 melalui `xclip`. Tidak ada flag/hook pengujian pada aplikasi Rust.
+clipboard X11 melalui `xclip`. Pengecualian yang disengaja adalah suite opt-in
+Stage 9a/9b (`--inline-edit-spike` / `--inline-feasibility-probe`), masing-masing
+memakai fixture terbatas; suite biasa tidak bergantung pada hook tersebut.
 
 Pemeriksaan yang dijalankan:
 
@@ -1350,4 +1352,40 @@ Redo harus memulihkan fixture/hasil byte-exact.
 
 Batas: bukti hanya gerak caret keyboard ASCII di satu baris pada X11 + Xvfb +
 tiny-skia. Tidak membuktikan click hit-testing per glyph, selection, Unicode/IME,
-RTL, renderer lain, Hyprland/Wayland, atau WYSIWYG umum. Lihat [kontrak Stage 9a](testing-stage9a.md); langkah berikut hanya probe kelayakan 9b.
+RTL, renderer lain, Hyprland/Wayland, atau WYSIWYG umum. Lihat [kontrak Stage 9a](testing-stage9a.md); hasil probe kelayakan Stage 9b yang dilakukan sesudahnya dicatat di bawah.
+
+## Stage 9b: suite ke-30 `inline-probe` (feasibility, read-only)
+
+Suite terpisah ini hanya aktif lewat `--suite inline-probe` dan memakai fixture
+`ab**CDEFGH**ijk\n` dengan teks tampak unik-ASCII `abCDEFGHijk`. Ia merekam
+marker caret/selection dari widget native Iced `text_editor`; Source dan file
+fixture harus byte-identik dan dirty state tetap clean. Tes controller Rust
+terpisah memastikan probe tidak menambah edge history. Klik pertama dan `Home`
+membuktikan fokus/gerak keyboard saja. Sampler kemudian mengambil titik x kasar per 8 px,
+memperhalus perubahan caret, mengambil dense pass terbatas di band awal 256 px
+area editor bila offset belum lengkap, lalu mengulang koordinat yang teramati
+secara terbalik. Drag maju/balik (dan pengulangan masing-masing) hanya dijalankan
+bila titik caret untuk offset 3 dan 7 ditemukan.
+
+**Hasil GUI final — NO-GO, bukan timeout:** pada [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359),
+commit `0599141`, job `120765424636`, seluruh workflow selesai **success**.
+Marker fokus teramati dan `Home` kembali ke 0. Dari **325 posisi x yang sama**
+pada sweep maju/balik, semua sampel menyatakan caret 0; dense band `x=256..511`
+juga tidak menemukan offset lain. Kedua scan hanya mencapai `[0]`, bukan offset
+1–11. Karena endpoint 3 dan 7 tidak ditemukan, drag tidak dikirim: selection
+anchor/arah **tidak teramati**, bukan diklaim telah gagal secara independen.
+
+Harness mencatat verdict feasibility **NO-GO** sambil meluluskan tujuh
+pemeriksaan keselamatan: title awal, fokus, Home, verdict tercatat, Source
+byte-exact, status/file tidak berubah, dan natural close. Maka “suite passed” berarti
+harness serta pengamanan read-only lulus, bukan bahwa hit-testing layak.
+Kesimpulan terbatas pada fixture dan X11 + Xvfb + tiny-skia; bukan bukti bahwa
+Iced/backend lain mustahil mendukungnya. Tidak ada oracle piksel atau klaim
+WYSIWYG.
+
+Run ini menutup suite GUI menjadi **30 suite / 519 pemeriksaan**; suite 9b
+menambahkan 7 pemeriksaan dan smoke regresi utama tetap lulus 116 pemeriksaan.
+Artifact `gui-x11-smoke` id `12546617100` (4.779.552 byte) tersedia sampai
+2026-10-31T03:37:53Z. Kontrak, hasil lengkap, dan cara mengulang ada di
+[catatan Stage 9b](testing-stage9b.md). Tidak ada gate lama yang diganti atau
+dilonggarkan.

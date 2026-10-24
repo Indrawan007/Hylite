@@ -1,10 +1,8 @@
-# Laporan Progress — Hylite (snapshot Stage 9a)
+# Laporan Progress — Hylite (snapshot Stage 9b)
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `7b8f82f`
-(dokumentasi Stage 9a ditulis setelah CI kode lulus)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `0599141`
 
-**Basis:** commit `7b8f82f` lulus [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185)
-Status kerja: **belum di-merge ke `main`**; dokumentasi Stage 9a ditulis setelah CI kode lulus.
+**Basis:** commit `0599141` lulus [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359); semua gate workflow sukses, sementara verdict feasibility Stage 9b adalah **NO-GO**. Status kerja: **belum di-merge ke `main`**.
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -14,15 +12,15 @@ Status kerja: **belum di-merge ke `main`**; dokumentasi Stage 9a ditulis setelah
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9a) | **≈ 92 %** | 41 stage yang dideklarasikan sudah diimplementasi + diverifikasi otomatis; 9a hanya spike terbatas |
-| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; spike 9a tidak mengubah kesiapan produksi |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai feasibility probe 9b ditutup; 9b berakhir NO-GO dan tidak menambah fitur produk |
+| **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; probe NO-GO tidak mengubah kesiapan produksi |
 
-Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 92 % tinggi
-karena roadmap tahap yang dideklarasikan sengaja terbatas pada editor native dan
-prototipe editing blok. Kenaikan 91 % → 92 % berasal dari satu spike (9a), jadi
-jangan dibaca sebagai lompatan kemampuan produk atau kesiapan rilis. Skor kategori
-82,3 % pada bagian 3 adalah estimasi berbobot lain, bukan angka roadmap atau
-kesiapan rilis.
+Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 93 %
+tinggi karena roadmap tahap yang dideklarasikan sengaja terbatas pada editor
+native dan prototipe editing blok. Kenaikan ≈92 % → ≈93 % hanya menandai
+penutupan milestone feasibility 9b dengan hasil NO-GO; itu **bukan** lompatan
+kemampuan produk atau kesiapan rilis. Skor kategori 82,3 % pada bagian 3 adalah
+estimasi berbobot lain, bukan angka roadmap atau kesiapan rilis.
 
 ## 2. Capaian per stage
 
@@ -80,32 +78,35 @@ kesiapan rilis.
 | 8d | Ekspor PDF 1.4 yang ditulis sendiri + `hylite export-pdf` headless | `docs/testing-stage8d.md` |
 | 8e | Math read-only subset: `$…$` / `$$…$$`, parser std-only, linearization Unicode dan fallback bertanda | `docs/testing-stage8e.md` |
 
-Fase A (8a–8e) selesai. Stage 9a spike inline terbatas juga telah lulus CI:
+Fase A (8a–8e) selesai. Stage 9a tetap terbatas pada caret keyboard; probe
+Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 | Stage | Isi | Bukti / batas |
 |---|---|---|
 | 9a | Opt-in, satu paragraf root satu baris ASCII; projection bold/italic/code; insert/delete satu karakter dengan satu Source transaction | `docs/testing-stage9a.md`; [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) |
-| Hasil GUI | Caret keyboard 0→7 pada satu posisi di strong run; ketik `X` memberi `left **boXld** right\n`; Undo/Redo byte-exact | X11 + Xvfb + tiny-skia; 7 pemeriksaan spike; bukan hit-testing per glyph |
-| Keputusan berikut | Lanjut hanya ke **feasibility probe 9b** untuk click hit-testing dan selection anchor/arah | Belum ada implementasi 9b atau WYSIWYG umum |
+| Hasil GUI 9a | Caret keyboard 0→7 pada satu posisi di strong run; ketik `X` memberi `left **boXld** right\n`; Undo/Redo byte-exact | X11 + Xvfb + tiny-skia; 7 pemeriksaan; bukan hit-testing per glyph |
+| 9b | Probe opt-in read-only pada fixture `ab**CDEFGH**ijk\n`; sampling caret mouse dan directional drag jika endpoint ditemukan | `docs/testing-stage9b.md`; [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359) |
+| Hasil GUI 9b | 325 posisi x yang berulang maju/balik hanya melaporkan caret 0; dense band `x=256..511` juga hanya 0; offset 1–11 tidak teramati | **NO-GO** untuk fixture/jalur X11 + Xvfb + tiny-skia ini |
+| Selection | Drag tidak dikirim karena offset 3 dan 7 tidak ditemukan; anchor/arah selection tidak teramati | Bukan bukti bahwa selection gagal pada semua backend; tidak ada implementasi mapping |
+| Pengamanan | Source, dirty state, file fixture dan history tetap utuh; jendela keluar natural | 7 pemeriksaan Stage 9b lulus sebagai smoke/safety checks, bukan verdict feasibility GO |
 
-### Verifikasi otomatis — selesai 100 % dari yang dirancang
+### Verifikasi otomatis — semua gate CI lulus
 
 | Metrik | Nilai |
 |---|---|
-| Tes Cargo | **1041** lulus |
-| Tes core mandiri (subset) | **344** |
-| Helper Python | **90** |
-| Suite GUI X11 | **29 suite / 512 pemeriksaan** (449 clipboard, 21 title, 29 exit native) |
-| Gate lama yang dipertahankan | 27 suite sebelumnya dijalankan ulang utuh + 28 badan exercise lama identik AST; suite Stage 9a menambah 7 pemeriksaan tanpa mengganti gate lama |
-| Lint/format | `cargo fmt` + strict Clippy `-D warnings` + build debug |
+| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40058088359` |
+| Helper Python | **93 tes**; kompilasi helper lulus |
+| Suite GUI X11 | **30 suite / 519 pemeriksaan**; suite 9b menambah 7 tanpa mengganti gate lama |
+| Main regression smoke | **116 pemeriksaan** tetap lulus |
+| Gate GUI terdahulu | 29 suite yang sudah ada tetap dijalankan dan lulus; tidak ada assertion atau deadline yang dilonggarkan |
 
-### Yang belum dikerjakan
+### Status fitur dan gap yang tersisa
 
 | Area | Kondisi |
 |---|---|
 | Validasi desktop Arch + Hyprland/Wayland | **belum** — semua bukti dari Xvfb + tiny-skia |
 | Portal/dialog file nyata, IME, RTL, HiDPI, GPU | **belum** |
-| Stage 9b: hit-testing caret per glyph + selection anchor/arah | **belum** — 9a hanya membuktikan keyboard ASCII pada satu posisi X11 |
+| Stage 9b: hit-testing caret per glyph + selection anchor/arah | **probe selesai, NO-GO** — hanya offset 0 teramati pada fixture X11; drag/anchor/arah tidak teruji |
 | Selection mapping umum, drag, multi-cell | **belum** |
 | Sinkronisasi scroll Preview↔Source | **belum** |
 | WYSIWYG inline bebas ala MarkText | **belum** (masih panel draft terbatas) |
@@ -138,41 +139,42 @@ Fase A (8a–8e) selesai. Stage 9a spike inline terbatas juga telah lulus CI:
    dan draft pane terbatas masih kompromi prototipe.
 3. **O(n) di banyak jalur** (parse penuh, salinan Source, dua buffer native di plan
    7e/7f) — memori ekstra, belum ada optimasi.
-4. **Statistik tes bukan cakupan.** 344 core adalah subset dari 1041 Cargo; angka GUI
-   membuktikan byte/fokus/urutan, bukan piksel atau mapping glyph. Stage 9a hanya
-   membuktikan satu caret keyboard ASCII di satu posisi pada X11.
+4. **Statistik tes bukan cakupan.** Angka GUI membuktikan byte/fokus/urutan, bukan
+   piksel atau mapping glyph. Stage 9a membuktikan satu caret keyboard ASCII;
+   Stage 9b hanya mengamati caret 0 pada probe klik terbatas dan tidak membuktikan
+   mapping glyph atau selection.
 5. **Screenshot artefak belum direview visual** dan bukan oracle piksel.
 
 ## 5. Saran langkah berikutnya (perkiraan usaha)
 
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
-| 1 | Stage 9b **feasibility probe** saja: uji hit-testing caret per glyph dan selection anchor/arah setelah bukti keyboard Stage 9a | menentukan apakah `text_editor` layak untuk mapping dua arah; berhenti jika tidak stabil | kecil–sedang, risiko tinggi |
+| 1 | Keputusan scope terpisah setelah Stage 9b NO-GO; jangan mulai 9c atau mapping secara otomatis | menentukan apakah tetap pada panel draft atau merancang studi kelayakan lain yang disetujui | belum ada implementasi yang diotorisasi |
 | 2 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target | sedang; butuh mesin target |
-| 3 | Implementasi mapping glyph/selection dua arah hanya setelah probe 9b lulus dan ada oracle GUI untuk seluruh kontrak | prasyarat editing inline yang lebih luas | besar |
-| 4 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
-| 5 | Packaging AUR + release build | distribusi | sedang |
+| 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
+| 4 | Packaging AUR + release build | distribusi | sedang |
 
 ## 6. Basis perhitungan persentase
 
-- **92 % roadmap**: 41 stage dideklarasikan (5a–5e, 6a–6p, 7a–7n, 8a–8e, 9a);
-  semuanya diimplementasi dan lulus CI dengan gate lama utuh. Kenaikan 91 % → 92 %
-  berasal dari spike 9a; sisa roadmap tetap mencakup desktop/WYSIWYG/performa.
-- **44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah** karena 9a hanya
-  opt-in X11 spike, bukan kemampuan produksi. Tanpa validasi compositor, packaging,
-  dan WYSIWYG umum, aplikasi belum layak disebut siap produksi.
+- **≈93 % roadmap**: 42 milestone yang dideklarasikan sampai Stage 9b (5a–5e,
+  6a–6p, 7a–7n, 8a–8e, 9a–9b) telah ditutup dengan bukti CI. Stage 9b dihitung
+  sebagai penutupan gate feasibility dengan verdict NO-GO, bukan implementasi
+  fitur. Kenaikan ≈92 % → ≈93 % hanya progres rencana/keputusan.
+- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**; probe
+  9b tidak menambah kemampuan produk. Tanpa validasi compositor, packaging, dan
+  WYSIWYG umum, aplikasi belum layak disebut siap produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
   bukan jumlah baris. Semua angka bisa direvisi bila prioritas proyek berubah.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [Stage 9b](testing-stage9b.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- Riwayat CI terakhir: `40039268185` (`7b8f82f`) **success** — 1041 Cargo / 344 strict
-  core / 90 Python / 29 suite GUI / 512 pemeriksaan (449 clipboard, 21 title,
-  29 exit native), artefak `12538559588`, 4.415.012 bytes, expires
-  2026-10-30T23:36:23Z.
-- Verifikasi lokal: 90 tes Python, kompilasi helper, `git diff --check`, dan parity
-  Rustfmt WASM 101/101 file lulus. Cargo/rustc tidak tersedia lokal; format/build/
-  Clippy/tes native terbaru dibuktikan oleh CI di atas, bukan oleh pemeriksaan lokal.
+- CI terkini: `40058088359` (`0599141`) **success** — format, strict core, Clippy,
+  build, unit tests dan seluruh 30 suite GUI lulus; **93 tes Python / 519
+  pemeriksaan GUI**. Stage 9b menghasilkan NO-GO tanpa mengganti gate lama.
+  Artifact `12546617100`, 4.779.552 byte, expires 2026-10-31T03:37:53Z.
+- Verifikasi lokal: 93 tes Python, kompilasi helper dan `git diff --check` lulus.
+  Cargo/rustc tidak tersedia lokal; format/build/Clippy/tes Rust terbaru dibuktikan
+  oleh CI, bukan oleh pemeriksaan lokal.

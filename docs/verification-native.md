@@ -1,8 +1,26 @@
-# Verifikasi build dan tes native — riwayat sampai Stage 9a
+# Verifikasi build dan tes native — riwayat sampai Stage 9b
 
-**Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode `7b8f82f`.
+**Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode terakhir diverifikasi `0599141`.
 
-## Stage 9a terbaru — spike inline terbatas
+## Stage 9b terbaru — probe kelayakan read-only, verdict NO-GO
+
+[CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359),
+`0599141`, **success**, job `120765424636`, selesai 24 Oktober 2026
+03:23:18–03:37:58 UTC / 11:23:18–11:37:58 Makassar. Format, strict core,
+Clippy, build, unit tests, dan semua suite GUI lulus. Helper Python **93 tes**;
+GUI **30 suite / 519 pemeriksaan**, termasuk 7 pemeriksaan Stage 9b; smoke
+regresi utama 116 pemeriksaan juga lulus. Artifact `gui-x11-smoke`
+`12546617100`, 4.779.552 byte, tersedia sampai 2026-10-31T03:37:53Z.
+
+Verdict feasibility Stage 9b adalah **NO-GO**: 325 koordinat x yang sama pada
+sweep maju/balik hanya melaporkan caret 0; dense band `x=256..511` tidak
+mencapai offset 1–11. Endpoint offset 3 dan 7 tidak ditemukan, sehingga drag
+tidak dijalankan dan anchor/arah selection tidak teramati. Source/fixture tetap
+byte-identik, dokumen clean, dan jendela keluar natural. Status CI success
+menyatakan harness/safety gates lulus, bukan feasibility GO. Rincian dan
+batasnya ada di [catatan Stage 9b](testing-stage9b.md).
+
+## Stage 9a (riwayat milestone) — spike inline terbatas
 
 [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185),
 `7b8f82f`, **success**, job `120706229866`, selesai 23 Oktober 2026 23:36:28 UTC.
@@ -16,9 +34,9 @@ Bukti Stage 9a terbatas pada caret keyboard ASCII satu baris di X11 + Xvfb +
 tiny-skia: posisi 0→1 untuk membuktikan fokus, `Home`, lalu 7 `Right` mencapai
 caret 7. Ketikan `X` memberi Source `left **boXld** right\n`; satu Undo dan Redo
 memulihkan dua keadaan byte-exact. Klik harness hanya mencari fokus, bukan
-hit-testing glyph. Selection, Unicode/IME, RTL, Wayland/Hyprland dan WYSIWYG umum
-tetap tidak terbukti. Keputusan berikut hanya feasibility probe Stage 9b; lihat
-[catatan Stage 9a](testing-stage9a.md). Tidak ada dependency baru.
+hit-testing glyph. Stage 9b kemudian menguji klik secara terpisah dan berakhir
+NO-GO; lihat [catatan Stage 9b](testing-stage9b.md). Stage 9a tidak menambah
+dependency.
 
 ## Stage 8e (riwayat saat milestone ditutup) — math read-only subset
 
