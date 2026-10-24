@@ -2833,7 +2833,8 @@ INLINE_SPIKE_SCOPE = ("Opt-in Stage 9a Iced text_editor spike: ASCII caret movem
 INLINE_PROBE_DOCUMENT = b"ab**CDEFGH**ijk\n"
 INLINE_PROBE_VISIBLE = "abCDEFGHijk"
 INLINE_PROBE_SCOPE = ("Opt-in read-only Stage 9b feasibility probe on one unique-character ASCII "
-                      "bold-run fixture: two client-x click sweeps record native Iced caret columns, "
+                      "bold-run fixture: two repeatable coarse-to-dense client-x click sweeps record "
+                      "native Iced caret columns, "
                       "then forward and backward mouse drags (each repeated once) inspect the "
                       "diagnostic selection range, anchor and focus direction; Source bytes/history "
                       "must stay unchanged "
@@ -3164,10 +3165,48 @@ def exercise_inline_probe(desktop, artifacts, document):
                     continue
             return trace
 
-        forward_trace = sweep(range(width))
+        coarse_step = 8
+        coarse_xs = list(range(0, width, coarse_step))
+        if not coarse_xs or coarse_xs[-1] != width - 1:
+            coarse_xs.append(width - 1)
+        coarse_trace = sweep(coarse_xs)
+        forward_trace = list(coarse_trace)
+        coarse_samples = sorted(coarse_trace)
+        refinement_xs = set()
+        for (left_x, left_caret), (right_x, right_caret) in zip(
+            coarse_samples, coarse_samples[1:]
+        ):
+            if left_caret != right_caret:
+                refinement_xs.update(range(left_x + 1, right_x))
+        if coarse_samples:
+            first_x, first_caret = coarse_samples[0]
+            last_x, last_caret = coarse_samples[-1]
+            if first_caret != 0:
+                refinement_xs.update(range(max(0, first_x - coarse_step), first_x))
+            if last_caret != len(INLINE_PROBE_VISIBLE):
+                refinement_xs.update(
+                    range(last_x + 1, min(width - 1, last_x + coarse_step) + 1)
+                )
+        refinement_xs.difference_update(x for x, _ in coarse_trace)
+        if refinement_xs:
+            forward_trace.extend(sweep(sorted(refinement_xs)))
+        caret_zero_xs = [x for x, caret in forward_trace if caret == 0]
+        caret_end_xs = [
+            x for x, caret in forward_trace if caret == len(INLINE_PROBE_VISIBLE)
+        ]
+        if caret_zero_xs and caret_end_xs:
+            glyph_left = max(caret_zero_xs)
+            glyph_right = min(caret_end_xs)
+            dense_left = max(0, min(glyph_left, glyph_right) - coarse_step)
+            dense_right = min(width - 1, max(glyph_left, glyph_right) + coarse_step)
+            dense_xs = set(range(dense_left, dense_right + 1))
+            dense_xs.difference_update(x for x, _ in forward_trace)
+            if dense_xs:
+                forward_trace.extend(sweep(sorted(dense_xs)))
+        forward_trace.sort(key=lambda sample: sample[0])
         desktop.screenshot(artifacts / "inline-probe-click-sweep-forward.png")
         time.sleep(0.36)
-        reverse_trace = sweep(reversed(range(width)))
+        reverse_trace = sweep(reversed([x for x, _ in forward_trace]))
         desktop.screenshot(artifacts / "inline-probe-click-sweep-reverse.png")
 
         def representative_x(trace, offset):
