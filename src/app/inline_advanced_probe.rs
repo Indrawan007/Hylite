@@ -2,7 +2,6 @@
 use super::Hylite;
 use crate::commands::{InlineAltProbeEvent, Message};
 use crate::document::preview_model::Kind;
-use crate::document::Snapshot;
 use crate::preview_paragraph::Target;
 use iced::Task;
 

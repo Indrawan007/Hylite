@@ -204,7 +204,7 @@ impl<'a> ParagraphHitWidget<'a> {
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Theme, Renderer> for ParagraphHitWidget<'a>
+impl<'a, Renderer> Widget<Message, Theme, Renderer> for ParagraphHitWidget<'a>
 where
     Renderer: text::Renderer<Font = Font>,
 {
