@@ -1,7 +1,9 @@
 # Rancangan probe widget alternatif setelah Stage 9b
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite`  
-**Status:** rancangan saja — belum ada kode probe, perubahan produk, atau bukti GUI baru.  
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite`
+
+**Status:** rancangan saja — belum ada kode probe, perubahan produk, atau bukti GUI baru.
+
 **Keputusan scope:** studi kelayakan terbatas untuk widget Iced alternatif; bukan implementasi editor produksi.
 
 ## 1. Pertanyaan yang hendak dijawab
