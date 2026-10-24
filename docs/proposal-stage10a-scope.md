@@ -1,4 +1,4 @@
-# Rancangan scope — Stage 10a incremental parse
+# Stage 10a incremental parse — scope dan status
 
 **Status: Stage 10a produksi diimplementasikan pada branch `arena/21a4c00b-hylite`;**
 scope tetap terbatas pada cache/parser Preview yang ada. Stage 9c/9d tetap
@@ -24,11 +24,11 @@ pensiun panel draft.
   lokal tidak boleh menghidupkan ulang target dari revision lama.
 
 Stage 9d (editing per glyph di Preview) **bukan prasyarat teknis** agar parser
-membantu Preview yang sudah ada: Preview dan operasi block-level sekarang tetap
-meminta model yang sama. Jadi, 10a dapat dipertimbangkan sebagai optimasi
-independen untuk produk saat ini. Pernyataan roadmap lama bahwa 10a “baru
-bermakna setelah 9d” adalah keputusan urutan/proyek yang perlu direvisi, bukan
-kendala API yang terlihat pada jalur parser ini.
+membantu Preview yang sudah ada: Preview dan operasi block-level tetap meminta
+model yang sama. Karena itu, Stage 10a diimplementasikan terpisah untuk produk
+saat ini, tanpa menyentuh 9c/9d. Pernyataan roadmap lama bahwa 10a “baru bermakna
+setelah 9d” telah direvisi sebagai keputusan urutan/proyek, bukan kendala API
+yang terlihat pada jalur parser ini.
 
 ## 2. Batas implementasi produksi
 
@@ -90,5 +90,9 @@ kendala API yang terlihat pada jalur parser ini.
   shifting seluruh suffix berarti status ini bukan klaim percepatan.
 - **Stage 9c/9d:** tetap ditunda sesuai pilihan pengguna A. Tidak ada marker
   hiding, mapping per glyph, editing inline, atau pensiun panel draft.
+- **Verifikasi:** CI [40094818086](https://github.com/Indrawan007/Hylite/actions/runs/40094818086)
+  pada `16bcb77` lulus seluruh gate, termasuk unit/property tests, GUI smoke lama,
+  dan harness Stage 10b eksplisit. Timing incremental/fallback 100 KB/1 MB/5 MB
+  adalah observasi satu-run di [performance notes](performance.md), tanpa klaim.
 - **Estimasi:** progress roadmap ≈93% (denominator Stage 5a–9b) dan kesiapan
   rilis ≈44% tetap terpisah; Stage 10a tidak mengubah kedua denominator itu.

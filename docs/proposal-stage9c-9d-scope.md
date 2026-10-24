@@ -30,7 +30,7 @@ X11 + Xvfb + tiny-skia; belum ada bukti Arch + Hyprland/Wayland.
 
 | Pilihan | Scope | Konsekuensi | Rekomendasi |
 |---|---|---|---|
-| **A — Tunda inline editing (dipilih)** | Stage 9c/9d tidak dikerjakan untuk saat ini. Tidak menyembunyikan marker; pertahankan Preview dan panel draft/operasi blok yang ada. Tutup hanya dua feasibility probe pada cakupannya, tanpa menyatakan Iced/backend mustahil. | Tidak ada perubahan editor produksi. Jika inline editing kelak menjadi tujuan lagi, buka keputusan baru dengan gate feasibility terpisah. Revisi ketergantungan Stage 10a secara terpisah sebelum mengerjakannya. | Dipilih pengguna karena bukti pointer/selection belum memadai dan tidak meminta perluasan di luar persetujuan saat ini. |
+| **A — Tunda inline editing (dipilih)** | Stage 9c/9d tidak dikerjakan untuk saat ini. Tidak menyembunyikan marker; pertahankan Preview dan panel draft/operasi blok yang ada. Tutup hanya dua feasibility probe pada cakupannya, tanpa menyatakan Iced/backend mustahil. | Tidak ada perubahan editor produksi untuk 9c/9d. Jika inline editing kelak menjadi tujuan lagi, buka keputusan baru dengan gate feasibility terpisah. Stage 10a telah dipisahkan dan diimplementasikan di bawah izin scope tersendiri. | Dipilih pengguna karena bukti pointer/selection belum memadai dan tidak meminta perluasan di luar persetujuan saat ini. |
 | **B — Gate baru, lalu Stage 9c yang sangat terbatas** | Belum ada perubahan produksi sekarang. Pertama, user menyetujui eksperimen feasibility baru yang opt-in/test-only; jika gate lulus, ajukan keputusan implementasi terpisah. Kandidat produk awal hanya root paragraph satu baris dan subset inline yang sudah dikenal; heading/list/quote/tabel, penghapusan panel draft, Unicode umum, dan WYSIWYG luas tetap di luar scope awal. | Membutuhkan bukti baru yang benar-benar menguji event pointer/drag dan pemetaan teks; hasil dua probe lama tidak dapat dipakai sebagai GO. Keberhasilan gate tidak otomatis mengizinkan implementasi produksi. | Hanya jika produk memang perlu inline editing dan tersedia cakupan uji target yang disepakati. |
 | **C — Perluasan Stage 9d** | Editing langsung untuk heading/list/quote/sel tabel sekaligus pensiun panel draft. | Risiko tertinggi: lebih banyak grammar/source mapping, selection, Undo, refocus dan migrasi UX harus dijamin. Tidak dibenarkan oleh bukti saat ini. | **Tidak direkomendasikan sekarang.** Pertimbangkan hanya setelah 9c punya bukti serta keputusan scope tersendiri. |
 
@@ -65,10 +65,10 @@ acceptance tests yang sudah dibatasi. Kelulusan probe saja bukan izin otomatis.
 
 ## 4. Ketergantungan yang tetap terbuka
 
-- Roadmap saat ini mengaitkan Stage 10a incremental parse dengan 9d. Evaluasi
-  kode menemukan bahwa parser Preview yang ada dapat dioptimalkan tanpa inline
-  editing; lihat [rancangan scope Stage 10a](proposal-stage10a-scope.md). Ini
-  belum mengubah dependency roadmap atau mengizinkan implementasi.
+- Stage 10a dapat berdiri sendiri dari 9d: fast path parser/cache Preview
+  produksi telah diimplementasikan melalui persetujuan scope terpisah; full parse
+  tetap oracle/fallback. Lihat [scope dan status Stage 10a](proposal-stage10a-scope.md).
+  Keputusan ini tetap tidak mengizinkan perubahan Stage 9c/9d.
 - Stage 10c viewport culling/scroll sync dan Stage 11a instrumentasi belum
   dimulai; keduanya dapat menyentuh aplikasi produksi dan tidak otomatis
   diizinkan oleh keputusan scope dokumen ini.
@@ -80,5 +80,5 @@ acceptance tests yang sudah dibatasi. Kelulusan probe saja bukan izin otomatis.
 
 - **Pilihan yang disetujui pengguna:** A — defer Stage 9c/9d dan pertahankan Preview/panel draft saat ini.
 - **Stage 9c/9d:** deferred; tidak ada marker hiding, mapping per glyph, atau pensiun panel draft.
-- **Stage 10a:** evaluasi teknis terpisah tersedia di [proposal Stage 10a](proposal-stage10a-scope.md); keputusan roadmap dan izin implementasi masih tertunda.
+- **Stage 10a:** fast path konservatif sudah diimplementasikan secara terpisah; scope, fallback, verifikasi, dan observasi Stage 10b ada di [proposal Stage 10a](proposal-stage10a-scope.md) dan [performance notes](performance.md).
 - **Perubahan kode editor produksi untuk 9c/9d:** tidak diizinkan oleh keputusan ini.

@@ -1,9 +1,10 @@
 # Roadmap Hylite — dari Stage 9b sampai rilis 1.0
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `39e8168`
-(CI [40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422) hijau;
-Stage 10b harness dan baseline mentah tercatat di [`docs/performance.md`](performance.md).
-Stage 9b asli dan probe custom-widget terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `16bcb77`
+(CI [40094818086](https://github.com/Indrawan007/Hylite/actions/runs/40094818086) hijau;
+Stage 10a fast path terbatas dan observasi harness incremental/fallback tercatat di
+[`docs/performance.md`](performance.md). Stage 9b asli dan probe custom-widget
+terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
 
 > Dokumen ini adalah **rencana**, bukan janji tanggal. Semua persentase adalah
 > **estimasi**, bukan pengukuran. Stage 9a membuktikan hanya caret keyboard
@@ -107,12 +108,13 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
-| **10a** | **Incremental parse Preview (cakupan konservatif)**: reparse hanya root paragraph satu baris plain yang terisolasi, geser semua rentang suffix; semua edit tak terbukti aman memakai full-parse oracle/fallback. Implementasi produksi ada di branch ini; verifikasi CI dan observasi Stage 10b dicatat terpisah. Tidak bergantung pada 9c/9d — lihat [scope dan status](proposal-stage10a-scope.md) | besar | sedang |
-| **10b** ✅ | **Harness benchmark**: dokumen sintetis 100 KB/1 MB/5 MB, metrik absolut (ms) untuk buka, ketik, parse, render; batas waktu CI; baseline mentah pertama tercatat di [`docs/performance.md`](performance.md) | kecil–sedang | rendah |
+| **10a ✅** | **Incremental parse Preview (cakupan konservatif)**: reparse hanya root paragraph satu baris plain yang terisolasi, geser semua rentang suffix; semua edit tak terbukti aman memakai full-parse oracle/fallback. Seluruh gate lulus di CI `40094818086`; observasi 100 KB/1 MB/5 MB dicatat tanpa klaim performa. Tidak bergantung pada 9c/9d — lihat [scope dan status](proposal-stage10a-scope.md) | besar | sedang |
+| **10b** ✅ | **Harness benchmark**: dokumen sintetis 100 KB/1 MB/5 MB, metrik absolut (ms) untuk buka, ketik, parse, render, serta observasi incremental/fallback setelah Stage 10a; batas CI tidak berubah. Angka satu-run di [`docs/performance.md`](performance.md) | kecil–sedang | rendah |
 | **10c** | **Viewport culling** untuk dokumen sangat besar (render hanya blok yang terlihat) + sinkronisasi scroll Preview↔Source | sedang–besar | sedang |
 
-**Gate Fase C:** angka absolut terdokumentasi di `docs/performance.md`, plus
-**larangan klaim**: tidak ada kata "cepat" tanpa angka yang dihasilkan harness ini.
+**Gate Fase C:** angka absolut terdokumentasi di `docs/performance.md`.
+Semua angka tetap observasi lingkungan; jangan mengubah satu-run tersebut menjadi
+klaim speed/performa umum atau perbandingan.
 
 ### Fase D — Target, paket, rilis (Stage 11a–11e)
 
@@ -138,7 +140,7 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
                          └──► [probe custom-widget test-only selesai; NO-GO terbatas]
                                       │
                                       └──► 9c/9d DEFERRED (pilihan pengguna A)
-                                       10a incremental (fast path terbatas; full-parse fallback)
+                                       10a incremental ✅ (fast path terbatas; full-parse fallback)
                                        10b benchmark ✅ (baseline sebelum 10a; observasi terbaru di docs/performance.md)
                                        10c culling + scroll sync
                                                         │
@@ -147,7 +149,8 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 ```
 
 **Paralel yang aman:** 8c/8d/8e selesai di cabang ini tanpa menyentuh 9x;
-10b (benchmark) sebaiknya **sebelum** 10a supaya regresi terukur sejak awal.
+baseline 10b memang diambil sebelum 10a, lalu harness mencatat observasi
+incremental/fallback pasca-implementasi tanpa menyimpulkan performa.
 
 ---
 
@@ -157,20 +160,19 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 |---|---|---|---|
 | A — Permukaan dokumen | 8a–8e | ~25 % | 0 % (selesai) |
 | B — WYSIWYG inline | 9a–9d | ~45 % | ≈58 % |
-| C — Skala & performa | 10a–10c | ~20 % | ≈15 % (10b selesai; 10a/10c tersisa) |
+| C — Skala & performa | 10a–10c | ~20 % | ≈10 % (10a dan 10b selesai; 10c tersisa) |
 | D — Target & rilis | 11a–11e | ~10 % | 10 % |
 
-Fase A, spike 9a, dan gate feasibility 9b asli kini ditutup; Stage 10b juga
-selesai sebagai harness pengukuran paralel. Estimasi roadmap **≈93 %** tetap
-khusus untuk denominator Stage 5a–9b yang dideklarasikan sebelumnya; 10b
-dilaporkan terpisah. Kesiapan rilis **≈44 %** juga tetap terpisah dan tidak
-berubah oleh probe atau harness, karena tidak ada kapabilitas produk baru maupun
-optimasi editor. Angka readiness tetap rendah karena Stage 9a hanya bukti
-keyboard ASCII, kedua probe tidak membuktikan mapping Source glyph/selection
-umum, Arch + Hyprland belum diuji, math belum punya oracle visual, packaging
-belum ada, dan WYSIWYG umum belum dibangun. Probe custom-widget tetap studi
-kelayakan test-only, bukan milestone/fitur produk. Lihat snapshot
-[`progress-report.md`](progress-report.md).
+Fase A, spike 9a, dan gate feasibility 9b asli kini ditutup; Stage 10a
+fast path parser/cache yang terbatas dan Stage 10b harness juga selesai. Estimasi
+roadmap **≈93 %** tetap khusus untuk denominator Stage 5a–9b yang dideklarasikan
+sebelumnya; 10a/10b dilaporkan terpisah. Kesiapan rilis **≈44 %** tetap terpisah:
+observasi Stage 10a satu-run tidak membuktikan performa umum atau target desktop.
+Angka readiness tetap rendah karena Stage 9a hanya bukti keyboard ASCII, kedua
+probe tidak membuktikan mapping Source glyph/selection umum, Arch + Hyprland
+belum diuji, math belum punya oracle visual, packaging belum ada, dan WYSIWYG
+umum belum dibangun. Probe custom-widget tetap studi kelayakan test-only, bukan
+milestone/fitur produk. Lihat snapshot [`progress-report.md`](progress-report.md).
 
 ---
 

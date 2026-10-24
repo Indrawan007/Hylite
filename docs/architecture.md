@@ -489,8 +489,9 @@ hanya mengganti satu payload, lalu full parser projection dipreflight agar root
 start/dimensions/next cell metadata cocok sebelum satu Atomic `PreviewTable`.
 Cache candidate dipasang sesudah commit, next target distamp full snapshot baru.
 No-op hanya berpindah tanpa revision/redo side effect; last-cell command menolak
-sebelum commit. Ini pengecualian eager preflight terhadap lazy model biasa, bukan
-incremental parsing atau speedup. Parse/reconstruction tetap O(n).
+sebelum commit. Jalur eager preflight ini tetap memakai full parse (tidak memakai
+Stage 10a cache-miss fast path) dan bukan bukti speedup. Parse/reconstruction
+untuk jalur ini tetap O(n).
 
 State draft kini memiliki `navigation_notice` terpisah dari error. Apply & Next
 mempertahankan focus input draft, search refresh pada commit, guard modal/file/
@@ -753,8 +754,8 @@ internally with body unchanged preflights exact native reconstruction before
 history transfer. Restore collapses selection at captured caret, does not restore
 anchor/direction/scroll. Raw invalid intermediate/final LF/tab/Unicode retained;
 lexical validation refreshed after effective restore, no structural/auth bypass at
-Apply. Empty stack leaves parser error intact. Full snapshots/rebuild O(n), no
-incremental/performance claim.
+Apply. Empty stack leaves parser error intact. For this draft-history path, full
+snapshots/rebuild remain O(n); this is not a performance measurement or claim.
 
 Focused `session_key_binding` wraps old7b base binding, converts exact Ctrl+Z/Y/
 Shift+Z into separate `MultilineDraftHistory` custom binding. Even empty captured

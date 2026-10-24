@@ -1,8 +1,8 @@
 # Laporan Progress — Hylite (scope 9c/9d dan implementasi Stage 10a)
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `39e8168`
+**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Kode terakhir terverifikasi:** `16bcb77`
 
-**Basis:** commit `39e8168` lulus [CI 40086623422](https://github.com/Indrawan007/Hylite/actions/runs/40086623422); seluruh gate workflow sukses, termasuk benchmark Stage 10b. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Harness Stage 10b hanya test-only/opt-in dan tidak mengubah editor runtime. Status kerja: **belum di-merge ke `main`**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
+**Basis verifikasi Stage 10a:** commit `16bcb77` lulus seluruh gate di [CI 40094818086](https://github.com/Indrawan007/Hylite/actions/runs/40094818086), termasuk format, strict Source core, strict Clippy, build, seluruh unit/property tests, semua smoke GUI lama, dan harness Stage 10b yang diperluas. Harness selesai dalam 132,40 detik; observasi absolut dicatat di [docs/performance.md](performance.md) tanpa klaim performa. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Status kerja: **belum di-merge ke `main` dan tidak ada PR**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -12,16 +12,17 @@
 
 | Sudut pandang | Angka | Arti |
 |---|---|---|
-| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai probe 9b asli ditutup; Stage 10b paralel kini selesai dan dilaporkan terpisah, bukan ditambahkan ke denominator lama |
+| **Roadmap bertahap yang dideklarasikan** (Stage 5a–9b) | **≈ 93 %** | 42 milestone sampai probe 9b asli ditutup; Stage 10a/10b dilaporkan terpisah, bukan ditambahkan ke denominator lama |
 | **Kesiapan rilis / produksi** (Arch + Hyprland, dokumen nyata) | **≈ 44 %** | belum ada validasi desktop target, packaging, maupun WYSIWYG umum; probe dan harness benchmark tidak mengubah kesiapan produksi |
 
 Rincian bobot ada di [bagian 6](#6-basis-perhitungan-persentase). Angka 93 %
 tinggi karena roadmap tahap yang dideklarasikan sengaja terbatas pada editor
 native dan prototipe editing blok. Kenaikan ≈92 % → ≈93 % hanya menandai
 penutupan milestone feasibility 9b dengan hasil NO-GO; itu **bukan** lompatan
-kemampuan produk atau kesiapan rilis. Stage 10b menambahkan harness dan observasi
-angka mentah, bukan optimasi editor atau klaim performa. Skor kategori 82,3 % pada
-bagian 3 adalah estimasi berbobot lain, bukan angka roadmap atau kesiapan rilis.
+kemampuan produk atau kesiapan rilis. Stage 10a menambah fast path parser/cache
+yang konservatif tanpa bukti percepatan; Stage 10b menambah observasi runner,
+bukan klaim performa. Skor kategori 82,3 % pada bagian 3 adalah estimasi berbobot
+lain, bukan angka roadmap atau kesiapan rilis.
 
 ## 2. Capaian per stage
 
@@ -133,11 +134,16 @@ tidak dimulai. Rincian: [proposal/scope Stage 10a](proposal-stage10a-scope.md).
 
 | Metrik | Nilai |
 |---|---|
-| Rust format, strict core, Clippy, build dan unit tests | **lulus** pada CI `40086623422`; 1.052 tes Cargo lulus, satu harness benchmark diabaikan di suite normal, dan 344 strict Source core lulus |
+| Rust format, strict core, Clippy, build dan unit/property tests | **lulus** pada CI `40094818086` (`16bcb77`); 1.058 tes Cargo lulus, satu benchmark ignored di suite normal, dan 344 strict Source core lulus |
 | Helper Python | **93 tes**; kompilasi helper lulus |
-| Suite GUI X11 | **31 suite / 528 pemeriksaan**; suite custom-widget terpisah menambah 9, semua suite sebelumnya tetap lulus |
+| Suite GUI X11 | **31 suite / 528 pemeriksaan**; suite custom-widget terpisah menambah 9, semua suite lama lulus |
 | Main regression smoke | **116 pemeriksaan** tetap lulus |
-| Gate GUI terdahulu | Seluruh gate GUI lama tetap dijalankan; tidak ada assertion, byte/coordinate oracle, deadline atau perilaku focus/refocus yang dilonggarkan |
+| Stage 10b opt-in | **1 test lulus**, selesai 132,40 detik dalam budget 180 detik; tambahan incremental/fallback tercatat hanya sebagai observasi |
+| Gate lama | Seluruh gate GUI lama tetap dijalankan; tidak ada assertion, byte/coordinate oracle, deadline atau perilaku focus/refocus yang dilonggarkan |
+
+Satu run terdahulu (`40094340411`) gagal pada pemeriksaan clipboard sentinel di
+`scripts/gui-smoke-x11.py:354`; penyebabnya belum diketahui. Kegagalan tersebut
+tidak direproduksi oleh CI penuh `40094818086`, yang meluluskan smoke GUI X11.
 
 ### Status fitur dan gap yang tersisa
 
@@ -191,7 +197,7 @@ tidak dimulai. Rincian: [proposal/scope Stage 10a](proposal-stage10a-scope.md).
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
 | 1 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target yang tidak dapat dibuktikan oleh CI X11 | sedang; butuh mesin target dan verifikasi manual |
-| 2 | Tinjau observasi incremental/fallback Stage 10b dan pertahankan fallback konservatif di [scope Stage 10a](proposal-stage10a-scope.md) | mengetahui biaya lingkungan tanpa menyimpulkan performa umum | harness satu-run; tidak ada klaim atau target latency |
+| 2 | Stage 10a/10b yang telah disetujui dan diverifikasi ditutup pada scope ini; pertahankan full-parse fallback dan jangan perluas produksi tanpa persetujuan terpisah | menjaga kesetaraan hasil dan batas scope | CI lulus; timing satu-run hanya observasi, tanpa klaim atau target latency |
 | 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
 | 4 | Packaging AUR + release build | distribusi | sedang |
 
@@ -215,11 +221,12 @@ tidak dimulai. Rincian: [proposal/scope Stage 10a](proposal-stage10a-scope.md).
 - Kontrak & bukti terbaru: [keputusan scope Stage 9c/9d](proposal-stage9c-9d-scope.md) · [evaluasi scope Stage 10a](proposal-stage10a-scope.md) · [Stage 10b benchmark](performance.md) · [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
-- CI terkini: `40086623422` (`39e8168`) **success** — format, strict core, Clippy,
-  build, **1.052 tes Cargo + 1 harness diabaikan di suite normal**, **344 Source core**,
-  93 tes Python, **31 suite GUI / 528 pemeriksaan**, dan benchmark Stage 10b eksplisit
-  (1 test lulus) lulus. Smoke regresi utama tetap 116. Baseline mentah tercatat di
-  [docs/performance.md](performance.md); tidak ada klaim speed atau hasil lintas mesin.
+- CI verifikasi kode Stage 10a: `40094818086` (`16bcb77`) **success** — format, strict core, Clippy,
+  build, **1.058 tes Cargo lulus + satu benchmark diabaikan di suite normal**,
+  **344 Source core**, 93 tes Python, **31 suite GUI / 528 pemeriksaan**, smoke
+  regresi utama 116, dan Stage 10b eksplisit (1 test lulus dalam 132,40 detik).
+  Angka mentah Stage 10b serta incremental/fallback ada di
+  [docs/performance.md](performance.md), sebagai observasi satu-run tanpa klaim.
   Probe alternatif tetap NO-GO terbatas; Stage 9b asli tetap NO-GO historis.
 - CI Stage 9b: `40058088359` (`0599141`) success, **30 suite / 519 pemeriksaan GUI**,
   artifact `12546617100`; hasil historis itu tidak ditimpa oleh probe baru.
