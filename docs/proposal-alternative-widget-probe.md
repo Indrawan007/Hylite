@@ -152,3 +152,21 @@ Tetap di luar scope: Source mapping/editing, general selection/glyph mapping,
 Unicode, IME, RTL, scroll sync, pixel oracle, klaim performa, Arch + Hyprland /
 Wayland, dan perubahan Preview/WYSIWYG produk. **Stage 9b NO-GO tetap
 historis dan final untuk probe yang sudah dijalankan.**
+
+## Referensi API yang ditinjau
+
+- Versi proyek: [`Cargo.toml`](../Cargo.toml) mengaktifkan `advanced` tetapi
+  bukan `canvas`; [`Cargo.lock`](../Cargo.lock) mengunci Iced `0.13.1`,
+  `iced_core 0.13.2`, dan `iced_widget 0.13.4`.
+- API paragraf Iced 0.13.1: [`Paragraph::hit_test` dan
+  `grapheme_position`](https://github.com/iced-rs/iced/blob/9bfbd7cda79aceef2d115b8bb35e8f3257dcabf2/core/src/text/paragraph.rs),
+  [`Hit` dan text renderer](https://github.com/iced-rs/iced/blob/9bfbd7cda79aceef2d115b8bb35e8f3257dcabf2/core/src/text.rs),
+  serta [`advanced` re-exports](https://github.com/iced-rs/iced/blob/9bfbd7cda79aceef2d115b8bb35e8f3257dcabf2/src/advanced.rs).
+- Widget lifecycle: Iced [`Widget::on_event` / `draw`](https://github.com/iced-rs/iced/blob/9bfbd7cda79aceef2d115b8bb35e8f3257dcabf2/core/src/widget.rs).
+- Proyek saat ini: [CLI](../src/main.rs), [Preview renderer](../src/document/preview.rs),
+  [app routing](../src/app.rs), [Stage 9b UI](../src/ui/inline_spike.rs), dan
+  [Stage 9b controller](../src/app/inline_spike.rs).
+
+Signature tersebut menjadi dasar rancangan, bukan bukti compile terhadap seluruh
+versi transitive yang dikunci. Uji kompilasi tetap menjadi gate wajib bila probe
+terpisah kelak diimplementasikan.
