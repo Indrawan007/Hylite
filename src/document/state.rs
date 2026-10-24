@@ -6,11 +6,25 @@ use super::Snapshot;
 use crate::block_edit::{self, BlockStyle};
 use crate::text_edit::{self, InlineStyle, TextChange};
 use iced::widget::text_editor::{self, Action, Edit, Motion};
-use std::cell::OnceCell;
-use std::ops::Range;
+use std::cell::{OnceCell, RefCell};
+use std::ops::{Deref, Range};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
+
+struct PreviewCache {
+    snapshot: Snapshot,
+    source: String,
+    blocks: Vec<Block>,
+}
+
+impl Deref for PreviewCache {
+    type Target = [Block];
+
+    fn deref(&self) -> &Self::Target {
+        &self.blocks
+    }
+}
 
 pub struct Document {
     content: text_editor::Content,
@@ -22,7 +36,9 @@ pub struct Document {
     history: History,
     buffer_generation: u64,
     /// One lazy projection of the current content revision; never widget state.
-    preview: OnceCell<Vec<Block>>,
+    preview: OnceCell<PreviewCache>,
+    /// Last parsed revision retained only as a conservative incremental base.
+    previous_preview: RefCell<Option<PreviewCache>>,
 }
 
 /// Opaque two-phase transition. Candidate buffers/provenance are private; callers
@@ -105,15 +121,39 @@ impl Document {
             history: History::default(),
             buffer_generation: 0,
             preview: OnceCell::new(),
+            previous_preview: RefCell::new(None),
         }
     }
 
     /// Theme, caret, save acknowledgments and native-buffer reconstruction do
     /// not change Markdown semantics. Only effective content revisions clear
-    /// this cache. The source snapshot is allocated only on a cache miss.
+    /// this cache. A single proven plain-paragraph edit may reuse unaffected
+    /// blocks; all uncertain edits use the canonical full parser.
     pub(crate) fn preview_blocks(&self) -> &[Block] {
-        self.preview
-            .get_or_init(|| preview_model::parse(&self.buffer_text()))
+        let cache = self.preview.get_or_init(|| {
+            let source = self.buffer_text();
+            let previous = self.previous_preview.borrow_mut().take();
+            let previous = previous.filter(|cache| {
+                cache.snapshot.document_id == self.snapshot.document_id
+                    && cache.snapshot.revision < self.snapshot.revision
+            });
+            let blocks = previous
+                .as_ref()
+                .and_then(|cache| {
+                    super::preview_incremental::reparse_plain_paragraph(
+                        &cache.source,
+                        &cache.blocks,
+                        &source,
+                    )
+                })
+                .unwrap_or_else(|| preview_model::parse(&source));
+            PreviewCache {
+                snapshot: self.snapshot,
+                source,
+                blocks,
+            }
+        });
+        &cache.blocks
     }
 
     /// A queued UI action is accepted only for a current, actually rendered
@@ -701,7 +741,7 @@ impl Document {
                 EditKind::PreviewParagraph,
                 Instant::now(),
             );
-            self.preview = OnceCell::from(edit.blocks);
+            self.install_preview(edit.text, edit.blocks);
         }
         let mut moved = plan.moved;
         moved.snapshot = self.snapshot;
@@ -727,7 +767,7 @@ impl Document {
         }
         let mut index = 0;
         let mut total = 0;
-        for block in self.preview.get()? {
+        for block in &self.preview.get()?.blocks {
             if block.multiline_paragraph_payload.is_some() {
                 total += 1;
                 if block.source.start == target.block.start {
@@ -913,7 +953,7 @@ impl Document {
                 EditKind::PreviewParagraph,
                 Instant::now(),
             );
-            self.preview = OnceCell::from(edit.blocks);
+            self.install_preview(edit.text, edit.blocks);
         }
         let mut next = plan.moved;
         next.snapshot = self.snapshot;
@@ -1081,14 +1121,33 @@ impl Document {
             return None;
         }
         next.snapshot = self.snapshot;
-        self.preview = OnceCell::from(blocks);
+        self.install_preview(candidate, blocks);
         Some((next, true))
+    }
+
+    fn install_preview(&mut self, source: String, blocks: Vec<Block>) {
+        let current_source = self.buffer_text();
+        let (source, blocks) = if source == current_source {
+            (source, blocks)
+        } else {
+            let blocks = preview_model::parse(&current_source);
+            (current_source, blocks)
+        };
+        *self.previous_preview.get_mut() = None;
+        self.preview = OnceCell::from(PreviewCache {
+            snapshot: self.snapshot,
+            source,
+            blocks,
+        });
     }
 
     fn advance_revision(&mut self) {
         self.snapshot.revision += 1;
-        // Drop the previous projection immediately, even while in Source mode.
-        let _ = self.preview.take();
+        // Keep the immediately previous parsed projection as an optional
+        // incremental base; a miss or unsafe boundary still triggers full parse.
+        if let Some(previous) = self.preview.take() {
+            *self.previous_preview.get_mut() = Some(previous);
+        }
     }
 
     pub fn content(&self) -> &text_editor::Content {

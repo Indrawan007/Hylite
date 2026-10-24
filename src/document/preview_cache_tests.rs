@@ -57,6 +57,59 @@ fn preview_is_lazy_even_after_edits_and_reuses_one_projection_on_repeated_reads(
 }
 
 #[test]
+fn warm_plain_paragraph_edit_consumes_exact_previous_source_and_matches_full_parse() {
+    let source = concat!(
+        "# Heading **with style**\n\n",
+        "editable plain text\n\n",
+        "- [x] task\n\n",
+        "| Name | Count |\n",
+        "| --- | ---: |\n",
+        "| café🙂 | **3** |\n\n",
+        "> quoted text\n"
+    );
+    let mut document = Document::new(source);
+    let old = document.preview_blocks().to_vec();
+    let start = source.find("plain text").unwrap();
+    let end = start + "plain text".len();
+    assert!(document.change(TextChange {
+        range: start..end,
+        replacement: "テキスト🙂".into(),
+        caret: "テキスト🙂".len(),
+    }));
+    assert!(document.preview.get().is_none());
+    assert!(document.previous_preview.borrow().is_some());
+
+    let current_source = document.buffer_text();
+    let expected = preview_model::parse(&current_source);
+    assert_eq!(document.preview_blocks(), expected.as_slice());
+    assert!(document.previous_preview.borrow().is_none());
+    assert_ne!(old, expected);
+    fresh(&document);
+}
+
+#[test]
+fn multiple_unrendered_edits_keep_only_an_exact_incremental_base() {
+    let source = "plain text\n\n| Name | Count |\n| --- | ---: |\n| café🙂 | **3** |\n";
+    let mut document = Document::new(source);
+    document.preview_blocks();
+    assert!(document.change(TextChange {
+        range: 0..0,
+        replacement: "x".into(),
+        caret: 1,
+    }));
+    assert!(document.change(TextChange {
+        range: 1..1,
+        replacement: "é".into(),
+        caret: 2,
+    }));
+    assert!(document.preview.get().is_none());
+
+    let current_source = document.buffer_text();
+    assert_eq!(document.preview_blocks(), preview_model::parse(&current_source));
+    fresh(&document);
+}
+
+#[test]
 fn native_insert_paste_enter_and_both_deletion_directions_invalidate_preview() {
     for edit in [
         Edit::Insert('x'),
