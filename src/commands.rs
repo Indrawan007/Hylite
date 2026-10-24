@@ -103,7 +103,6 @@ pub enum Message {
     InlineProbeAction(text_editor::Action),
     FinishInlineProbe,
     InlineAltProbePointer(InlineAltProbeEvent),
-    FinishInlineAltProbe,
     PreviewParagraphChanged(String),
     ApplyPreviewParagraph,
     ApplyPreviewParagraphNext,

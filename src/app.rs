@@ -277,9 +277,7 @@ impl Hylite {
                 Message::InlineAltProbePointer(event) => {
                     return self.inline_alt_probe_pointer(event);
                 }
-                Message::FinishInlineAltProbe | Message::ExitZenMode => {
-                    return self.finish_inline_alt_probe();
-                }
+                Message::ExitZenMode => return self.finish_inline_alt_probe(),
                 Message::EndTypingGroup => return Task::none(),
                 Message::CloseRequested(id) => {
                     self.inline_alt_probe = None;
@@ -426,7 +424,6 @@ impl Hylite {
             Message::InlineProbeAction(action) => self.inline_probe_action(action),
             Message::FinishInlineProbe => self.finish_inline_probe(),
             Message::InlineAltProbePointer(event) => self.inline_alt_probe_pointer(event),
-            Message::FinishInlineAltProbe => self.finish_inline_alt_probe(),
             Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
             Message::ApplyPreviewParagraphPrevious => self.apply_preview_paragraph_previous(),
             Message::ApplyPreviewParagraphNext => self.apply_preview_paragraph_next(),
