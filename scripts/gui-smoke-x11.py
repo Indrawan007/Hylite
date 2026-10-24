@@ -3851,6 +3851,13 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
         refocus=False,
     )
     desktop.title_is_dirty(False)
+    desktop.key("ctrl+z")
+    desktop.expect_copy(
+        "Undo finds no Source history entry created by the read-only probe",
+        source,
+        refocus=False,
+    )
+    desktop.title_is_dirty(False)
     if document.read_bytes() != source:
         raise AssertionError("Alternative custom-widget probe modified the fixture file on disk")
     desktop.inline_alt_result["source_unchanged"] = True
