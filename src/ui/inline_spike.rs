@@ -70,6 +70,8 @@ pub enum InputMode {
     Stage9b,
 }
 
+type KeyBindingCallback = fn(text_editor::KeyPress) -> Option<text_editor::Binding<Message>>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionDiagnostic {
     None,
@@ -165,16 +167,17 @@ pub fn input_id() -> container::Id {
 }
 
 pub fn editor(draft: &Draft, mode: InputMode) -> Element<'_, Message> {
-    let (on_action, key_binding): (
-        fn(text_editor::Action) -> Message,
-        fn(text_editor::KeyPress) -> Option<text_editor::Binding<Message>>,
-    ) = match mode {
-        InputMode::Stage9a => (Message::InlineSpikeAction, key_binding),
-        InputMode::Stage9b => (Message::InlineProbeAction, probe_key_binding),
+    let on_action: fn(text_editor::Action) -> Message = match mode {
+        InputMode::Stage9a => Message::InlineSpikeAction,
+        InputMode::Stage9b => Message::InlineProbeAction,
+    };
+    let editor_key_binding: KeyBindingCallback = match mode {
+        InputMode::Stage9a => key_binding,
+        InputMode::Stage9b => probe_key_binding,
     };
     let editor = text_editor(&draft.content)
         .on_action(on_action)
-        .key_binding(key_binding)
+        .key_binding(editor_key_binding)
         .highlight_with::<InlineHighlighter>(draft.highlighter_settings(), format)
         .font(Font::DEFAULT)
         .size(16)
