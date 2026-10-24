@@ -107,7 +107,7 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
 
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
-| **10a** | **Incremental parse**: parse hanya blok yang berubah (block-level cache + dirty range), bukan seluruh dokumen. Tinjauan scope menyatakan kandidatnya bisa mandiri dari 9d untuk Preview saat ini; implementasi tetap menunggu keputusan — lihat [proposal](proposal-stage10a-scope.md) | besar | sedang |
+| **10a** | **Incremental parse Preview (cakupan konservatif)**: reparse hanya root paragraph satu baris plain yang terisolasi, geser semua rentang suffix; semua edit tak terbukti aman memakai full-parse oracle/fallback. Implementasi produksi ada di branch ini; verifikasi CI dan observasi Stage 10b dicatat terpisah. Tidak bergantung pada 9c/9d — lihat [scope dan status](proposal-stage10a-scope.md) | besar | sedang |
 | **10b** ✅ | **Harness benchmark**: dokumen sintetis 100 KB/1 MB/5 MB, metrik absolut (ms) untuk buka, ketik, parse, render; batas waktu CI; baseline mentah pertama tercatat di [`docs/performance.md`](performance.md) | kecil–sedang | rendah |
 | **10c** | **Viewport culling** untuk dokumen sangat besar (render hanya blok yang terlihat) + sinkronisasi scroll Preview↔Source | sedang–besar | sedang |
 
@@ -138,8 +138,8 @@ lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
                          └──► [probe custom-widget test-only selesai; NO-GO terbatas]
                                       │
                                       └──► 9c/9d DEFERRED (pilihan pengguna A)
-                                       10a incremental ◄┘ (dependency review: proposal menyatakan kandidat mandiri; izin implementasi pending)
-                                       10b benchmark ✅ (boleh paralel kapan saja; baseline di docs/performance.md)
+                                       10a incremental (fast path terbatas; full-parse fallback)
+                                       10b benchmark ✅ (baseline sebelum 10a; observasi terbaru di docs/performance.md)
                                        10c culling + scroll sync
                                                         │
                                        11a instrumentasi ──► 11b manual (kamu)

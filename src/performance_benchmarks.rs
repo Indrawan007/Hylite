@@ -62,12 +62,41 @@ fn stage10b_baseline() {
             elapsed
         });
 
+        let plain_source = synthetic_plain_markdown(target_bytes);
+        assert_eq!(
+            plain_source.len(),
+            target_bytes,
+            "plain fixture size for {label}"
+        );
+        let incremental = measure(&suite_started, || {
+            let mut document = Document::new(&plain_source);
+            document.preview_blocks(); // Warm the old full projection outside the timer.
+            document.apply(Action::Edit(Edit::Insert('x')));
+            let started = Instant::now();
+            let block_count = document.preview_blocks().len();
+            let elapsed = started.elapsed();
+            let _ = black_box((block_count, document));
+            elapsed
+        });
+        let fallback = measure(&suite_started, || {
+            let mut document = Document::new(&plain_source);
+            document.preview_blocks(); // Warm the old full projection outside the timer.
+            document.apply(Action::Edit(Edit::Enter));
+            let started = Instant::now();
+            let block_count = document.preview_blocks().len();
+            let elapsed = started.elapsed();
+            let _ = black_box((block_count, document));
+            elapsed
+        });
+
         println!(
-            "STAGE10B dataset={label} bytes={target_bytes} samples={SAMPLE_COUNT} warmups=1 open_ms[min/median/max]={} typing_ms[min/median/max]={} parse_ms[min/median/max]={} render_tree_ms[min/median/max]={}",
+            "STAGE10B dataset={label} bytes={target_bytes} samples={SAMPLE_COUNT} warmups=1 open_ms[min/median/max]={} typing_ms[min/median/max]={} parse_ms[min/median/max]={} render_tree_ms[min/median/max]={} incremental_preview_ms[min/median/max]={} fallback_preview_ms[min/median/max]={}",
             describe(&open),
             describe(&typing),
             describe(&parsing),
             describe(&rendering),
+            describe(&incremental),
+            describe(&fallback),
         );
     }
 
@@ -108,6 +137,17 @@ fn describe(samples: &[Duration]) -> String {
 
 fn milliseconds(duration: Duration) -> f64 {
     duration.as_secs_f64() * 1_000.0
+}
+
+fn synthetic_plain_markdown(target_bytes: usize) -> String {
+    const PARAGRAPH: &str = "Incremental benchmark prose remains plain and independent across paragraphs. The cache may reparse one eligible line while retaining exact Source offsets.\n\n";
+    let mut source = String::with_capacity(target_bytes);
+    while source.len() + PARAGRAPH.len() <= target_bytes {
+        source.push_str(PARAGRAPH);
+    }
+    source.push_str(&"x".repeat(target_bytes - source.len()));
+    assert!(source.is_ascii(), "plain benchmark fixture is ASCII");
+    source
 }
 
 fn synthetic_markdown(target_bytes: usize) -> String {

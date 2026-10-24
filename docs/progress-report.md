@@ -1,4 +1,4 @@
-# Laporan Progress — Hylite (scope 9c/9d dan evaluasi Stage 10a)
+# Laporan Progress — Hylite (scope 9c/9d dan implementasi Stage 10a)
 
 **Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **HEAD kode terverifikasi:** `39e8168`
 
@@ -104,20 +104,30 @@ menjalankan tes yang diabaikan secara eksplisit; test selesai dalam 3,17 detik.
 Budget 180 detik untuk harness dan timeout langkah CI 5 menit bersifat pagar
 kasar, bukan target tiap operasi. `render_tree` tidak mengukur layout, paint,
 GPU, window, atau frame. Hasil satu run tidak dijadikan klaim performa. Stage
-9c/9d kini ditunda sesuai pilihan pengguna A; Stage 10a sedang dievaluasi terpisah
-sebagai kandidat optimasi untuk Preview yang ada.
+9c/9d tetap ditunda sesuai pilihan pengguna A. Harness kini juga mengukur
+cache-miss incremental dan fallback untuk Stage 10a; angka dicatat terpisah
+sebagai observasi lingkungan.
 
-### Reevaluasi Stage 10a — scope saja; implementasi belum dimulai
+### Stage 10a — incremental parse Preview (fast path konservatif)
 
-Inspeksi kode menunjukkan parser Preview saat ini tetap berguna meski 9c/9d
-ditunda: `Document::preview_blocks()` melakukan parse dokumen penuh pada cache
-miss, dan invalidasi revision membuang seluruh cache. Karena itu, 10a dapat
-dipertimbangkan sebagai optimasi Preview/block-level yang berdiri sendiri tanpa
-WYSIWYG. Namun model memakai rentang Source absolut dan ada banyak jalur mutasi;
-setiap hasil incremental wajib sama persis dengan full parse, dengan fallback
-penuh saat dirty boundary tidak dapat dibuktikan. [Proposal scope 10a](proposal-stage10a-scope.md)
-merinci oracle/gate. Ini hanya evaluasi; dependency roadmap dan izin implementasi
-belum diubah.
+`Document` menyimpan Source dan Snapshot bersama model cache. Setelah edit, cache
+revision sebelumnya hanya dipakai sebagai basis bila identitas dokumen cocok dan
+revision lebih lama; diff byte exact dihitung dari Source lama dan Source aktif.
+Fast path hanya mereparse satu root paragraph satu baris plain yang dikelilingi
+batas aman dan tetap menghasilkan satu plain paragraph. Blok sesudahnya disalin
+serta seluruh rentang Source absolut dipindah, termasuk nested blocks, task, dan
+semua rentang table. Perubahan newline/inline/block syntax, beberapa area yang
+berubah, reference syntax, cache tak cocok, atau batas tak terverifikasi memilih
+full parse. Full parser tetap oracle/fallback; cache kandidat dari preflight
+hanya dipasang bila Source tepat cocok dengan buffer.
+
+Differential tests membandingkan seluruh `Block` terhadap full parse; uji cache
+mencakup edit plain Unicode, beberapa mutasi sebelum pembacaan Preview, dan
+fallback. Property tests lama, assertion, byte/coordinate oracle, deadline, dan
+focus/refocus tetap dipertahankan. Karena dirty range diperoleh dengan scan
+Source penuh dan suffix model juga perlu disalin/digeser, implementasi ini belum
+membuktikan percepatan; tidak ada klaim performa. Stage 9c/9d tetap terpisah dan
+tidak dimulai. Rincian: [proposal/scope Stage 10a](proposal-stage10a-scope.md).
 
 ### Verifikasi otomatis — semua gate CI lulus
 
@@ -144,7 +154,7 @@ belum diubah.
 | Gambar di Preview | **ya, terbatas** — PNG/GIF/BMP/JPEG lokal ≤4 MiB & ≤8192 px; tanpa oracle piksel, SVG/WebP, atau jaringan |
 | Ekspor PDF | **ya, terbatas** — PDF 1.4 ditulis sendiri, palet tema aktif, tabel + code block, tanpa browser; math tetap source inert; tanpa gambar/link/font embedding/kompresi |
 | Math subset | **ya, terbatas** — inline/display, `frac`/`sqrt`/sup-sub/Greek/operator eksplisit, Unicode linearized; unsupported source ber-marker; tanpa KaTeX, 2D layout, glyph oracle |
-| Harness Stage 10b / incremental parsing / klaim performa | **harness selesai** dengan angka mentah satu run di [docs/performance.md](performance.md); incremental parse belum dikerjakan dan belum ada klaim performa |
+| Harness Stage 10b / incremental parsing / klaim performa | **Stage 10a fast path konservatif diimplementasikan** dengan full-parse oracle/fallback; Stage 10b mengukur cache-miss incremental dan fallback sebagai observasi runner, tanpa klaim performa |
 | Packaging/AUR/release build | **belum** |
 | Checklist manual Tahap 2–4 | **belum dicentang** |
 
@@ -167,8 +177,9 @@ belum diubah.
    shortcut bisa diambil compositor, fokus/IME belum diuji nyata.
 2. **Belum siap dokumen penting.** History bounded, LF canonical, selection collapse,
    dan draft pane terbatas masih kompromi prototipe.
-3. **O(n) di banyak jalur** (parse penuh, salinan Source, dua buffer native di plan
-   7e/7f) — memori ekstra, belum ada optimasi.
+3. **Kerja O(n) tetap ada**: pencarian diff memindai Source penuh, fast path menyalin
+   dan menggeser seluruh suffix model, fallback tetap parse penuh; dua buffer native
+   juga ada di plan 7e/7f. Belum ada bukti bahwa fast path mempercepat operasi umum.
 4. **Statistik tes bukan cakupan.** Angka GUI membuktikan byte/fokus/urutan, bukan
    piksel atau mapping glyph. Stage 9a membuktikan satu caret keyboard ASCII;
    Stage 9b hanya mengamati caret 0 pada probe klik terbatas dan tidak membuktikan
@@ -180,7 +191,7 @@ belum diubah.
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
 | 1 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target yang tidak dapat dibuktikan oleh CI X11 | sedang; butuh mesin target dan verifikasi manual |
-| 2 | Putuskan apakah Stage 10a boleh dimulai berdasarkan [evaluasi scope](proposal-stage10a-scope.md) | optimasi parser Preview bisa berdiri sendiri dari inline editing, tetapi butuh oracle differential kuat | implementasi belum diizinkan; perlu persetujuan eksplisit |
+| 2 | Tinjau observasi incremental/fallback Stage 10b dan pertahankan fallback konservatif di [scope Stage 10a](proposal-stage10a-scope.md) | mengetahui biaya lingkungan tanpa menyimpulkan performa umum | harness satu-run; tidak ada klaim atau target latency |
 | 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
 | 4 | Packaging AUR + release build | distribusi | sedang |
 
@@ -189,12 +200,13 @@ belum diubah.
 - **≈93 % roadmap Stage 5a–9b**: denominator lama berisi 42 milestone (5a–5e,
   6a–6p, 7a–7n, 8a–8e, 9a–9b). Stage 9b menutup gate feasibility dengan verdict
   NO-GO, bukan implementasi fitur. Probe custom-widget adalah studi test-only di
-  luar milestone produk. Stage 10b selesai sebagai pekerjaan paralel dan
-  dilaporkan terpisah; angka 93 % tidak diperluas diam-diam ke stage berikutnya.
-- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**. Stage 10b
-  memberi alat ukur, bukan optimasi atau kemampuan produk; tanpa validasi
-  compositor, packaging, dan WYSIWYG umum, aplikasi belum layak disebut siap
-  produksi.
+  luar milestone produk. Stage 10a dan 10b dilaporkan terpisah; angka 93 % tidak
+  diperluas diam-diam ke stage berikutnya.
+- **≈44 % kesiapan rilis**: taksiran kualitatif yang **tidak berubah**. Stage 10a
+  hanya optimasi cache/parser yang konservatif tanpa klaim hasil performa; 10b
+  memberi observasi satu-run, bukan validasi target atau kesiapan produksi.
+  Tanpa validasi compositor, packaging, dan WYSIWYG umum, aplikasi belum layak
+  disebut siap produksi.
 - Bobot kategori pada bagian 3 dipilih mengikuti besar permukaan kode dan risiko,
   bukan jumlah baris. Semua angka bisa direvisi bila prioritas proyek berubah.
 

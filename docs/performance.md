@@ -8,10 +8,12 @@ speed claim.
 
 The opt-in, headless test in `src/performance_benchmarks.rs` creates deterministic
 ASCII Markdown documents of exactly **100,000 bytes (100 KB), 1,000,000 bytes
-(1 MB), and 5,000,000 bytes (5 MB)**. The fixtures contain repeated paragraphs
-with headings and inline emphasis, code, and link syntax. Each metric has one
-warm-up followed by three measured samples; the table reports each set as
-`min / median / max`, in milliseconds.
+(1 MB), and 5,000,000 bytes (5 MB)**. The original fixtures contain repeated
+paragraphs with headings and inline emphasis, code, and link syntax. The two
+Stage 10a observations use separate plain-paragraph fixtures at the same sizes;
+that keeps the original baseline workload intact. Each metric has one warm-up
+followed by three measured samples; the table reports each set as `min / median
+/ max`, in milliseconds.
 
 | Metric | Timed operation | Deliberately excluded |
 |---|---|---|
@@ -19,6 +21,8 @@ warm-up followed by three measured samples; the table reports each set as
 | `typing` | Insert one ASCII `x` at the initial caret via `Document::apply`; includes the editor's history/revision work for that edit. | `Document` setup, UI event dispatch, and preview parsing |
 | `parse` | Cold `Document::preview_blocks()` projection; includes native-buffer text extraction and Markdown parsing. | `Document` setup and rendering |
 | `render_tree` | Construct the read-only Preview Iced `Element` tree from already-parsed blocks. | Layout, renderer paint, GPU, window-system presentation, and frame latency |
+| `incremental_preview` | After a full warm parse, insert one ASCII `x` into the isolated plain first paragraph, then time the cache-miss `preview_blocks()` call. Includes native-buffer snapshot, exact Source diff discovery, one-line parse, and cloning/shifting retained suffix blocks. | Setup, initial full parse, UI dispatch, layout/rendering |
+| `fallback_preview` | After a full warm parse, insert a newline at the start of the same plain fixture, then time `preview_blocks()`; the changed block is no longer isolated and must use the full-parser fallback. Includes the same cache-miss/source-snapshot work as the incremental metric. | Setup, initial full parse, UI dispatch, layout/rendering |
 
 ## First raw CI baseline
 
