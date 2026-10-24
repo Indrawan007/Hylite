@@ -167,7 +167,7 @@ mengubah Stage 9c/9d yang masih HOLD atau Stage 10a yang menunggu keputusan 9d.
 | Prioritas | Kandidat | Nilai | Usaha |
 |---|---|---|---|
 | 1 | Audit manual Arch + Hyprland (checklist Tahap 2–4, IME/RTL/HiDPI) | menutup gap target yang tidak dapat dibuktikan oleh CI X11 | sedang; butuh mesin target dan verifikasi manual |
-| 2 | Tentukan scope produk terpisah sebelum Stage 9c/9d | menghindari perubahan editor yang tidak disetujui; dua probe feasibility telah ditutup dengan NO-GO terbatas | perlu keputusan eksplisit; bukan kelanjutan otomatis probe |
+| 2 | Tentukan scope produk terpisah sebelum Stage 9c/9d ([draft pilihan](proposal-stage9c-9d-scope.md)) | menghindari perubahan editor yang tidak disetujui; dua probe feasibility telah ditutup dengan NO-GO terbatas | perlu keputusan eksplisit; bukan kelanjutan otomatis probe |
 | 3 | Sinkronisasi scroll Preview↔Split dan viewport | kenyamanan dokumen panjang | sedang–besar |
 | 4 | Packaging AUR + release build | distribusi | sedang |
 
@@ -187,7 +187,7 @@ mengubah Stage 9c/9d yang masih HOLD atau Stage 10a yang menunggu keputusan 9d.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [Stage 10b benchmark](performance.md) · [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [draft scope Stage 9c/9d](proposal-stage9c-9d-scope.md) · [Stage 10b benchmark](performance.md) · [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
 - CI terkini: `40086623422` (`39e8168`) **success** — format, strict core, Clippy,

@@ -69,8 +69,8 @@ fondasi → perluasan**, bukan big bang.
 |---|---|---|---|
 | **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; hit-testing/selection tetap belum terbukti setelah probe 9b NO-GO |
 | **9b** ⚠️ NO-GO (probe selesai) | **Feasibility terbatas**: satu fixture ASCII, hit-testing caret dan selection pada widget native, tanpa Source edit atau implementasi mapping. Hasil: hanya caret 0 yang teramati; drag tidak dijalankan karena endpoint 3/7 tidak ditemukan — [bukti lengkap](testing-stage9b.md) | kecil–sedang | probe tertutup; hit-testing/selection belum layak dibuktikan |
-| **9c** | **HOLD — belum disetujui**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah verdict 9b asli NO-GO maupun NO-GO terbatas probe custom-widget. Probe alternatif selesai hanya sebagai alat test-only; tidak mengizinkan implementasi 9c. Tetap perlu keputusan scope produk terpisah | sedang–besar | sedang |
-| **9d** | **HOLD — belum disetujui**. Perluasan editing langsung ke heading/list/quote/sel tabel dan pensiun panel draft tidak dimulai; perlu gate dan scope produk baru yang eksplisit | besar | tinggi |
+| **9c** | **HOLD — belum disetujui**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah verdict 9b asli NO-GO maupun NO-GO terbatas probe custom-widget. Keputusan scope masih tertunda; lihat [draft pilihan scope](proposal-stage9c-9d-scope.md). | sedang–besar | sedang |
+| **9d** | **HOLD — belum disetujui**. Perluasan editing langsung ke heading/list/quote/sel tabel dan pensiun panel draft tidak dimulai; perlu gate dan scope produk baru yang eksplisit. Lihat [draft pilihan scope](proposal-stage9c-9d-scope.md). | besar | tinggi |
 
 **Hasil gate 9a:** CI 40039268185 lulus 1041 Cargo / 344 strict core / 90
 Python / 29 suite GUI / 512 pemeriksaan. Tes `Content` mencakup perjalanan caret
