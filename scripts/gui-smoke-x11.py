@@ -3602,6 +3602,20 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
     backward_selection = None
     backward_repeat_selection = None
     drag_xs = {"start": None, "end": None}
+    scan_issue = None
+    last_pointer = None
+    forward_event = forward_repeat_event = False
+    backward_event = backward_repeat_event = False
+
+    def move_pointer(x, y):
+        nonlocal last_pointer
+        if last_pointer != (x, y):
+            desktop.command(
+                "xdotool", "mousemove", "--sync", "--window", desktop.window,
+                str(x), str(y),
+            )
+            last_pointer = (x, y)
+
     if hover_state is None:
         focus_reason = "custom advanced widget did not report a bounded pointer-hover geometry"
     else:
@@ -3616,10 +3630,14 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
             y = base_y + delta_y
             previous, _ = read_inline_alt_probe_state(desktop)
             previous_event = previous["event"] if previous else 0
-            desktop.command(
-                "xdotool", "mousemove", "--sync", "--window", desktop.window,
-                str(probe_x), str(y),
-            )
+            try:
+                move_pointer(probe_x, y)
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+                scan_issue = (
+                    "bounded hover scan could not synchronize native pointer input: "
+                    f"{type(error).__name__}"
+                )
+                break
             try:
                 state = wait_for_inline_alt_probe_state(
                     desktop,
@@ -3654,15 +3672,24 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
             if len(sample_xs) > INLINE_ALT_PROBE_MAX_X:
                 raise AssertionError("Alternative widget sampler exceeded its x-coordinate cap")
 
-            def sweep(xs):
+            def sweep(xs, label):
                 trace = []
                 for x in xs:
                     previous, _ = read_inline_alt_probe_state(desktop)
                     previous_event = previous["event"] if previous else 0
-                    desktop.command(
-                        "xdotool", "mousemove", "--sync", "--window", desktop.window,
-                        str(x), str(focus_y), "click", "1",
-                    )
+                    try:
+                        move_pointer(x, focus_y)
+                        desktop.command("xdotool", "click", "1")
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+                        issue = (
+                            f"{label} x sweep could not complete native input at client x={x}: "
+                            f"{type(error).__name__}"
+                        )
+                        try:
+                            desktop.command("xdotool", "mouseup", "1", timeout=1)
+                        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                            issue += "; left-button release could not be confirmed"
+                        return trace, issue
                     try:
                         state = wait_for_inline_alt_probe_state(
                             desktop,
@@ -3685,11 +3712,12 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
                         else:
                             state = None
                     trace.append((x, state["hit"] if state is not None else None))
-                return trace
+                return trace, None
 
-            forward_trace = sweep(sample_xs)
+            forward_trace, scan_issue = sweep(sample_xs, "forward")
             desktop.screenshot(artifacts / "inline-alt-probe-click-forward.png")
-            reverse_trace = sweep(reversed(sample_xs))
+            if scan_issue is None:
+                reverse_trace, scan_issue = sweep(reversed(sample_xs), "reverse")
             desktop.screenshot(artifacts / "inline-alt-probe-click-reverse.png")
 
             def representative_x(trace, offset):
@@ -3700,69 +3728,83 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
             end_x = representative_x(forward_trace, INLINE_ALT_PROBE_FORWARD["end"])
             drag_xs = {"start": start_x, "end": end_x}
 
-            def drag_and_read(x1, x2):
+            def drag_and_read(x1, x2, label):
+                nonlocal scan_issue
                 if x1 is None or x2 is None:
                     return None, False
                 previous, _ = read_inline_alt_probe_state(desktop)
                 previous_event = previous["event"] if previous else 0
-                desktop.command(
-                    "xdotool", "mousemove", "--sync", "--window", desktop.window,
-                    str(x1), str(focus_y), "mousedown", "1",
-                )
+                press = drag = released = None
                 try:
-                    press = wait_for_inline_alt_probe_state(
-                        desktop,
-                        lambda state: state is not None
-                        and state["event"] > previous_event
-                        and state["phase"] == "press",
-                        "forward or reverse drag press",
-                        seconds=0.4,
+                    move_pointer(x1, focus_y)
+                    desktop.command("xdotool", "mousedown", "1")
+                    try:
+                        press = wait_for_inline_alt_probe_state(
+                            desktop,
+                            lambda state: state is not None
+                            and state["event"] > previous_event
+                            and state["phase"] == "press",
+                            f"{label} drag press",
+                            seconds=0.4,
+                        )
+                    except TimeoutError:
+                        press = None
+                    previous_event = press["event"] if press else previous_event
+                    move_pointer(x2, focus_y)
+                    try:
+                        drag = wait_for_inline_alt_probe_state(
+                            desktop,
+                            lambda state: state is not None
+                            and state["event"] > previous_event
+                            and state["phase"] == "drag",
+                            f"{label} drag motion",
+                            seconds=0.4,
+                        )
+                    except TimeoutError:
+                        drag = None
+                    previous_event = drag["event"] if drag else previous_event
+                    desktop.command("xdotool", "mouseup", "1")
+                    try:
+                        released = wait_for_inline_alt_probe_state(
+                            desktop,
+                            lambda state: state is not None
+                            and state["event"] > previous_event
+                            and state["phase"] == "release",
+                            f"{label} drag release",
+                            seconds=0.4,
+                        )
+                    except TimeoutError:
+                        released = None
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+                    scan_issue = (
+                        f"{label} drag could not complete native input: {type(error).__name__}"
                     )
-                except TimeoutError:
-                    press = None
-                previous_event = press["event"] if press else previous_event
-                desktop.command(
-                    "xdotool", "mousemove", "--sync", "--window", desktop.window,
-                    str(x2), str(focus_y),
-                )
-                try:
-                    drag = wait_for_inline_alt_probe_state(
-                        desktop,
-                        lambda state: state is not None
-                        and state["event"] > previous_event
-                        and state["phase"] == "drag",
-                        "forward or reverse drag motion",
-                        seconds=0.4,
+                    try:
+                        desktop.command("xdotool", "mouseup", "1", timeout=1)
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                        scan_issue += "; left-button release could not be confirmed"
+                    return None, any(
+                        state is not None for state in (press, drag, released)
                     )
-                except TimeoutError:
-                    drag = None
-                previous_event = drag["event"] if drag else previous_event
-                desktop.command("xdotool", "mouseup", "1")
-                try:
-                    released = wait_for_inline_alt_probe_state(
-                        desktop,
-                        lambda state: state is not None
-                        and state["event"] > previous_event
-                        and state["phase"] == "release",
-                        "forward or reverse drag release",
-                        seconds=0.4,
-                    )
-                except TimeoutError:
-                    released = None
                 return inline_alt_selection(released), any(
                     state is not None for state in (press, drag, released)
                 )
 
-            if start_x is not None and end_x is not None and start_x < end_x:
-                forward_selection, forward_event = drag_and_read(start_x, end_x)
+            if scan_issue is None and start_x is not None and end_x is not None and start_x < end_x:
+                forward_selection, forward_event = drag_and_read(start_x, end_x, "forward")
                 desktop.screenshot(artifacts / "inline-alt-probe-drag-forward.png")
-                forward_repeat_selection, forward_repeat_event = drag_and_read(start_x, end_x)
-                backward_selection, backward_event = drag_and_read(end_x, start_x)
-                desktop.screenshot(artifacts / "inline-alt-probe-drag-backward.png")
-                backward_repeat_selection, backward_repeat_event = drag_and_read(end_x, start_x)
+                if scan_issue is None:
+                    forward_repeat_selection, forward_repeat_event = drag_and_read(
+                        start_x, end_x, "repeated forward"
+                    )
+                if scan_issue is None:
+                    backward_selection, backward_event = drag_and_read(end_x, start_x, "backward")
+                    desktop.screenshot(artifacts / "inline-alt-probe-drag-backward.png")
+                if scan_issue is None:
+                    backward_repeat_selection, backward_repeat_event = drag_and_read(
+                        end_x, start_x, "repeated backward"
+                    )
             else:
-                forward_event = forward_repeat_event = False
-                backward_event = backward_repeat_event = False
                 desktop.screenshot(artifacts / "inline-alt-probe-drag-not-run.png")
 
     result = analyze_inline_alt_probe(
@@ -3777,6 +3819,10 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
         if result["verdict"] != "INCONCLUSIVE":
             result["verdict"] = "INCONCLUSIVE"
             result["go"] = False
+    if scan_issue:
+        result["reasons"].insert(0, scan_issue)
+        result["verdict"] = "INCONCLUSIVE"
+        result["go"] = False
     if focus_y is not None:
         if drag_xs["start"] is None or drag_xs["end"] is None:
             result["reasons"].append("click samples did not identify the caret offsets needed for drags")
@@ -3800,7 +3846,8 @@ def exercise_inline_alt_probe(desktop, artifacts, document):
         "visible_ascii": INLINE_ALT_PROBE_VISIBLE,
         "focus_y": focus_y,
         "client_width": width,
-        "sample_x_positions": sample_xs,
+        "sample_x_positions": sorted({x for x, _ in forward_trace + reverse_trace}),
+        "scan_issue": scan_issue,
         "drag_xs": drag_xs,
         "forward_repeat_selection": forward_repeat_selection,
         "backward_repeat_selection": backward_repeat_selection,
