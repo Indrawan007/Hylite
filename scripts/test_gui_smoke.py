@@ -101,6 +101,52 @@ class SmokeHelperTests(unittest.TestCase):
             desktop.type_ascii("café")
         self.assertEqual(len(commands), 1)
 
+    def test_stage9b_title_parser_observes_caret_and_selection_direction(self):
+        title = (
+            "inline-probe.md [Stage 9b event 19 caret 7 sel 3..7 anchor 3 focus 7 "
+            "direction forward] — Hylite\n"
+        )
+        self.assertEqual(gui.parse_inline_probe_title(title), {
+            "event": 19, "caret": 7,
+            "selection": {
+                "start": 3, "end": 7, "anchor": 3, "focus": 7,
+                "direction": "forward",
+            },
+        })
+        self.assertEqual(
+            gui.parse_inline_probe_title(
+                "inline-probe.md [Stage 9b event 0 caret 0 sel none] — Hylite\n"
+            ),
+            {"event": 0, "caret": 0, "selection": None},
+        )
+        self.assertIsNone(gui.parse_inline_probe_title("inline-probe.md — Hylite\n"))
+
+    def test_stage9b_analyzer_accepts_repeatable_monotone_offsets_and_rejects_drift(self):
+        forward = [(x, x) for x in range(len(gui.INLINE_PROBE_VISIBLE) + 1)]
+        reverse = list(reversed(forward))
+        go = gui.analyze_inline_probe(
+            forward, reverse, len(gui.INLINE_PROBE_VISIBLE) + 1,
+            gui.INLINE_PROBE_FORWARD, gui.INLINE_PROBE_BACKWARD,
+        )
+        self.assertTrue(go["go"], go["reasons"])
+        self.assertTrue(go["repeatable_at_each_x"])
+        self.assertEqual(go["forward_reached_offsets"], list(range(12)))
+
+        drift = gui.analyze_inline_probe(
+            forward, [(x, 11 - x) for x in range(12)], 12,
+            gui.INLINE_PROBE_FORWARD, gui.INLINE_PROBE_FORWARD,
+        )
+        self.assertFalse(drift["go"])
+        self.assertIn("reverse click sweep was not monotone in client-x order", drift["reasons"])
+        self.assertIn("repeated client-x positions produced different caret offsets", drift["reasons"])
+        self.assertIn("backward drag selection was not the expected diagnostic", " ".join(drift["reasons"]))
+
+    def test_stage9b_fixture_is_unique_ascii_and_byte_exact(self):
+        self.assertEqual(gui.INLINE_PROBE_DOCUMENT, b"ab**CDEFGH**ijk\n")
+        self.assertEqual(gui.INLINE_PROBE_VISIBLE, "abCDEFGHijk")
+        self.assertTrue(gui.INLINE_PROBE_VISIBLE.isascii())
+        self.assertEqual(len(set(gui.INLINE_PROBE_VISIBLE)), len(gui.INLINE_PROBE_VISIBLE))
+
     def test_preview_probe_uses_editor_bold_not_global_sidebar_shortcut(self):
         desktop = Mock(window="42")
         gui.exercise_preview(desktop, Path("/unused-evidence"))

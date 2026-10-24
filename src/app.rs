@@ -39,6 +39,9 @@ pub struct Hylite {
     inline_spike_enabled: bool,
     inline_spike_pending: bool,
     inline_spike: Option<crate::ui::inline_spike::Draft>,
+    inline_probe_enabled: bool,
+    inline_probe_pending: bool,
+    inline_probe: Option<crate::ui::inline_spike::Probe>,
     pub mode: EditMode,
     pub sidebar_open: bool,
     pub zen_mode: bool,
@@ -57,17 +60,23 @@ impl Hylite {
     /// `launch` is the optional command-line path: a folder opens a workspace,
     /// a file is opened in the single startup buffer.
     pub fn with_launch_path(launch: Option<std::path::PathBuf>) -> (Self, Task<Message>) {
-        Self::with_launch_options(launch, false)
+        Self::with_launch_options(launch, false, false)
     }
 
     /// Starts the explicitly opt-in Stage 9a test harness for a single file.
     pub fn with_inline_spike_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
-        Self::with_launch_options(Some(path), true)
+        Self::with_launch_options(Some(path), true, false)
+    }
+
+    /// Starts the read-only Stage 9b feasibility probe for one existing file.
+    pub fn with_inline_probe_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
+        Self::with_launch_options(Some(path), false, true)
     }
 
     fn with_launch_options(
         launch: Option<std::path::PathBuf>,
         inline_spike_enabled: bool,
+        inline_probe_enabled: bool,
     ) -> (Self, Task<Message>) {
         let loaded = Config::load();
         let config_warning = (!loaded.warnings.is_empty()).then(|| loaded.warnings.join("\n"));
@@ -84,12 +93,13 @@ impl Hylite {
             "Running standalone".to_string()
         };
 
-        let mode = if inline_spike_enabled {
+        let mode = if inline_spike_enabled || inline_probe_enabled {
             EditMode::Preview
         } else {
             config.editor.default_mode
         };
         let inline_spike_pending = inline_spike_enabled && launch.is_some();
+        let inline_probe_pending = inline_probe_enabled && launch.is_some();
 
         let mut app = Self {
             document: Document::new(include_str!("welcome.md")),
@@ -105,6 +115,9 @@ impl Hylite {
             inline_spike_enabled,
             inline_spike_pending,
             inline_spike: None,
+            inline_probe_enabled,
+            inline_probe_pending,
+            inline_probe: None,
             mode,
             sidebar_open: true,
             zen_mode: false,
@@ -168,7 +181,17 @@ impl Hylite {
                         .map_or_else(|| "unmapped".to_owned(), |caret| caret.to_string())
                 )
             });
-        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline}{inline_spike} — Hylite")
+        let inline_probe = self
+            .inline_probe
+            .as_ref()
+            .map_or_else(String::new, |probe| {
+                format!(
+                    " [Stage 9b event {} {}]",
+                    probe.events,
+                    probe.title_marker()
+                )
+            });
+        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline}{inline_spike}{inline_probe} — Hylite")
     }
 
     /// A blocked gesture must not look like a dead click. Only user commands that
@@ -231,6 +254,23 @@ impl Hylite {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        if self.inline_probe.is_some() {
+            match message {
+                Message::InlineProbeAction(action) => return self.inline_probe_action(action),
+                Message::FinishInlineProbe => return self.finish_inline_probe(),
+                Message::EndTypingGroup => return Task::none(),
+                Message::CloseRequested(id) => {
+                    self.inline_probe = None;
+                    return self.request_action(PendingAction::Close(id));
+                }
+                _ => {
+                    self.status_message =
+                        "Stage 9b probe is read-only: press Esc to finish before another action"
+                            .into();
+                    return Task::none();
+                }
+            }
+        }
         if self.inline_spike.is_some() {
             match message {
                 Message::InlineSpikeAction(action) => return self.inline_spike_action(action),
@@ -343,6 +383,8 @@ impl Hylite {
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
             Message::InlineSpikeAction(action) => self.inline_spike_action(action),
             Message::FinishInlineSpike => self.finish_inline_spike(),
+            Message::InlineProbeAction(action) => self.inline_probe_action(action),
+            Message::FinishInlineProbe => self.finish_inline_probe(),
             Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
             Message::ApplyPreviewParagraphPrevious => self.apply_preview_paragraph_previous(),
             Message::ApplyPreviewParagraphNext => self.apply_preview_paragraph_next(),
@@ -690,6 +732,14 @@ impl Hylite {
                 snapshot,
                 base_dir,
                 self.inline_spike.as_ref(),
+            )
+        } else if self.inline_probe_enabled {
+            crate::document::render_inline_probe_preview(
+                blocks,
+                &theme,
+                snapshot,
+                base_dir,
+                self.inline_probe.as_ref(),
             )
         } else {
             crate::document::render_preview(blocks, &theme, snapshot, base_dir)

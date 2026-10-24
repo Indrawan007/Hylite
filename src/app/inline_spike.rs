@@ -1,4 +1,4 @@
-//! Controller for the opt-in Stage 9a inline-edit experiment.
+//! Controllers for the opt-in Stage 9a edit spike and Stage 9b read-only probe.
 use super::Hylite;
 use crate::commands::Message;
 use crate::document::preview_model::{self, Block, Kind};
@@ -31,6 +31,7 @@ impl Hylite {
     pub(super) fn open_inline_spike(&mut self, target: Target) -> Task<Message> {
         if !self.inline_spike_enabled
             || self.inline_spike.is_some()
+            || self.inline_probe.is_some()
             || self.mode == crate::editor::EditMode::Source
             || !self.navigation_allowed()
             || self.operations.active().is_some()
@@ -64,6 +65,102 @@ impl Hylite {
         self.inline_spike = Some(draft);
         self.status_message = "Stage 9a: ASCII edits update Source live; Esc finishes".into();
         crate::source_focus::task_in(crate::ui::inline_spike::input_id())
+    }
+
+    pub(super) fn open_first_inline_probe(&mut self) -> Task<Message> {
+        if !self.inline_probe_enabled {
+            return Task::none();
+        }
+        let source = self.document.buffer_text();
+        let snapshot = self.document.snapshot();
+        let target = self
+            .document
+            .preview_blocks()
+            .iter()
+            .find_map(|block| target_for_block(block, &source, snapshot));
+        let Some(target) = target else {
+            self.status_message =
+                "No supported single-line formatted paragraph for the Stage 9b probe".into();
+            return Task::none();
+        };
+        self.open_inline_probe(target)
+    }
+
+    pub(super) fn open_inline_probe(&mut self, target: Target) -> Task<Message> {
+        if !self.inline_probe_enabled
+            || self.inline_probe.is_some()
+            || self.inline_spike.is_some()
+            || self.mode == crate::editor::EditMode::Source
+            || !self.navigation_allowed()
+            || self.operations.active().is_some()
+            || self.paragraph_draft.is_some()
+            || self.multiline_draft.is_some()
+            || self.cell_draft.is_some()
+        {
+            self.status_message =
+                "Stage 9b probe is unavailable in the current editor state".into();
+            return Task::none();
+        }
+        let source = self.document.buffer_text();
+        let snapshot = self.document.snapshot();
+        let projection = self
+            .document
+            .preview_blocks()
+            .iter()
+            .find(|block| block.source == target.block && matches!(block.kind, Kind::Paragraph))
+            .and_then(|block| authenticated_projection(block, &source, &target, snapshot));
+        let Some(projection) = projection else {
+            self.status_message =
+                "Stage 9b target is stale or outside the bounded inline subset; Source kept".into();
+            return Task::none();
+        };
+        let Some(probe) = crate::ui::inline_spike::Probe::new(target, projection) else {
+            self.status_message =
+                "Stage 9b could not initialize the native probe; Source kept".into();
+            return Task::none();
+        };
+        self.inline_probe = Some(probe);
+        self.status_message =
+            "Stage 9b probe is read-only: caret/selection observations only; Esc finishes".into();
+        crate::source_focus::task_in(crate::ui::inline_spike::input_id())
+    }
+
+    pub(super) fn inline_probe_action(&mut self, action: Action) -> Task<Message> {
+        let snapshot = self.document.snapshot();
+        if self
+            .inline_probe
+            .as_ref()
+            .is_some_and(|probe| probe.draft.target.snapshot != snapshot)
+        {
+            self.inline_probe = None;
+            self.status_message =
+                "Stage 9b target became stale; probe stopped without editing Source".into();
+            return Task::none();
+        }
+        let Some(probe) = self.inline_probe.as_mut() else {
+            return Task::none();
+        };
+        if matches!(
+            &action,
+            Action::Move(_) | Action::Select(_) | Action::Click(_) | Action::Drag(_)
+        ) {
+            probe.draft.content.perform(action);
+            probe.events = probe.events.saturating_add(1);
+        } else {
+            self.status_message =
+                "Stage 9b probe ignores text edits and clipboard actions; Source unchanged".into();
+        }
+        Task::none()
+    }
+
+    pub(super) fn finish_inline_probe(&mut self) -> Task<Message> {
+        if self.inline_probe.take().is_some() {
+            self.inline_probe_enabled = false;
+            self.status_message =
+                "Stage 9b probe finished; Source bytes and history were not edited by the probe"
+                    .into();
+        }
+        self.restore_input_focus()
     }
 
     pub(super) fn inline_spike_action(&mut self, action: Action) -> Task<Message> {

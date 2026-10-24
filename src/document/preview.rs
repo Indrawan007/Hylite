@@ -49,11 +49,11 @@ pub fn render_preview<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
 ) -> Element<'a, Message> {
-    render_preview_internal(blocks, theme, snapshot, base_dir, None, false)
+    render_preview_internal(blocks, theme, snapshot, base_dir, None, None)
 }
 
-/// Render the opt-in Stage 9a caret-mapping experiment without changing the
-/// default Preview widget tree or replacing any existing draft panel.
+/// Render the opt-in Stage 9a caret-edit spike without changing the default
+/// Preview widget tree or replacing any existing draft panel.
 pub fn render_inline_spike_preview<'a>(
     blocks: &'a [Block],
     theme: &Theme,
@@ -61,7 +61,33 @@ pub fn render_inline_spike_preview<'a>(
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
 ) -> Element<'a, Message> {
-    render_preview_internal(blocks, theme, snapshot, base_dir, spike, true)
+    render_preview_internal(
+        blocks,
+        theme,
+        snapshot,
+        base_dir,
+        spike,
+        Some(crate::ui::inline_spike::InputMode::Stage9a),
+    )
+}
+
+/// Render the read-only Stage 9b hit-testing probe. Only diagnostic events are
+/// accepted; Source is never written by this path.
+pub fn render_inline_probe_preview<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    probe: Option<&'a crate::ui::inline_spike::Probe>,
+) -> Element<'a, Message> {
+    render_preview_internal(
+        blocks,
+        theme,
+        snapshot,
+        base_dir,
+        probe.map(|probe| &probe.draft),
+        Some(crate::ui::inline_spike::InputMode::Stage9b),
+    )
 }
 
 fn render_preview_internal<'a>(
@@ -70,24 +96,28 @@ fn render_preview_internal<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
-    experimental: bool,
+    mode: Option<crate::ui::inline_spike::InputMode>,
 ) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot, base_dir, spike)
+        render_blocks(blocks, colors, snapshot, base_dir, spike, mode)
     };
-    let instructions = if experimental {
-        text(
+    let instructions = match mode {
+        Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
             "Stage 9a inline spike · one ASCII root line · caret only · Esc finishes; Source updates live",
         )
         .size(11)
-            .color(colors.accent)
-    } else {
-        text("Task / heading / table controls edit Source · links and other text inert")
+        .color(colors.accent),
+        Some(crate::ui::inline_spike::InputMode::Stage9b) => text(
+            "Stage 9b feasibility probe · ASCII caret/selection diagnostics only · Source unchanged · Esc finishes",
+        )
+        .size(11)
+        .color(colors.accent),
+        None => text("Task / heading / table controls edit Source · links and other text inert")
             .size(11)
-            .color(colors.text)
+            .color(colors.text),
     };
     column![instructions, content]
         .spacing(12)
@@ -152,11 +182,12 @@ fn render_blocks<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
+    mode: Option<crate::ui::inline_spike::InputMode>,
 ) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir, spike)),
+            .map(|block| render_block(block, colors, snapshot, base_dir, spike, mode)),
     )
     .spacing(10)
     .width(Length::Fill)
@@ -201,63 +232,71 @@ fn render_block<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
+    mode: Option<crate::ui::inline_spike::InputMode>,
 ) -> Element<'a, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
     );
-    let element: Element<'_, Message> =
-        match &block.kind {
-            Kind::Paragraph | Kind::Heading(_) => {
-                // Only a paragraph that is *just* one image becomes a picture;
-                // inline images mixed with text stay their inert marker.
-                if let [run] = block.runs.as_slice() {
-                    if let Some(spec) = run.image.as_ref() {
-                        return render_image(spec, base_dir, colors);
-                    }
-                }
-                if let Some(spike) = spike.filter(|spike| spike.target.block == block.source) {
-                    crate::ui::inline_spike::editor(spike)
-                } else {
-                    let heading = matches!(block.kind, Kind::Heading(_));
-                    let size = match block.kind {
-                        Kind::Heading(1) => 32,
-                        Kind::Heading(2) => 27,
-                        Kind::Heading(3) => 23,
-                        Kind::Heading(4) => 20,
-                        Kind::Heading(5) => 18,
-                        _ => 16,
-                    };
-                    let spans: Vec<text::Span<'_, Message>> = block
-                        .runs
-                        .iter()
-                        .map(|run| styled_span(run, heading, colors))
-                        .collect();
-                    rich_text(spans).size(size).width(Length::Fill).into()
+    let element: Element<'_, Message> = match &block.kind {
+        Kind::Paragraph | Kind::Heading(_) => {
+            // Only a paragraph that is *just* one image becomes a picture;
+            // inline images mixed with text stay their inert marker.
+            if let [run] = block.runs.as_slice() {
+                if let Some(spec) = run.image.as_ref() {
+                    return render_image(spec, base_dir, colors);
                 }
             }
-            Kind::Quote => container(render_blocks(
-                &block.children,
-                colors,
-                snapshot,
-                base_dir,
-                spike,
-            ))
-            .padding([8, 16])
-            .width(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(colors.surface.into()),
-                border: Border {
-                    color: colors.accent,
-                    width: 1.0,
-                    ..Border::default()
-                },
-                ..container::Style::default()
-            })
-            .into(),
-            Kind::List(start) => {
-                let items = block.children.iter().enumerate().map(
-                    |(index, item)| -> Element<'_, Message> {
+            if let Some(spike) = spike.filter(|spike| spike.target.block == block.source) {
+                crate::ui::inline_spike::editor(
+                    spike,
+                    mode.expect("interactive inline editor requires an experiment mode"),
+                )
+            } else {
+                let heading = matches!(block.kind, Kind::Heading(_));
+                let size = match block.kind {
+                    Kind::Heading(1) => 32,
+                    Kind::Heading(2) => 27,
+                    Kind::Heading(3) => 23,
+                    Kind::Heading(4) => 20,
+                    Kind::Heading(5) => 18,
+                    _ => 16,
+                };
+                let spans: Vec<text::Span<'_, Message>> = block
+                    .runs
+                    .iter()
+                    .map(|run| styled_span(run, heading, colors))
+                    .collect();
+                rich_text(spans).size(size).width(Length::Fill).into()
+            }
+        }
+        Kind::Quote => container(render_blocks(
+            &block.children,
+            colors,
+            snapshot,
+            base_dir,
+            spike,
+            mode,
+        ))
+        .padding([8, 16])
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(colors.surface.into()),
+            border: Border {
+                color: colors.accent,
+                width: 1.0,
+                ..Border::default()
+            },
+            ..container::Style::default()
+        })
+        .into(),
+        Kind::List(start) => {
+            let items =
+                block
+                    .children
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| -> Element<'_, Message> {
                         let marker = start.map_or_else(
                             || "•".into(),
                             |start| format!("{}.", start.saturating_add(index as u64)),
@@ -280,7 +319,8 @@ fn render_block<'a>(
                                         colors,
                                         snapshot,
                                         base_dir,
-                                        spike
+                                        spike,
+                                        mode
                                     )
                                 ]
                                 .spacing(8)
@@ -288,42 +328,49 @@ fn render_block<'a>(
                             }
                             _ => row![
                                 text(marker).color(colors.text),
-                                render_block(item, colors, snapshot, base_dir, spike)
+                                render_block(item, colors, snapshot, base_dir, spike, mode)
                             ]
                             .spacing(8)
                             .into(),
                         }
-                    },
-                );
-                column(items).spacing(6).width(Length::Fill).into()
-            }
-            Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir, spike),
-            Kind::Code {
-                info,
-                text: payload,
-            } => {
-                let label = if info.is_empty() {
-                    "Code".to_owned()
-                } else {
-                    format!("Code · {info}")
-                };
-                code_panel(label, payload, colors)
-            }
-            Kind::Math { display } => math_panel(block, *display, colors),
-            Kind::Literal {
-                label,
-                text: payload,
-            } => code_panel((*label).into(), payload, colors),
-            Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
-            Kind::Rule => horizontal_rule(1).into(),
-        };
+                    });
+            column(items).spacing(6).width(Length::Fill).into()
+        }
+        Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir, spike, mode),
+        Kind::Code {
+            info,
+            text: payload,
+        } => {
+            let label = if info.is_empty() {
+                "Code".to_owned()
+            } else {
+                format!("Code · {info}")
+            };
+            code_panel(label, payload, colors)
+        }
+        Kind::Math { display } => math_panel(block, *display, colors),
+        Kind::Literal {
+            label,
+            text: payload,
+        } => code_panel((*label).into(), payload, colors),
+        Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
+        Kind::Rule => horizontal_rule(1).into(),
+    };
     let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
     let element = if spike_target {
+        let (label, finish) = match mode.expect("active inline editor has a mode") {
+            crate::ui::inline_spike::InputMode::Stage9a => {
+                ("Finish inline spike (Esc)", Message::FinishInlineSpike)
+            }
+            crate::ui::inline_spike::InputMode::Stage9b => {
+                ("Finish hit-test probe (Esc)", Message::FinishInlineProbe)
+            }
+        };
         column![
-            button(text("Finish inline spike (Esc)").size(11))
+            button(text(label).size(11))
                 .padding([2, 6])
                 .height(24)
-                .on_press(Message::FinishInlineSpike),
+                .on_press(finish),
             element,
         ]
         .spacing(4)

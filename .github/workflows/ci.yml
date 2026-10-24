@@ -139,6 +139,9 @@ jobs:
       - name: Smoke test the opt-in Stage 9a inline caret spike
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite inline-spike --artifacts "$RUNNER_TEMP/hylite-gui-smoke/inline-spike"
+      - name: Probe Stage 9b mouse hit-testing and selection diagnostics
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite inline-probe --artifacts "$RUNNER_TEMP/hylite-gui-smoke/inline-probe"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

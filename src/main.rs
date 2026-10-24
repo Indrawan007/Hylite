@@ -46,21 +46,32 @@ fn main() -> iced::Result {
         std::process::exit(export_cli::run(arguments, palette));
     }
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
-    // The separate flag is an opt-in Stage 9a probe and never changes the
-    // default Preview or any existing draft workflow.
+    // The two explicit experimental flags never alter the default Preview or
+    // replace any existing draft workflow; Stage 9b is strictly read-only.
     let inline_spike =
         arguments.first().and_then(|argument| argument.to_str()) == Some("--inline-edit-spike");
-    if inline_spike && arguments.len() != 2 {
-        eprintln!("usage: hylite --inline-edit-spike <file>");
+    let inline_probe = arguments.first().and_then(|argument| argument.to_str())
+        == Some("--inline-feasibility-probe");
+    let inline_experiment = inline_spike || inline_probe;
+    if inline_experiment && arguments.len() != 2 {
+        if inline_probe {
+            eprintln!("usage: hylite --inline-feasibility-probe <file>");
+        } else {
+            eprintln!("usage: hylite --inline-edit-spike <file>");
+        }
         std::process::exit(2);
     }
-    let launch = if inline_spike {
+    let launch = if inline_experiment {
         Some(std::path::PathBuf::from(&arguments[1]))
     } else {
         arguments.first().map(std::path::PathBuf::from)
     };
-    if inline_spike && !launch.as_ref().is_some_and(|path| path.is_file()) {
-        eprintln!("--inline-edit-spike requires one existing document file");
+    if inline_experiment && !launch.as_ref().is_some_and(|path| path.is_file()) {
+        if inline_probe {
+            eprintln!("--inline-feasibility-probe requires one existing document file");
+        } else {
+            eprintln!("--inline-edit-spike requires one existing document file");
+        }
         std::process::exit(2);
     }
     iced::application(app::Hylite::title, app::Hylite::update, app::Hylite::view)
@@ -70,7 +81,9 @@ fn main() -> iced::Result {
         .exit_on_close_request(false)
         .run_with(move || {
             if inline_spike {
-                app::Hylite::with_inline_spike_path(launch.expect("validated spike path"))
+                app::Hylite::with_inline_spike_path(launch.expect("validated Stage 9a path"))
+            } else if inline_probe {
+                app::Hylite::with_inline_probe_path(launch.expect("validated Stage 9b path"))
             } else {
                 app::Hylite::with_launch_path(launch)
             }

@@ -57,6 +57,8 @@ pub enum Message {
     OpenPreviewParagraph(crate::preview_paragraph::Target),
     InlineSpikeAction(text_editor::Action),
     FinishInlineSpike,
+    InlineProbeAction(text_editor::Action),
+    FinishInlineProbe,
     PreviewParagraphChanged(String),
     ApplyPreviewParagraph,
     ApplyPreviewParagraphNext,

@@ -19,6 +19,9 @@ fn app() -> Hylite {
         inline_spike_enabled: false,
         inline_spike_pending: false,
         inline_spike: None,
+        inline_probe_enabled: false,
+        inline_probe_pending: false,
+        inline_probe: None,
         mode: EditMode::Source,
         sidebar_open: true,
         zen_mode: false,
@@ -7206,6 +7209,87 @@ fn inline_spike_is_opt_in_and_skips_non_ascii_or_unsupported_paragraphs() {
         enable_inline_spike(&mut app, source);
         let _ = app.open_first_inline_spike();
         assert!(app.inline_spike.is_none(), "{source:?}");
+        assert_eq!(app.document.buffer_text(), source);
+    }
+}
+
+fn enable_inline_probe(app: &mut Hylite, source: &str) {
+    app.replace_document(Some("probe.md".into()), source);
+    app.inline_probe_enabled = true;
+    app.mode = EditMode::Preview;
+}
+
+#[test]
+fn inline_probe_observes_selection_without_mutating_source_or_history() {
+    use iced::widget::text_editor::{Action, Edit, Motion};
+
+    let source = "ab**CDEFGH**ijk\n";
+    let mut app = app();
+    enable_inline_probe(&mut app, source);
+    let before = app.document.snapshot();
+    let _ = app.open_first_inline_probe();
+    app.mode = EditMode::Split;
+    assert!(!app.source_edit_allowed());
+    app.mode = EditMode::Preview;
+    let probe = app
+        .inline_probe
+        .as_ref()
+        .expect("eligible paragraph opened");
+    assert_eq!(probe.draft.projection.visible(), "abCDEFGHijk");
+    assert_eq!(probe.events, 0);
+    assert!(app
+        .title()
+        .ends_with("[Stage 9b event 0 caret 0 sel none] — Hylite"));
+
+    let _ = app.update(Message::InlineProbeAction(Action::Move(Motion::Right)));
+    let _ = app.update(Message::InlineProbeAction(Action::Select(Motion::Right)));
+    let probe = app.inline_probe.as_ref().unwrap();
+    assert_eq!(probe.events, 2);
+    assert!(matches!(
+        probe.selection_diagnostic(),
+        crate::ui::inline_spike::SelectionDiagnostic::Mapped {
+            start: 1,
+            end: 2,
+            anchor: 1,
+            focus: 2,
+            forward: true,
+        }
+    ));
+    let visible = probe.draft.value();
+    let _ = app.update(Message::Undo);
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+
+    let _ = app.update(Message::InlineProbeAction(Action::Edit(Edit::Insert('X'))));
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.can_undo());
+    assert_eq!(app.inline_probe.as_ref().unwrap().draft.value(), visible);
+    assert!(app.status_message.contains("ignores text edits"));
+
+    let _ = app.update(Message::FinishInlineProbe);
+    assert!(app.inline_probe.is_none());
+    assert!(!app.inline_probe_enabled);
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn inline_probe_requires_opt_in_and_a_supported_formatted_paragraph() {
+    let mut disabled = app();
+    enable_inline_probe(&mut disabled, "ab**CDEFGH**ijk\n");
+    disabled.inline_probe_enabled = false;
+    let source = disabled.document.buffer_text();
+    let _ = disabled.open_first_inline_probe();
+    assert!(disabled.inline_probe.is_none());
+    assert_eq!(disabled.document.buffer_text(), source);
+
+    for source in ["café **bold**\n", "plain text only\n"] {
+        let mut app = app();
+        enable_inline_probe(&mut app, source);
+        let _ = app.open_first_inline_probe();
+        assert!(app.inline_probe.is_none(), "{source:?}");
         assert_eq!(app.document.buffer_text(), source);
     }
 }
