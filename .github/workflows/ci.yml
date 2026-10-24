@@ -145,6 +145,9 @@ jobs:
       - name: Probe the read-only alternative advanced widget
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite inline-alt-probe --artifacts "$RUNNER_TEMP/hylite-gui-smoke/inline-alt-probe"
+      - name: Measure Stage 10b raw editor timings
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh cargo test --locked --bin hylite --all-features performance_benchmarks::stage10b_baseline -- --ignored --exact --nocapture
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

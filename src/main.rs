@@ -18,6 +18,8 @@ mod math;
 mod multiline_draft_history;
 mod navigation;
 mod operations;
+#[cfg(test)]
+mod performance_benchmarks;
 mod preview_cell;
 mod preview_heading;
 mod preview_navigation;
