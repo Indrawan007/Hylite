@@ -3099,7 +3099,7 @@ def exercise_inline_probe(desktop, artifacts, document):
     focus_y = None
     for y in range(50, max(51, height - 20), 8):
         before_event = current["event"] if current else 0
-        desktop.command("xdotool", "mousemove", "--window", desktop.window,
+        desktop.command("xdotool", "mousemove", "--sync", "--window", desktop.window,
                         str(scan_x), str(y), "click", "1")
         time.sleep(0.025)
         desktop.command("xdotool", "key", "--clearmodifiers", "--delay", "20", "Home")
@@ -3151,7 +3151,7 @@ def exercise_inline_probe(desktop, artifacts, document):
             state, _ = read_inline_probe_state(desktop)
             event = state["event"] if state else 0
             for x in xs:
-                desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                desktop.command("xdotool", "mousemove", "--sync", "--window", desktop.window,
                                 str(x), str(focus_y), "click", "1")
                 deadline = time.monotonic() + 0.045
                 latest = None
