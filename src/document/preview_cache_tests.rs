@@ -105,7 +105,10 @@ fn multiple_unrendered_edits_keep_only_an_exact_incremental_base() {
     assert!(document.preview.get().is_none());
 
     let current_source = document.buffer_text();
-    assert_eq!(document.preview_blocks(), preview_model::parse(&current_source));
+    assert_eq!(
+        document.preview_blocks(),
+        preview_model::parse(&current_source)
+    );
     fresh(&document);
 }
 
