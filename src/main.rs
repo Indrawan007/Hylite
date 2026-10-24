@@ -46,16 +46,20 @@ fn main() -> iced::Result {
         std::process::exit(export_cli::run(arguments, palette));
     }
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
-    // The two explicit experimental flags never alter the default Preview or
-    // replace any existing draft workflow; Stage 9b is strictly read-only.
+    // Explicit experimental flags never alter the default Preview. Stage 9b
+    // and the alternative custom-widget probe are separate read-only harnesses.
     let inline_spike =
         arguments.first().and_then(|argument| argument.to_str()) == Some("--inline-edit-spike");
     let inline_probe = arguments.first().and_then(|argument| argument.to_str())
         == Some("--inline-feasibility-probe");
-    let inline_experiment = inline_spike || inline_probe;
+    let inline_alt_probe = arguments.first().and_then(|argument| argument.to_str())
+        == Some("--inline-alt-widget-probe");
+    let inline_experiment = inline_spike || inline_probe || inline_alt_probe;
     if inline_experiment && arguments.len() != 2 {
         if inline_probe {
             eprintln!("usage: hylite --inline-feasibility-probe <file>");
+        } else if inline_alt_probe {
+            eprintln!("usage: hylite --inline-alt-widget-probe <file>");
         } else {
             eprintln!("usage: hylite --inline-edit-spike <file>");
         }
@@ -69,6 +73,8 @@ fn main() -> iced::Result {
     if inline_experiment && !launch.as_ref().is_some_and(|path| path.is_file()) {
         if inline_probe {
             eprintln!("--inline-feasibility-probe requires one existing document file");
+        } else if inline_alt_probe {
+            eprintln!("--inline-alt-widget-probe requires one existing document file");
         } else {
             eprintln!("--inline-edit-spike requires one existing document file");
         }
@@ -84,6 +90,10 @@ fn main() -> iced::Result {
                 app::Hylite::with_inline_spike_path(launch.expect("validated Stage 9a path"))
             } else if inline_probe {
                 app::Hylite::with_inline_probe_path(launch.expect("validated Stage 9b path"))
+            } else if inline_alt_probe {
+                app::Hylite::with_inline_alt_probe_path(
+                    launch.expect("validated alternative probe path"),
+                )
             } else {
                 app::Hylite::with_launch_path(launch)
             }

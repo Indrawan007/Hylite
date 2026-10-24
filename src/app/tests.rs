@@ -22,6 +22,9 @@ fn app() -> Hylite {
         inline_probe_enabled: false,
         inline_probe_pending: false,
         inline_probe: None,
+        inline_alt_probe_enabled: false,
+        inline_alt_probe_pending: false,
+        inline_alt_probe: None,
         mode: EditMode::Source,
         sidebar_open: true,
         zen_mode: false,
@@ -7291,5 +7294,125 @@ fn inline_probe_requires_opt_in_and_a_supported_formatted_paragraph() {
         let _ = app.open_first_inline_probe();
         assert!(app.inline_probe.is_none(), "{source:?}");
         assert_eq!(app.document.buffer_text(), source);
+    }
+}
+
+fn enable_inline_alt_probe(app: &mut Hylite, source: &str) {
+    app.replace_document(Some("alt-probe.md".into()), source);
+    app.inline_alt_probe_enabled = true;
+    app.mode = EditMode::Preview;
+}
+
+fn alt_pointer(
+    phase: crate::commands::InlineAltProbePhase,
+    hit: Option<usize>,
+) -> crate::commands::InlineAltProbeEvent {
+    crate::commands::InlineAltProbeEvent {
+        phase,
+        client_x: 100.0,
+        client_y: 200.0,
+        local_x: 20.0,
+        local_y: 12.0,
+        bounds_x: 80.0,
+        bounds_y: 188.0,
+        bounds_width: 500.0,
+        bounds_height: 38.0,
+        origin_x: 8.0,
+        origin_y: 4.0,
+        start_x: 0.0,
+        start_y: 0.0,
+        end_x: 80.0,
+        end_y: 0.0,
+        hit_y: 10.0,
+        hit,
+    }
+}
+
+#[test]
+fn inline_alt_probe_reports_visible_pointer_hits_and_preserves_source_snapshot() {
+    use crate::commands::InlineAltProbePhase;
+
+    let source = "ab**CDEFGH**ijk\n";
+    let mut app = app();
+    enable_inline_alt_probe(&mut app, source);
+    let before = app.document.snapshot();
+    let _ = app.open_first_inline_alt_probe();
+    let probe = app.inline_alt_probe.as_ref().expect("eligible fixture opens");
+    assert_eq!(probe.visible(), "abCDEFGHijk");
+    assert_eq!(probe.events, 0);
+    assert!(app.title().contains("[InlineAlt event=0 phase=idle"));
+
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Press,
+        Some(3),
+    )));
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Drag,
+        Some(7),
+    )));
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Release,
+        Some(7),
+    )));
+    let probe = app.inline_alt_probe.as_ref().unwrap();
+    assert_eq!(probe.events, 3);
+    assert_eq!(probe.anchor, Some(3));
+    assert_eq!(probe.focus, Some(7));
+    assert!(probe.title_marker().contains("direction=forward"));
+
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Press,
+        Some(7),
+    )));
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Drag,
+        Some(3),
+    )));
+    let _ = app.update(Message::InlineAltProbePointer(alt_pointer(
+        InlineAltProbePhase::Release,
+        Some(3),
+    )));
+    let probe = app.inline_alt_probe.as_ref().unwrap();
+    assert_eq!(probe.anchor, Some(7));
+    assert_eq!(probe.focus, Some(3));
+    assert!(probe.title_marker().contains("direction=backward"));
+
+    let _ = app.update(Message::SwitchMode(EditMode::Split));
+    let _ = app.update(Message::Edit(text_editor::Action::Edit(
+        text_editor::Edit::Insert('X'),
+    )));
+    assert_eq!(app.mode, EditMode::Preview);
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+    assert!(app.status_message.contains("read-only"));
+
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.inline_alt_probe.is_none());
+    assert!(!app.inline_alt_probe_enabled);
+    assert_eq!(app.document.buffer_text(), source);
+    assert_eq!(app.document.snapshot(), before);
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn inline_alt_probe_is_opt_in_and_rejects_unsupported_fixtures_without_mutation() {
+    let mut disabled = app();
+    enable_inline_alt_probe(&mut disabled, "ab**CDEFGH**ijk\n");
+    disabled.inline_alt_probe_enabled = false;
+    let source = disabled.document.buffer_text();
+    let _ = disabled.open_first_inline_alt_probe();
+    assert!(disabled.inline_alt_probe.is_none());
+    assert_eq!(disabled.document.buffer_text(), source);
+
+    for source in ["café **bold**\n", "plain text only\n", "**two**\nlines\n"] {
+        let mut app = app();
+        enable_inline_alt_probe(&mut app, source);
+        let _ = app.open_first_inline_alt_probe();
+        assert!(app.inline_alt_probe.is_none(), "{source:?}");
+        assert_eq!(app.document.buffer_text(), source);
+        assert!(!app.document.is_dirty());
     }
 }

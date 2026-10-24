@@ -142,6 +142,9 @@ jobs:
       - name: Probe Stage 9b mouse hit-testing and selection diagnostics
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite inline-probe --artifacts "$RUNNER_TEMP/hylite-gui-smoke/inline-probe"
+      - name: Probe the read-only alternative advanced widget
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite inline-alt-probe --artifacts "$RUNNER_TEMP/hylite-gui-smoke/inline-alt-probe"
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

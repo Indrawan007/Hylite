@@ -2850,6 +2850,167 @@ INLINE_PROBE_BACKWARD = {
     "start": 3, "end": 7, "anchor": 7, "focus": 3, "direction": "backward"
 }
 
+INLINE_ALT_PROBE_DOCUMENT = INLINE_PROBE_DOCUMENT
+INLINE_ALT_PROBE_VISIBLE = INLINE_PROBE_VISIBLE
+INLINE_ALT_PROBE_MAX_X = 256
+INLINE_ALT_PROBE_FORWARD = {
+    "start": 3, "end": 7, "anchor": 3, "focus": 7, "direction": "forward"
+}
+INLINE_ALT_PROBE_BACKWARD = {
+    "start": 3, "end": 7, "anchor": 7, "focus": 3, "direction": "backward"
+}
+INLINE_ALT_PROBE_SCOPE = (
+    "Separate opt-in read-only advanced-widget probe on the same unique-character ASCII fixture: "
+    "the custom Paragraph widget reports bounded pointer hit tests, repeated forward/reverse client-x "
+    "samples, and forward/backward drags; each horizontal pass is capped at 256 unique x positions. "
+    "Source bytes, dirty state, and the fixture on disk must remain unchanged. A result applies only "
+    "to this fixture and the X11/tiny-skia CI environment, not all Iced renderers, production editing, "
+    "general WYSIWYG, selection mapping, Wayland, or Arch/Hyprland."
+)
+
+
+def parse_inline_alt_probe_title(title):
+    match = re.search(r"\[InlineAlt (?P<marker>[^]]+)\] — Hylite\s*$", title)
+    if not match:
+        return None
+    fields = dict(re.findall(r"([a-zA-Z0-9_]+)=([^\s]+)", match["marker"]))
+    try:
+        state = {
+            "event": int(fields["event"]),
+            "phase": fields["phase"],
+            "hit": None if fields["hit"] == "none" else int(fields["hit"]),
+            "anchor": None if fields["anchor"] == "none" else int(fields["anchor"]),
+            "focus": None if fields["focus"] == "none" else int(fields["focus"]),
+            "direction": fields["direction"],
+        }
+    except (KeyError, ValueError):
+        return None
+    if state["phase"] == "idle":
+        return state
+    try:
+        state.update({
+            "x": float(fields["x"]),
+            "y": float(fields["y"]),
+            "local": _parse_probe_tuple(fields["local"], 2),
+            "bounds": _parse_probe_tuple(fields["bounds"], 4),
+            "origin": _parse_probe_tuple(fields["origin"], 2),
+            "start": _parse_probe_tuple(fields["p0"], 2),
+            "end": _parse_probe_tuple(fields["pN"], 2),
+            "hit_y": float(fields["hit_y"]),
+        })
+    except (KeyError, ValueError):
+        return None
+    if state["phase"] not in {"hover", "press", "drag", "release"}:
+        return None
+    return state
+
+
+def _parse_probe_tuple(value, expected):
+    parts = tuple(float(part) for part in value.split(","))
+    if len(parts) != expected:
+        raise ValueError("invalid geometry tuple")
+    return parts
+
+
+def read_inline_alt_probe_state(desktop):
+    title = desktop.command("xdotool", "getwindowname", desktop.window).decode(
+        "utf-8", errors="replace"
+    )
+    return parse_inline_alt_probe_title(title), title
+
+
+def inline_alt_selection(state):
+    if state is None or state["anchor"] is None or state["focus"] is None:
+        return None
+    anchor, focus = state["anchor"], state["focus"]
+    if anchor == focus:
+        return None
+    return {
+        "start": min(anchor, focus),
+        "end": max(anchor, focus),
+        "anchor": anchor,
+        "focus": focus,
+        "direction": "forward" if anchor < focus else "backward",
+    }
+
+
+def analyze_inline_alt_probe(forward_trace, reverse_trace, expected_offsets,
+                             forward_selection, backward_selection,
+                             sample_cap=INLINE_ALT_PROBE_MAX_X):
+    """Classify bounded custom-widget hit samples and directional drag results."""
+    reasons = []
+    traces = {"forward": forward_trace, "reverse": reverse_trace}
+    reached = {}
+    monotone = {}
+    valid_trace = {}
+    max_caret = expected_offsets - 1
+    over_budget = False
+    for name, trace in traces.items():
+        xs = [x for x, _ in trace]
+        values = [hit for _, hit in sorted(trace)]
+        finite_xs = all(isinstance(x, int) and 0 <= x < 1_000_000 for x in xs)
+        valid_hits = all(
+            isinstance(hit, int) and not isinstance(hit, bool) and 0 <= hit <= max_caret
+            for hit in values
+        )
+        within_cap = len(set(xs)) <= sample_cap
+        over_budget |= not within_cap
+        valid_trace[name] = bool(trace) and finite_xs and valid_hits and within_cap
+        monotone[name] = valid_trace[name] and all(
+            left <= right for left, right in zip(values, values[1:])
+        )
+        reached[name] = sorted(set(values)) if valid_trace[name] else []
+        missing = sorted(set(range(expected_offsets)) - set(reached[name]))
+        if not trace:
+            reasons.append(f"{name} click sweep produced no pointer samples")
+        if not valid_hits:
+            reasons.append(f"{name} click sweep produced an unmapped/out-of-range visible-text hit")
+        if not within_cap:
+            reasons.append(f"{name} click sweep exceeded the {sample_cap}-x sample cap")
+        if valid_trace[name] and not monotone[name]:
+            reasons.append(f"{name} click sweep was not monotone in client-x order")
+        if missing and valid_trace[name]:
+            reasons.append(f"{name} click sweep did not reach visible offsets {missing}")
+
+    forward_by_x = dict(forward_trace)
+    reverse_by_x = dict(reverse_trace)
+    common_x = sorted(set(forward_by_x) & set(reverse_by_x))
+    repeatable = bool(common_x) and all(
+        forward_by_x[x] == reverse_by_x[x] for x in common_x
+    )
+    if not common_x:
+        reasons.append("click sweeps had no overlapping client-x samples")
+    elif not repeatable:
+        reasons.append("repeated client-x positions produced different visible-text hits")
+    if forward_selection != INLINE_ALT_PROBE_FORWARD:
+        reasons.append(f"forward drag selection was not the expected diagnostic: {forward_selection!r}")
+    if backward_selection != INLINE_ALT_PROBE_BACKWARD:
+        reasons.append(f"backward drag selection was not the expected diagnostic: {backward_selection!r}")
+
+    inconclusive = (
+        not valid_trace["forward"]
+        or not valid_trace["reverse"]
+        or not common_x
+        or over_budget
+    )
+    verdict = "INCONCLUSIVE" if inconclusive else "NO-GO" if reasons else "GO"
+    return {
+        "verdict": verdict,
+        "go": verdict == "GO",
+        "reasons": reasons,
+        "forward_reached_offsets": reached["forward"],
+        "reverse_reached_offsets": reached["reverse"],
+        "forward_monotone": monotone["forward"],
+        "reverse_monotone": monotone["reverse"],
+        "repeatable_x_samples": len(common_x),
+        "repeatable_at_each_x": repeatable,
+        "forward_selection": forward_selection,
+        "backward_selection": backward_selection,
+        "forward_samples": len(forward_trace),
+        "reverse_samples": len(reverse_trace),
+        "sample_cap": sample_cap,
+    }
+
 
 def parse_inline_probe_title(title):
     match = re.search(r"\[Stage 9b event (?P<events>\d+) (?P<marker>.+)\] — Hylite\s*$", title)
@@ -2947,6 +3108,15 @@ def inline_probe_fixture(root):
     root.mkdir(parents=True, exist_ok=True)
     document = root / "inline-probe.md"
     document.write_bytes(INLINE_PROBE_DOCUMENT)
+    return document
+
+
+def inline_alt_probe_fixture(root):
+    """Create the same byte-exact fixture for the separate custom-widget probe."""
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    document = root / "inline-alt-probe.md"
+    document.write_bytes(INLINE_ALT_PROBE_DOCUMENT)
     return document
 
 
@@ -3373,6 +3543,322 @@ def exercise_inline_probe(desktop, artifacts, document):
     desktop.expect_native_exit("Stage 9b read-only probe closes naturally")
 
 
+def wait_for_inline_alt_probe_state(desktop, predicate, description, seconds=1):
+    deadline = time.monotonic() + seconds
+    last_title = ""
+    while time.monotonic() < deadline:
+        if desktop.app.poll() is not None:
+            raise RuntimeError(f"Application exited while waiting for {description}")
+        state, last_title = read_inline_alt_probe_state(desktop)
+        if predicate(state):
+            return state
+        time.sleep(0.005)
+    raise TimeoutError(f"{description}; last title={last_title!r}")
+
+
+def exercise_inline_alt_probe(desktop, artifacts, document):
+    document = Path(document)
+    source = document.read_bytes()
+    if source != INLINE_ALT_PROBE_DOCUMENT:
+        raise AssertionError(f"Alternative probe fixture changed unexpectedly: {source!r}")
+    desktop.find_window(initial_click=False)
+    desktop.title_is_dirty(False)
+    desktop.title_ends_with(
+        "inline-alt-probe.md [InlineAlt event=0 phase=idle hit=none anchor=none "
+        "focus=none direction=none] — Hylite\\n"
+    )
+    desktop.screenshot(artifacts / "inline-alt-probe-before.png")
+
+    width, height = inline_probe_geometry(desktop)
+    scan_x = width // 2
+    hover_state = None
+    focus_y = None
+    focus_reason = None
+    for candidate_y in range(50, max(51, height - 20), 8):
+        previous, _ = read_inline_alt_probe_state(desktop)
+        previous_event = previous["event"] if previous else 0
+        desktop.command(
+            "xdotool", "mousemove", "--sync", "--window", desktop.window,
+            str(scan_x), str(candidate_y),
+        )
+        try:
+            hover_state = wait_for_inline_alt_probe_state(
+                desktop,
+                lambda state: state is not None
+                and state["event"] > previous_event
+                and state["phase"] == "hover",
+                "custom widget hover geometry",
+                seconds=0.15,
+            )
+        except TimeoutError:
+            continue
+        break
+
+    sample_xs = []
+    forward_trace = []
+    reverse_trace = []
+    forward_selection = None
+    forward_repeat_selection = None
+    backward_selection = None
+    backward_repeat_selection = None
+    drag_xs = {"start": None, "end": None}
+    if hover_state is None:
+        focus_reason = "custom advanced widget did not report a bounded pointer-hover geometry"
+    else:
+        desktop.passed_check("Alternative custom widget reports its live X11 layout geometry")
+        bounds = hover_state["bounds"]
+        origin = hover_state["origin"]
+        start = hover_state["start"]
+        end = hover_state["end"]
+        probe_x = round(bounds[0] + origin[0] + (start[0] + end[0]) / 2)
+        base_y = round(bounds[1] + origin[1] + hover_state["hit_y"])
+        for delta_y in (0, -2, 2, -4, 4, -6, 6):
+            y = base_y + delta_y
+            previous, _ = read_inline_alt_probe_state(desktop)
+            previous_event = previous["event"] if previous else 0
+            desktop.command(
+                "xdotool", "mousemove", "--sync", "--window", desktop.window,
+                str(probe_x), str(y),
+            )
+            try:
+                state = wait_for_inline_alt_probe_state(
+                    desktop,
+                    lambda latest: latest is not None
+                    and latest["event"] > previous_event
+                    and latest["phase"] == "hover",
+                    "visible-text line hit-test position",
+                    seconds=0.15,
+                )
+            except TimeoutError:
+                continue
+            if state["hit"] is not None:
+                focus_y = round(state["y"])
+                hover_state = state
+                break
+        if focus_y is None:
+            focus_reason = "custom widget geometry was visible but its text line produced no mapped hit"
+        else:
+            desktop.passed_check("Visible ASCII paragraph produces a pointer hit-test on the bounded line")
+            start_x = round(bounds[0] + origin[0] + start[0])
+            end_x = round(bounds[0] + origin[0] + end[0])
+            left, right = sorted((start_x, end_x))
+            left = max(0, left)
+            right = min(width - 1, right)
+            sample_xs = list(range(left, right + 1))
+            if len(sample_xs) > INLINE_ALT_PROBE_MAX_X:
+                stride = (len(sample_xs) - 1) / (INLINE_ALT_PROBE_MAX_X - 1)
+                sample_xs = sorted({
+                    sample_xs[round(index * stride)]
+                    for index in range(INLINE_ALT_PROBE_MAX_X)
+                })
+            if len(sample_xs) > INLINE_ALT_PROBE_MAX_X:
+                raise AssertionError("Alternative widget sampler exceeded its x-coordinate cap")
+
+            def sweep(xs):
+                trace = []
+                for x in xs:
+                    previous, _ = read_inline_alt_probe_state(desktop)
+                    previous_event = previous["event"] if previous else 0
+                    desktop.command(
+                        "xdotool", "mousemove", "--sync", "--window", desktop.window,
+                        str(x), str(focus_y), "click", "1",
+                    )
+                    try:
+                        state = wait_for_inline_alt_probe_state(
+                            desktop,
+                            lambda latest: latest is not None
+                            and latest["event"] > previous_event
+                            and latest["phase"] == "release"
+                            and round(latest["x"]) == x,
+                            "custom widget click release hit-test",
+                            seconds=0.12,
+                        )
+                    except TimeoutError:
+                        current, _ = read_inline_alt_probe_state(desktop)
+                        if (
+                            current is not None
+                            and current["event"] > previous_event
+                            and current["phase"] == "press"
+                            and round(current["x"]) == x
+                        ):
+                            state = current
+                        else:
+                            state = None
+                    trace.append((x, state["hit"] if state is not None else None))
+                return trace
+
+            forward_trace = sweep(sample_xs)
+            desktop.screenshot(artifacts / "inline-alt-probe-click-forward.png")
+            reverse_trace = sweep(reversed(sample_xs))
+            desktop.screenshot(artifacts / "inline-alt-probe-click-reverse.png")
+
+            def representative_x(trace, offset):
+                candidates = sorted(x for x, hit in trace if hit == offset)
+                return candidates[len(candidates) // 2] if candidates else None
+
+            start_x = representative_x(forward_trace, INLINE_ALT_PROBE_FORWARD["start"])
+            end_x = representative_x(forward_trace, INLINE_ALT_PROBE_FORWARD["end"])
+            drag_xs = {"start": start_x, "end": end_x}
+
+            def drag_and_read(x1, x2):
+                if x1 is None or x2 is None:
+                    return None, False
+                previous, _ = read_inline_alt_probe_state(desktop)
+                previous_event = previous["event"] if previous else 0
+                desktop.command(
+                    "xdotool", "mousemove", "--sync", "--window", desktop.window,
+                    str(x1), str(focus_y), "mousedown", "1",
+                )
+                try:
+                    press = wait_for_inline_alt_probe_state(
+                        desktop,
+                        lambda state: state is not None
+                        and state["event"] > previous_event
+                        and state["phase"] == "press",
+                        "forward or reverse drag press",
+                        seconds=0.4,
+                    )
+                except TimeoutError:
+                    press = None
+                previous_event = press["event"] if press else previous_event
+                desktop.command(
+                    "xdotool", "mousemove", "--sync", "--window", desktop.window,
+                    str(x2), str(focus_y),
+                )
+                try:
+                    drag = wait_for_inline_alt_probe_state(
+                        desktop,
+                        lambda state: state is not None
+                        and state["event"] > previous_event
+                        and state["phase"] == "drag",
+                        "forward or reverse drag motion",
+                        seconds=0.4,
+                    )
+                except TimeoutError:
+                    drag = None
+                previous_event = drag["event"] if drag else previous_event
+                desktop.command("xdotool", "mouseup", "1")
+                try:
+                    released = wait_for_inline_alt_probe_state(
+                        desktop,
+                        lambda state: state is not None
+                        and state["event"] > previous_event
+                        and state["phase"] == "release",
+                        "forward or reverse drag release",
+                        seconds=0.4,
+                    )
+                except TimeoutError:
+                    released = None
+                return inline_alt_selection(released), any(
+                    state is not None for state in (press, drag, released)
+                )
+
+            if start_x is not None and end_x is not None and start_x < end_x:
+                forward_selection, forward_event = drag_and_read(start_x, end_x)
+                desktop.screenshot(artifacts / "inline-alt-probe-drag-forward.png")
+                forward_repeat_selection, forward_repeat_event = drag_and_read(start_x, end_x)
+                backward_selection, backward_event = drag_and_read(end_x, start_x)
+                desktop.screenshot(artifacts / "inline-alt-probe-drag-backward.png")
+                backward_repeat_selection, backward_repeat_event = drag_and_read(end_x, start_x)
+            else:
+                forward_event = forward_repeat_event = False
+                backward_event = backward_repeat_event = False
+                desktop.screenshot(artifacts / "inline-alt-probe-drag-not-run.png")
+
+    result = analyze_inline_alt_probe(
+        forward_trace,
+        reverse_trace,
+        len(INLINE_ALT_PROBE_VISIBLE) + 1,
+        forward_selection,
+        backward_selection,
+    )
+    if focus_reason:
+        result["reasons"].insert(0, focus_reason)
+        if result["verdict"] != "INCONCLUSIVE":
+            result["verdict"] = "INCONCLUSIVE"
+            result["go"] = False
+    if focus_y is not None:
+        if drag_xs["start"] is None or drag_xs["end"] is None:
+            result["reasons"].append("click samples did not identify the caret offsets needed for drags")
+        if not forward_event:
+            result["reasons"].append("forward drag did not emit a widget event")
+        if not forward_repeat_event:
+            result["reasons"].append("repeated forward drag did not emit a widget event")
+        if not backward_event:
+            result["reasons"].append("backward drag did not emit a widget event")
+        if not backward_repeat_event:
+            result["reasons"].append("repeated backward drag did not emit a widget event")
+        if forward_repeat_selection != INLINE_ALT_PROBE_FORWARD:
+            result["reasons"].append(f"repeated forward drag diagnostic differed: {forward_repeat_selection!r}")
+        if backward_repeat_selection != INLINE_ALT_PROBE_BACKWARD:
+            result["reasons"].append(f"repeated backward drag diagnostic differed: {backward_repeat_selection!r}")
+        if result["reasons"] and result["verdict"] == "GO":
+            result["verdict"] = "NO-GO"
+            result["go"] = False
+    result.update({
+        "fixture": source.decode("ascii"),
+        "visible_ascii": INLINE_ALT_PROBE_VISIBLE,
+        "focus_y": focus_y,
+        "client_width": width,
+        "sample_x_positions": sample_xs,
+        "drag_xs": drag_xs,
+        "forward_repeat_selection": forward_repeat_selection,
+        "backward_repeat_selection": backward_repeat_selection,
+        "forward_trace": [{"x": x, "hit": hit} for x, hit in forward_trace],
+        "reverse_trace": [{"x": x, "hit": hit} for x, hit in reverse_trace],
+        "forward_repeat_drag_event": forward_repeat_event if focus_y is not None else False,
+        "backward_repeat_drag_event": backward_repeat_event if focus_y is not None else False,
+    })
+    desktop.inline_alt_result = result
+    outcome = result["verdict"]
+    print(
+        "Alternative widget observations: "
+        f"offsets forward={result['forward_reached_offsets']} "
+        f"reverse={result['reverse_reached_offsets']}; "
+        f"repeatable x samples={result['repeatable_x_samples']}; "
+        f"drag selections forward={forward_selection!r}/{forward_repeat_selection!r} "
+        f"backward={backward_selection!r}/{backward_repeat_selection!r}",
+        flush=True,
+    )
+    print(
+        f"Alternative custom-widget feasibility result: {outcome}; "
+        f"{result['reasons'] or 'all bounded checks observed'}",
+        flush=True,
+    )
+    desktop.passed_check(f"Alternative-widget bounded feasibility evidence recorded: {outcome}")
+
+    desktop.put_clipboard(b"must not land in the alternative probe Source\\n")
+    desktop.key("ctrl+v")
+    desktop.key("ctrl+z")
+    desktop.key("ctrl+shift+m")
+    if read_inline_alt_probe_state(desktop)[0] is None:
+        raise AssertionError("A blocked keyboard command ended or replaced the active alternative probe")
+    desktop.title_is_dirty(False)
+    desktop.passed_check("Paste, Undo and mode-switch commands leave the active probe and Source unchanged")
+
+    desktop.title_is_dirty(False)
+    desktop.key("Escape")
+    desktop.wait(
+        "Alternative probe finishes without changing the loaded document",
+        lambda: read_inline_alt_probe_state(desktop)[0] is None,
+        seconds=3,
+    )
+    desktop.key("ctrl+shift+m")
+    desktop.screenshot(artifacts / "inline-alt-probe-split-source.png")
+    desktop.expect_copy(
+        "Alternative probe leaves the exact fixture Source bytes unchanged",
+        source,
+        refocus=False,
+    )
+    desktop.title_is_dirty(False)
+    if document.read_bytes() != source:
+        raise AssertionError("Alternative custom-widget probe modified the fixture file on disk")
+    desktop.inline_alt_result["source_unchanged"] = True
+    desktop.passed_check("Alternative probe leaves Source bytes, dirty state and fixture on disk unchanged")
+    desktop.request_close()
+    desktop.expect_native_exit("Alternative custom-widget read-only probe closes naturally")
+
+
 def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=None,
                    document=None):
     if suite == "regression":
@@ -3458,13 +3944,17 @@ def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=Non
         if document is None:
             raise ValueError("The inline-probe suite needs a document path")
         exercise_inline_probe(desktop, artifacts, document)
+    elif suite == "inline-alt-probe":
+        if document is None:
+            raise ValueError("The inline-alt-probe suite needs a document path")
+        exercise_inline_alt_probe(desktop, artifacts, document)
     else:
         raise ValueError(f"Unknown GUI suite: {suite}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next", "paragraph-apply-previous", "paragraph-draft-shortcuts", "paragraph-navigation-single", "draft-history-single", "draft-history-keys", "tabs", "workspace", "images", "pdf", "math", "inline-spike", "inline-probe"),
+    parser.add_argument("--suite", choices=("regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next", "paragraph-apply-previous", "paragraph-draft-shortcuts", "paragraph-navigation-single", "draft-history-single", "draft-history-keys", "tabs", "workspace", "images", "pdf", "math", "inline-spike", "inline-probe", "inline-alt-probe"),
                      default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
@@ -3504,10 +3994,14 @@ def main():
             document = inline_spike_fixture(Path(temp) / "inline-spike")
         if args.suite == "inline-probe":
             document = inline_probe_fixture(Path(temp) / "inline-probe")
+        if args.suite == "inline-alt-probe":
+            document = inline_alt_probe_fixture(Path(temp) / "inline-alt-probe")
         if args.suite == "inline-spike":
             arguments = ["--inline-edit-spike", document]
         elif args.suite == "inline-probe":
             arguments = ["--inline-feasibility-probe", document]
+        elif args.suite == "inline-alt-probe":
+            arguments = ["--inline-alt-widget-probe", document]
         elif document is not None:
             arguments = [document]
         with (artifacts / "application.log").open("wb") as log:
@@ -3536,7 +4030,8 @@ def main():
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
                     "stage9b": getattr(desktop, "stage9b_result", None) if desktop else None,
-                    "scope": INLINE_PROBE_SCOPE if args.suite == "inline-probe" else INLINE_SPIKE_SCOPE if args.suite == "inline-spike" else MATH_SCOPE if args.suite == "math" else PDF_SCOPE if args.suite == "pdf" else "Read-only Preview images: a launch file opens a document with a real local PNG that renders in Preview and Split, a remote URL, a missing file and a file over the 4 MiB gate all stay inert markers instead of being fetched or decoded, a paste made while Preview is shown never edits the document, and the client closes naturally; screenshots are evidence without pixel assertions, so the decoded picture itself, HiDPI scaling, animated GIF, SVG, WebP and Wayland are not verified" if args.suite == "images" else "Workspace folder tree: a launch folder argument is scanned once without a watcher, Alt+J Alt+K move a clamped keyboard selection over the collapsed-aware rows, Alt+Enter opens the selected document byte for byte with an exact window title, a collapsed folder hides its children from navigation, expanding restores them, and F5 is the only way a file written after the scan appears; mouse rows exist but are not clicked here, dirty per-file markers are unit-tested only, and there is no drag, rename, delete or Wayland proof" if args.suite == "workspace" else "Multi-buffer tabs: Ctrl+T parks the active document and opens an empty tab, Alt+1/Alt+2 restore parked buffers byte for byte with their own text and undo history, an undo in one tab never reaches another, Ctrl+W closes a clean tab and is refused on the last one, and the client closes naturally; no tab drag reorder, split pane, session restore or Wayland proof" if args.suite == "tabs" else "Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line paragraph and table cell panels: the routed keys move only the local snapshot stack, an empty local stack is a no-op, Source bytes stay untouched until Apply, one Source Undo removes each committed edge, Esc cancels and the client closes naturally; no commit shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-keys" else "Draft-local Undo and Redo buttons for the single-line paragraph and table cell panels: staged snapshots, redo after undo, redo dropped by a new edit, restored value committed by Apply as exactly one Source edge, no Source mutation while the draft is open, and natural close; no keyboard shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-single" else "Previous Next unchanged move and atomic Apply and Previous Next over three single-line roots with unsupported block skipping, first and last boundary refusal, parse refusal, Source caret after Cancel, scoped Undo Redo and natural close; no cross-kind navigation or Wayland proof" if args.suite == "paragraph-navigation-single" else "Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next through the same controller guards, boundary refusal without partial commit, exact bytes after each edge, scoped Source Undo and natural close; no implicit wrap, compositor binding or Wayland proof" if args.suite == "paragraph-draft-shortcuts" else "Explicit atomic multiline Apply and Previous over three roots with unchanged earlier offsets, fresh focused previous session, no-op transition, first boundary, parser refusal, Source caret after Cancel, scoped Undo Redo and natural close; no Apply shortcut, wrap or implicit creation" if args.suite == "paragraph-apply-previous" else "Explicit atomic multiline Apply and Next with full candidate and native buffer preflight, fresh root offsets and local history, no-op transition, last boundary and structural refusal no partial commit, Source caret after Cancel, scoped Undo Redo and natural close; no Apply Previous, implicit creation, pixel or Wayland proof" if args.suite == "paragraph-apply-next" else "Explicit unchanged-only Previous Next between eligible multiline roots, skip other blocks, dirty refusal without discard, no wrap or implicit Apply, fresh local history, exact Source atomic Apply and focus caret, natural clean close; no Apply and Next, cross-kind or Wayland proof" if args.suite == "paragraph-navigation" else "Bounded multiline draft-only Undo Redo keyboard and button focus, raw valid and invalid paste snapshots, local branching and session reset, no Source mutation before Apply, atomic Source history after Apply, natural clean close; no draft grouping, selection anchor, pixel or Wayland proof" if args.suite == "paragraph-draft-history" else "Explicit bounded multiline root paragraph native draft, Enter stages newline, exact soft/hard break bytes, full parser split refusal, atomic history, Split last applied line Source focus/caret and natural close; no inline typing, blank blocks, EOF or Wayland proof" if args.suite == "paragraph-multiline" else "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
+                    "inline_alt_probe": getattr(desktop, "inline_alt_result", None) if desktop else None,
+                    "scope": INLINE_ALT_PROBE_SCOPE if args.suite == "inline-alt-probe" else INLINE_PROBE_SCOPE if args.suite == "inline-probe" else INLINE_SPIKE_SCOPE if args.suite == "inline-spike" else MATH_SCOPE if args.suite == "math" else PDF_SCOPE if args.suite == "pdf" else "Read-only Preview images: a launch file opens a document with a real local PNG that renders in Preview and Split, a remote URL, a missing file and a file over the 4 MiB gate all stay inert markers instead of being fetched or decoded, a paste made while Preview is shown never edits the document, and the client closes naturally; screenshots are evidence without pixel assertions, so the decoded picture itself, HiDPI scaling, animated GIF, SVG, WebP and Wayland are not verified" if args.suite == "images" else "Workspace folder tree: a launch folder argument is scanned once without a watcher, Alt+J Alt+K move a clamped keyboard selection over the collapsed-aware rows, Alt+Enter opens the selected document byte for byte with an exact window title, a collapsed folder hides its children from navigation, expanding restores them, and F5 is the only way a file written after the scan appears; mouse rows exist but are not clicked here, dirty per-file markers are unit-tested only, and there is no drag, rename, delete or Wayland proof" if args.suite == "workspace" else "Multi-buffer tabs: Ctrl+T parks the active document and opens an empty tab, Alt+1/Alt+2 restore parked buffers byte for byte with their own text and undo history, an undo in one tab never reaches another, Ctrl+W closes a clean tab and is refused on the last one, and the client closes naturally; no tab drag reorder, split pane, session restore or Wayland proof" if args.suite == "tabs" else "Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line paragraph and table cell panels: the routed keys move only the local snapshot stack, an empty local stack is a no-op, Source bytes stay untouched until Apply, one Source Undo removes each committed edge, Esc cancels and the client closes naturally; no commit shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-keys" else "Draft-local Undo and Redo buttons for the single-line paragraph and table cell panels: staged snapshots, redo after undo, redo dropped by a new edit, restored value committed by Apply as exactly one Source edge, no Source mutation while the draft is open, and natural close; no keyboard shortcut, grouping heuristic, cross-panel history or Wayland proof" if args.suite == "draft-history-single" else "Previous Next unchanged move and atomic Apply and Previous Next over three single-line roots with unsupported block skipping, first and last boundary refusal, parse refusal, Source caret after Cancel, scoped Undo Redo and natural close; no cross-kind navigation or Wayland proof" if args.suite == "paragraph-navigation-single" else "Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next through the same controller guards, boundary refusal without partial commit, exact bytes after each edge, scoped Source Undo and natural close; no implicit wrap, compositor binding or Wayland proof" if args.suite == "paragraph-draft-shortcuts" else "Explicit atomic multiline Apply and Previous over three roots with unchanged earlier offsets, fresh focused previous session, no-op transition, first boundary, parser refusal, Source caret after Cancel, scoped Undo Redo and natural close; no Apply shortcut, wrap or implicit creation" if args.suite == "paragraph-apply-previous" else "Explicit atomic multiline Apply and Next with full candidate and native buffer preflight, fresh root offsets and local history, no-op transition, last boundary and structural refusal no partial commit, Source caret after Cancel, scoped Undo Redo and natural close; no Apply Previous, implicit creation, pixel or Wayland proof" if args.suite == "paragraph-apply-next" else "Explicit unchanged-only Previous Next between eligible multiline roots, skip other blocks, dirty refusal without discard, no wrap or implicit Apply, fresh local history, exact Source atomic Apply and focus caret, natural clean close; no Apply and Next, cross-kind or Wayland proof" if args.suite == "paragraph-navigation" else "Bounded multiline draft-only Undo Redo keyboard and button focus, raw valid and invalid paste snapshots, local branching and session reset, no Source mutation before Apply, atomic Source history after Apply, natural clean close; no draft grouping, selection anchor, pixel or Wayland proof" if args.suite == "paragraph-draft-history" else "Explicit bounded multiline root paragraph native draft, Enter stages newline, exact soft/hard break bytes, full parser split refusal, atomic history, Split last applied line Source focus/caret and natural close; no inline typing, blank blocks, EOF or Wayland proof" if args.suite == "paragraph-multiline" else "Explicit single-line root paragraph raw draft Open Cancel Apply, full parser structural refusal, exact bytes and scoped history, Split applied-end Source caret/focus and natural close; no free Preview typing, multiline or Wayland proof" if args.suite == "paragraph-draft" else "Explicit atomic Apply and Previous cell draft transition, fresh backward/header provenance, invalid and first-cell refusal, unchanged navigation, exact bytes/history, Split Source focus/caret after Cancel and natural close; no wrap, implicit Apply or Wayland proof" if args.suite == "cell-apply-previous" else "Explicit atomic raw column duplication including header delimiter alignment and body, exact bytes, scoped history, Split new copied header Source caret/focus and natural close; no implicit creation, ragged mutation or Wayland proof" if args.suite == "table-column-duplicate" else "Explicit bounded raw column Move left/right with header delimiter alignment and body, exact bytes, scoped history, Split selected-header Source caret/focus and natural close; no wrap, ragged mutation or Wayland proof" if args.suite == "table-column-move" else "Explicit bounded raw body-row Move up/down, exact line bytes/header/suffix, scoped history, Split moved-row Source caret/focus and natural close; no header movement or Wayland proof" if args.suite == "table-row-move" else "Explicit atomic column deletion across header delimiter body, retained raw bytes/alignment, scoped history, Split surviving-header Source caret/focus and natural close; no last-column deletion, ragged tables or Wayland proof" if args.suite == "table-column-delete" else "Explicit atomic blank column insertion before/after across header delimiter and body, exact raw segments/alignment, scoped history, Split new-header Source caret/focus and natural close; no ragged tables or Wayland proof" if args.suite == "table-columns" else "Explicit blank table body row insertion before/after, byte-exact history, Split first-cell Source caret/focus and natural close; no implicit insertion or Wayland proof" if args.suite == "table-insert" else "Source clipboard, navigation focus, read-only Preview/Split and table cycles, warm Split edits/undo/redo, block/cell-source reveal, preview task edits/history, root ATX/Setext heading levels/history, New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots without pixel assertions; no file portal or Wayland" if args.suite == "regression" else ("Supported task batch check/clear, exact Source clipboard, scoped history/no-op, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "task-batch" else ("Root GFM column alignment, raw delimiter/cell preservation, scoped history, Split focus and clean native close; no pixel or Wayland proof" if args.suite == "table-alignment" else ("Root GFM body-row duplicate/delete, exact raw source, scoped history, Split focus/caret and clean native close; no pixel or Wayland proof" if args.suite == "table-rows" else ("Explicit root table cell draft input/apply/cancel, exact Unicode raw source, validation/no-op/history, Split focus/caret and natural close; no free typing in Preview or Wayland proof" if args.suite == "table-cells" else "Bounded cell draft Previous/Next, dirty refusal, explicit atomic Apply and Next, fresh offsets, scoped history and native Source focus/exit; not inline WYSIWYG or Wayland proof")))),
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()

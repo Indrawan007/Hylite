@@ -5,7 +5,10 @@ pub(crate) mod preview_model;
 mod snapshot;
 mod state;
 
-pub use preview::{render_inline_probe_preview, render_inline_spike_preview, render_preview};
+pub use preview::{
+    render_inline_alt_probe_preview, render_inline_probe_preview, render_inline_spike_preview,
+    render_preview,
+};
 pub use snapshot::Snapshot;
 pub use state::Document;
 

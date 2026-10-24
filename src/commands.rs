@@ -7,6 +7,49 @@ use crate::text_edit::InlineStyle;
 use iced::{keyboard, widget::text_editor, window};
 use std::path::PathBuf;
 
+/// Pointer phases emitted only by the opt-in alternative-widget feasibility probe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InlineAltProbePhase {
+    Hover,
+    Press,
+    Drag,
+    Release,
+}
+
+impl InlineAltProbePhase {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Hover => "hover",
+            Self::Press => "press",
+            Self::Drag => "drag",
+            Self::Release => "release",
+        }
+    }
+}
+
+/// Geometry and visible-text hit result from the test-only custom widget.
+/// These coordinates never identify or mutate Source bytes.
+#[derive(Debug, Clone, Copy)]
+pub struct InlineAltProbeEvent {
+    pub phase: InlineAltProbePhase,
+    pub client_x: f32,
+    pub client_y: f32,
+    pub local_x: f32,
+    pub local_y: f32,
+    pub bounds_x: f32,
+    pub bounds_y: f32,
+    pub bounds_width: f32,
+    pub bounds_height: f32,
+    pub origin_x: f32,
+    pub origin_y: f32,
+    pub start_x: f32,
+    pub start_y: f32,
+    pub end_x: f32,
+    pub end_y: f32,
+    pub hit_y: f32,
+    pub hit: Option<usize>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PendingAction {
     New,
@@ -59,6 +102,8 @@ pub enum Message {
     FinishInlineSpike,
     InlineProbeAction(text_editor::Action),
     FinishInlineProbe,
+    InlineAltProbePointer(InlineAltProbeEvent),
+    FinishInlineAltProbe,
     PreviewParagraphChanged(String),
     ApplyPreviewParagraph,
     ApplyPreviewParagraphNext,

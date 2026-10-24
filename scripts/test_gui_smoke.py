@@ -147,6 +147,64 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(gui.INLINE_PROBE_VISIBLE.isascii())
         self.assertEqual(len(set(gui.INLINE_PROBE_VISIBLE)), len(gui.INLINE_PROBE_VISIBLE))
 
+    def test_inline_alt_title_parser_reads_geometry_and_visible_selection(self):
+        title = (
+            "inline-alt-probe.md [InlineAlt event=9 phase=release x=420.0 y=180.0 "
+            "local=120.0,22.0 hit=7 anchor=3 focus=7 direction=forward "
+            "bounds=300.0,158.0,600.0,38.0 origin=8.0,4.0 p0=0.0,0.0 "
+            "pN=92.0,0.0 hit_y=10.0] — Hylite\n"
+        )
+        state = gui.parse_inline_alt_probe_title(title)
+        self.assertEqual(state["event"], 9)
+        self.assertEqual(state["phase"], "release")
+        self.assertEqual(state["hit"], 7)
+        self.assertEqual(state["bounds"], (300.0, 158.0, 600.0, 38.0))
+        self.assertEqual(gui.inline_alt_selection(state), {
+            "start": 3, "end": 7, "anchor": 3, "focus": 7, "direction": "forward"
+        })
+        self.assertEqual(
+            gui.parse_inline_alt_probe_title(
+                "inline-alt-probe.md [InlineAlt event=0 phase=idle hit=none "
+                "anchor=none focus=none direction=none] — Hylite\n"
+            ),
+            {"event": 0, "phase": "idle", "hit": None, "anchor": None,
+             "focus": None, "direction": "none"},
+        )
+        self.assertIsNone(gui.parse_inline_alt_probe_title("inline-alt-probe.md — Hylite\n"))
+
+    def test_inline_alt_analyzer_requires_repeatable_complete_offsets_and_directional_drags(self):
+        forward = [(x, x) for x in range(12)]
+        reverse = list(reversed(forward))
+        go = gui.analyze_inline_alt_probe(
+            forward, reverse, 12,
+            gui.INLINE_ALT_PROBE_FORWARD, gui.INLINE_ALT_PROBE_BACKWARD,
+        )
+        self.assertEqual(go["verdict"], "GO")
+        self.assertTrue(go["repeatable_at_each_x"])
+        self.assertEqual(go["forward_reached_offsets"], list(range(12)))
+        self.assertLessEqual(go["forward_samples"], gui.INLINE_ALT_PROBE_MAX_X)
+
+        no_go = gui.analyze_inline_alt_probe(
+            forward, reverse, 12,
+            gui.INLINE_ALT_PROBE_FORWARD, gui.INLINE_ALT_PROBE_FORWARD,
+        )
+        self.assertEqual(no_go["verdict"], "NO-GO")
+        self.assertIn("backward drag selection was not the expected diagnostic", " ".join(no_go["reasons"]))
+
+        inconclusive = gui.analyze_inline_alt_probe(
+            [(x, None) for x in range(12)], [(x, None) for x in range(12)], 12,
+            None, None,
+        )
+        self.assertEqual(inconclusive["verdict"], "INCONCLUSIVE")
+        self.assertFalse(inconclusive["go"])
+
+        over_budget = [(x, x % 12) for x in range(gui.INLINE_ALT_PROBE_MAX_X + 1)]
+        bounded = gui.analyze_inline_alt_probe(
+            over_budget, list(reversed(over_budget)), 12, None, None,
+        )
+        self.assertEqual(bounded["verdict"], "INCONCLUSIVE")
+        self.assertIn("exceeded the 256-x sample cap", " ".join(bounded["reasons"]))
+
     def test_preview_probe_uses_editor_bold_not_global_sidebar_shortcut(self):
         desktop = Mock(window="42")
         gui.exercise_preview(desktop, Path("/unused-evidence"))

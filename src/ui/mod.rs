@@ -1,6 +1,7 @@
 pub mod cell_edit;
 pub mod confirmation;
 pub mod editing;
+pub mod inline_advanced_probe;
 pub mod inline_spike;
 pub mod multiline_paragraph;
 pub mod navigation;

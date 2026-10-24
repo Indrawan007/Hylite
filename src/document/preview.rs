@@ -90,6 +90,38 @@ pub fn render_inline_probe_preview<'a>(
     )
 }
 
+/// A separate test-only render path for the alternative advanced widget. It
+/// shows only the authenticated fixture paragraph, not the Stage 9b TextEditor.
+pub fn render_inline_alt_probe_preview<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    probe: Option<&'a crate::ui::inline_advanced_probe::Probe>,
+) -> Element<'a, Message> {
+    let colors = Colors::new(theme);
+    let content = probe
+        .filter(|probe| {
+            probe.target.snapshot == snapshot
+                && blocks.iter().any(|block| {
+                    block.source == probe.target.block && matches!(block.kind, Kind::Paragraph)
+                })
+        })
+        .map_or_else(
+            || render_preview(blocks, theme, snapshot, base_dir),
+            |probe| crate::ui::inline_advanced_probe::widget(probe, colors.text),
+        );
+    let instructions = text(
+        "Alternative custom-widget probe · bounded ASCII hit-testing only · Source stays read-only · Esc finishes",
+    )
+    .size(11)
+    .color(colors.accent);
+    column![instructions, content]
+        .spacing(12)
+        .width(Length::Fill)
+        .into()
+}
+
 fn render_preview_internal<'a>(
     blocks: &'a [Block],
     theme: &Theme,

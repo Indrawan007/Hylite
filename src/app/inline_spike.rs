@@ -329,7 +329,7 @@ impl Hylite {
     }
 }
 
-fn target_for_block(block: &Block, source: &str, snapshot: Snapshot) -> Option<Target> {
+pub(super) fn target_for_block(block: &Block, source: &str, snapshot: Snapshot) -> Option<Target> {
     if !matches!(block.kind, Kind::Paragraph) {
         return None;
     }
@@ -348,7 +348,7 @@ fn target_for_block(block: &Block, source: &str, snapshot: Snapshot) -> Option<T
     })
 }
 
-fn authenticated_projection(
+pub(super) fn authenticated_projection(
     block: &Block,
     source: &str,
     target: &Target,
