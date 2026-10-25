@@ -175,6 +175,7 @@ pub enum Message {
     DismissConfigWarning,
 
     // UI
+    CopyEnvironmentReport,
     NewTab,
     SwitchTab(usize),
     CycleTab(bool),
