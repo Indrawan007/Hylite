@@ -1,8 +1,8 @@
-# Laporan Progress — Hylite (scope 9c/9d dan implementasi Stage 10a)
+# Laporan Progress — Hylite (Stage 11a; Stage 9c/9d tetap ditunda)
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Kode terakhir terverifikasi:** `16bcb77`
+**Tanggal:** 26 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Kode terakhir terverifikasi:** `fdf991b`
 
-**Basis verifikasi Stage 10a:** commit `16bcb77` lulus seluruh gate di [CI 40094818086](https://github.com/Indrawan007/Hylite/actions/runs/40094818086), termasuk format, strict Source core, strict Clippy, build, seluruh unit/property tests, semua smoke GUI lama, dan harness Stage 10b yang diperluas. Harness selesai dalam 132,40 detik; observasi absolut dicatat di [docs/performance.md](performance.md) tanpa klaim performa. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Status kerja: **belum di-merge ke `main` dan tidak ada PR**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
+**Basis verifikasi Stage 11a:** commit `fdf991b` lulus seluruh gate di [CI 40244045608](https://github.com/Indrawan007/Hylite/actions/runs/40244045608): helper Python, format, strict Source core, strict Clippy, build, tes Rust, semua suite GUI X11, dan probe opt-in yang telah ada. Laporan diagnostik Stage 11a hanya menyajikan petunjuk yang diizinkan dan merahasiakan nilai endpoint/path; batas serta hasil ada di [docs/testing-stage11a.md](testing-stage11a.md). CI ini **bukan** bukti Arch + Hyprland/Wayland, portal runtime, atau paket/release build. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Status kerja: **belum di-merge ke `main` dan tidak ada PR**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -22,7 +22,9 @@ penutupan milestone feasibility 9b dengan hasil NO-GO; itu **bukan** lompatan
 kemampuan produk atau kesiapan rilis. Stage 10a menambah fast path parser/cache
 yang konservatif tanpa bukti percepatan; Stage 10b menambah observasi runner,
 bukan klaim performa. Skor kategori 82,3 % pada bagian 3 adalah estimasi berbobot
-lain, bukan angka roadmap atau kesiapan rilis.
+lain, bukan angka roadmap atau kesiapan rilis. Stage 11a menambahkan diagnostik
+pendukung dan tidak mengubah kedua persentase: kesiapan target tetap menunggu
+verifikasi manual dan packaging.
 
 ## 2. Capaian per stage
 
@@ -130,12 +132,30 @@ Source penuh dan suffix model juga perlu disalin/digeser, implementasi ini belum
 membuktikan percepatan; tidak ada klaim performa. Stage 9c/9d tetap terpisah dan
 tidak dimulai. Rincian: [proposal/scope Stage 10a](proposal-stage10a-scope.md).
 
+### Stage 11a — diagnostik lingkungan (selesai)
+
+Toolbar **Copy env** membuat laporan atas permintaan pengguna, mengirimkannya ke
+clipboard, dan mencatat laporan yang sama ke `stderr`. Laporan berisi tipe
+`iced::Renderer` compile-time, scale factor yang ditanyakan dari window Iced
+saat dibuka/di-resize, font/ukuran konfigurasi Hylite, serta allowlist petunjuk
+locale dan sesi desktop. Endpoint Wayland/X11/D-Bus hanya tampil sebagai
+set/unset; nilai dan path tidak ikut. Script [`report-environment.sh`](../scripts/report-environment.sh)
+menyajikan OS/kernel/toolchain, hint fontconfig, dan state tiga service portal
+melalui pemeriksaan user systemd yang dibatasi timeout.
+
+Tipe renderer bukan identifikasi GPU/backend window runtime; service portal
+aktif bukan bukti provider dialog dipilih. Aplikasi tidak mengintrospeksi
+provider `rfd`. Diagnostik ini tidak menjalankan atau menggantikan checklist
+Stage 11b, dan tidak mengubah estimasi roadmap/kesiapan rilis. Rincian privasi,
+tes, dan batas klaim: [catatan Stage 11a](testing-stage11a.md).
+
 ### Verifikasi otomatis — semua gate CI lulus
 
 | Metrik | Nilai |
 |---|---|
-| Rust format, strict core, Clippy, build dan unit/property tests | **lulus** pada CI `40094818086` (`16bcb77`); 1.058 tes Cargo lulus, satu benchmark ignored di suite normal, dan 344 strict Source core lulus |
-| Helper Python | **93 tes**; kompilasi helper lulus |
+| Rust format, strict core, Clippy, build dan unit/property tests (baseline 10a) | **lulus** pada CI `40094818086` (`16bcb77`); 1.058 tes Cargo lulus, satu benchmark ignored di suite normal, dan 344 strict Source core lulus |
+| Full CI Stage 11a | **lulus** pada `fdf991b` / [run `40244045608`](https://github.com/Indrawan007/Hylite/actions/runs/40244045608): helper, format, strict core, Clippy, build, tes Rust, suite GUI X11 dan probe opt-in |
+| Helper Python | **98 tes** terdeteksi secara lokal; discovery helper juga lulus di CI `40244045608` |
 | Suite GUI X11 | **31 suite / 528 pemeriksaan**; suite custom-widget terpisah menambah 9, semua suite lama lulus |
 | Main regression smoke | **116 pemeriksaan** tetap lulus |
 | Stage 10b opt-in | **1 test lulus**, selesai 132,40 detik dalam budget 180 detik; tambahan incremental/fallback tercatat hanya sebagai observasi |
@@ -145,12 +165,19 @@ Satu run terdahulu (`40094340411`) gagal pada pemeriksaan clipboard sentinel di
 `scripts/gui-smoke-x11.py:354`; penyebabnya belum diketahui. Kegagalan tersebut
 tidak direproduksi oleh CI penuh `40094818086`, yang meluluskan smoke GUI X11.
 
+Run `40240307726` juga gagal pada pemeriksaan clipboard sentinel di GUI smoke;
+GitHub menolak rerun karena workflow mungkin rusak, dan penyebabnya belum
+teridentifikasi. Kegagalan itu tidak terulang pada pipeline penuh Stage 11a
+`40244045608`. Ini hanya catatan non-reproduksi pada run tersebut, bukan
+penjelasan akar penyebab atau bukti target desktop.
+
 ### Status fitur dan gap yang tersisa
 
 | Area | Kondisi |
 |---|---|
+| Diagnostik environment Stage 11a | **selesai** — tipe renderer compile-time, skala window, font, locale, redaksi endpoint, serta hint service portal; [catatan](testing-stage11a.md) |
 | Validasi desktop Arch + Hyprland/Wayland | **belum** — semua bukti dari Xvfb + tiny-skia |
-| Portal/dialog file nyata, IME, RTL, HiDPI, GPU | **belum** |
+| Portal/dialog file nyata, IME, RTL, HiDPI, GPU | **belum** — Stage 11a hanya memberi hint, bukan verifikasi runtime |
 | Stage 9b asli: caret hit-testing + selection anchor/arah pada widget `text_editor` | **probe selesai, NO-GO historis** — hanya offset 0 teramati pada fixture X11; drag/anchor/arah tidak teruji |
 | Probe custom-widget alternatif | **selesai, NO-GO terbatas** — 113 x berulang hanya mencapai offset 0–6/non-monotone; drag tidak dijalankan; tidak ada Source mapping atau editing produksi |
 | Selection mapping umum, drag, multi-cell | **belum** |

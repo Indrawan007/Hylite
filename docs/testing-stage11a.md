@@ -58,6 +58,6 @@ terbatas tidak ditampilkan. Salin laporan tetap tindakan eksplisit pengguna.
 - `scripts/test_environment_report.py` memanggil script dalam environment
   terkontrol, memakai stub `systemctl`/`fc-match`, dan menguji allowlist,
   redaksi path/alamat, serta penolakan nilai multiline.
-- Pemeriksaan lokal saat implementasi: seluruh 98 tes helper Python lulus,
+- Pemeriksaan lokal: seluruh 98 tes helper Python lulus,
   `bash -n scripts/report-environment.sh` lulus, dan script berjalan di sandbox.
-  Gate format/build/Clippy/tes Rust dicatat setelah CI untuk revisi ini selesai.
+- Revisi kode `fdf991b` lulus seluruh job di [CI `40244045608`](https://github.com/Indrawan007/Hylite/actions/runs/40244045608): helper Python, format, strict Source core, Clippy, build, tes Rust, serta semua suite GUI X11 dan probe opt-in yang sudah ada. Ini bukan bukti verifikasi Arch + Hyprland/Wayland, bukan verifikasi portal runtime, dan bukan release/package build.
