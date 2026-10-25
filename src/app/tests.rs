@@ -58,11 +58,15 @@ fn window_scale_factor_is_tracked_and_invalid_values_are_ignored() {
     let mut app = app();
     let _ = app.update(Message::ScaleFactorUpdated(1.25));
     assert_eq!(app.scale_factor, Some(1.25));
-    assert!(app.environment_report().contains("Window scale factor: 1.25"));
+    assert!(app
+        .environment_report()
+        .contains("Window scale factor: 1.25"));
 
     let _ = app.update(Message::ScaleFactorUpdated(f32::NAN));
     assert_eq!(app.scale_factor, None);
-    assert!(app.environment_report().contains("Window scale factor: not available yet"));
+    assert!(app
+        .environment_report()
+        .contains("Window scale factor: not available yet"));
 }
 
 #[test]

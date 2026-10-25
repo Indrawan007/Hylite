@@ -49,11 +49,7 @@ impl EnvironmentHints {
 
 /// Build the report from the active app configuration and the current process
 /// environment. This is called only after an explicit user request.
-pub(crate) fn generate(
-    font_family: &str,
-    font_size: f32,
-    scale_factor: Option<f32>,
-) -> String {
+pub(crate) fn generate(font_family: &str, font_size: f32, scale_factor: Option<f32>) -> String {
     render(
         font_family,
         font_size,
@@ -156,11 +152,19 @@ fn safe_label(value: &str, allow_spaces: bool) -> String {
 }
 
 fn set_or_unset(value: bool) -> &'static str {
-    if value { "set" } else { "unset" }
+    if value {
+        "set"
+    } else {
+        "unset"
+    }
 }
 
 fn yes_or_no(value: bool) -> &'static str {
-    if value { "yes" } else { "no" }
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
 }
 
 #[cfg(test)]
@@ -210,7 +214,10 @@ mod tests {
             "WAYLAND_DISPLAY=set, DISPLAY=unset",
             "D-Bus session bus configured: yes",
         ] {
-            assert!(report.contains(expected), "missing {expected:?} in report:\n{report}");
+            assert!(
+                report.contains(expected),
+                "missing {expected:?} in report:\n{report}"
+            );
         }
     }
 
@@ -232,7 +239,10 @@ mod tests {
         assert!(report.contains("Iced renderer type (compile-time): [filtered]"));
         assert!(report.contains("LC_ALL: [filtered]"));
         for secret in ["/home/alice", "private-font", "do-not-leak", "TOKEN="] {
-            assert!(!report.contains(secret), "report leaked {secret:?}:\n{report}");
+            assert!(
+                !report.contains(secret),
+                "report leaked {secret:?}:\n{report}"
+            );
         }
     }
 
@@ -246,7 +256,9 @@ mod tests {
         };
         let report = render("monospace", 16.0, None, "iced_tiny_skia::Renderer", &hints);
 
-        assert!(report.contains("WAYLAND_DISPLAY=set, DISPLAY=set (presence only; values redacted)"));
+        assert!(
+            report.contains("WAYLAND_DISPLAY=set, DISPLAY=set (presence only; values redacted)")
+        );
         assert!(report.contains("D-Bus session bus configured: yes (address redacted)"));
         assert!(!report.contains("wayland-1"));
         assert!(!report.contains("unix:path="));
