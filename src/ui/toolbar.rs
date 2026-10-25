@@ -81,6 +81,10 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 .on_press(Message::ToggleZenMode)
                 .style(btn_style(app.zen_mode))
                 .padding([4, 10]),
+            button(text("Copy env").size(12))
+                .on_press(Message::CopyEnvironmentReport)
+                .style(btn_style(false))
+                .padding([4, 10]),
         ]
         .spacing(6)
         .align_y(iced::Alignment::Center)

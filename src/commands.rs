@@ -165,6 +165,9 @@ pub enum Message {
     ExportPdf,
     PdfExported(OperationToken, FileResult<PathBuf>),
     CloseRequested(window::Id),
+    /// A window opened or resized; request its current logical-to-physical scale.
+    ScaleFactorWindowChanged(window::Id),
+    ScaleFactorUpdated(f32),
     ConfirmSave,
     ConfirmDiscard,
     CancelPendingAction,

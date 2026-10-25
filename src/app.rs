@@ -51,6 +51,8 @@ pub struct Hylite {
     pub zen_mode: bool,
     pub status_message: String,
     pub config: Config,
+    /// Scale factor queried from the live Iced window; `None` until its first event.
+    scale_factor: Option<f32>,
     pub hyprland: HyprlandIntegration,
     operations: Operations,
     editor_font: iced::Font,
@@ -137,6 +139,7 @@ impl Hylite {
             zen_mode: false,
             status_message: status,
             config,
+            scale_factor: None,
             hyprland,
             operations: Operations::default(),
             editor_font,
@@ -149,6 +152,22 @@ impl Hylite {
             None => Task::none(),
         };
         (app, task)
+    }
+
+    fn environment_report(&self) -> String {
+        crate::environment_report::generate(
+            &self.config.editor.font_family,
+            self.config.editor.font_size,
+            self.scale_factor,
+        )
+    }
+
+    fn copy_environment_report(&mut self) -> Task<Message> {
+        let report = self.environment_report();
+        eprintln!("{report}");
+        self.status_message =
+            "Environment report sent to clipboard; document path and content are excluded".into();
+        iced::clipboard::write(report)
     }
 
     pub fn title(&self) -> String {
@@ -272,6 +291,20 @@ impl Hylite {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        // Window diagnostics are system events and must remain observable even
+        // while an opt-in probe or an editing draft is active.
+        match &message {
+            Message::ScaleFactorWindowChanged(id) => {
+                return window::get_scale_factor(id.clone()).map(Message::ScaleFactorUpdated);
+            }
+            Message::ScaleFactorUpdated(scale_factor) => {
+                self.scale_factor =
+                    (scale_factor.is_finite() && *scale_factor > 0.0).then_some(*scale_factor);
+                return Task::none();
+            }
+            _ => {}
+        }
+
         if self.inline_alt_probe.is_some() {
             match message {
                 Message::InlineAltProbePointer(event) => {
@@ -563,6 +596,9 @@ impl Hylite {
             Message::HtmlExported(token, result) => self.on_html_exported(token, result),
 
             // ── UI ──
+            Message::CopyEnvironmentReport => self.copy_environment_report(),
+            Message::ScaleFactorWindowChanged(_) | Message::ScaleFactorUpdated(_) => Task::none(),
+
             Message::ToggleSidebar => {
                 self.sidebar_open = !self.sidebar_open;
                 Task::none()
@@ -842,6 +878,8 @@ impl Hylite {
         Subscription::batch([
             editing_events,
             window::close_requests().map(Message::CloseRequested),
+            window::open_events().map(Message::ScaleFactorWindowChanged),
+            window::resize_events().map(|(id, _size)| Message::ScaleFactorWindowChanged(id)),
         ])
     }
 }

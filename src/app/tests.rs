@@ -30,6 +30,7 @@ fn app() -> Hylite {
         zen_mode: false,
         status_message: String::new(),
         config: Config::default(),
+        scale_factor: None,
         hyprland: HyprlandIntegration::default(),
         operations: Operations::default(),
         editor_font: iced::Font::MONOSPACE,
@@ -50,6 +51,28 @@ fn token(app: &Hylite) -> OperationToken {
         .active()
         .expect("expected a running file operation")
         .token
+}
+
+#[test]
+fn window_scale_factor_is_tracked_and_invalid_values_are_ignored() {
+    let mut app = app();
+    let _ = app.update(Message::ScaleFactorUpdated(1.25));
+    assert_eq!(app.scale_factor, Some(1.25));
+    assert!(app.environment_report().contains("Window scale factor: 1.25"));
+
+    let _ = app.update(Message::ScaleFactorUpdated(f32::NAN));
+    assert_eq!(app.scale_factor, None);
+    assert!(app.environment_report().contains("Window scale factor: not available yet"));
+}
+
+#[test]
+fn environment_report_excludes_document_text_and_file_path() {
+    let app = app();
+    let report = app.environment_report();
+    assert!(!report.contains("Original"));
+    assert!(!report.contains("/home/"));
+    assert!(!report.contains("DBUS_SESSION_BUS_ADDRESS="));
+    assert!(report.contains("address redacted"));
 }
 
 #[test]

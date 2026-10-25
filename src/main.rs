@@ -5,6 +5,7 @@ mod config;
 mod continuation;
 mod document;
 mod editor;
+mod environment_report;
 mod export;
 mod export_cli;
 mod file_io;

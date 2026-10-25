@@ -120,7 +120,7 @@ klaim speed/performa umum atau perbandingan.
 
 | Stage | Isi | Usaha | Bisa saya verifikasi? |
 |---|---|---|---|
-| **11a** | **Instrumentasi target**: log diagnostik (backend Iced, skala, font, locale, portal), tombol salin laporan, skrip `scripts/report-environment.sh` | kecil | ya (kompilasi + tes) |
+| **11a (sedang dikerjakan)** | **Instrumentasi target**: log diagnostik (tipe renderer Iced compile-time, skala window, font, locale, hint portal), tombol salin laporan, skrip `scripts/report-environment.sh` | kecil | ya (kompilasi + tes) |
 | **11b** | **Checklist manual Arch + Hyprland/Wayland**: portal file dialog, IME (`fcitx5`/`ibus`), HiDPI, RTL, GPU; dokumen hasilnya terisi olehmu | kecil (kode) + manual | **tidak** — butuh mesinmu |
 | **11c** | **PKGBUILD + build release** (`--release`, LTO, strip), cek `makepkg` | kecil–sedang | sebagian (lint PKGBUILD) |
 | **11d** | **Rilis 0.2.0**: tag, changelog, catatan batas yang jujur | kecil | ya |
@@ -137,7 +137,7 @@ mengubah estimasi roadmap ≈93% maupun kesiapan rilis ≈44%.
 | Urutan | Status | Estimasi usaha | Pekerjaan tersisa | Kriteria keluar |
 |---|---|---|---|---|
 | **0. Baseline build** | ✅ selesai | — | Pertahankan gate format, strict core, Clippy, build, unit/property test, dan smoke GUI yang ada. | Baseline CI pada `fa48010` lulus ([run `40096439336`](https://github.com/Indrawan007/Hylite/actions/runs/40096439336)); revisi roadmap `f36f2c6` juga lulus CI ([run `40238939360`](https://github.com/Indrawan007/Hylite/actions/runs/40238939360)). Keduanya bukan bukti paket Arch. |
-| **1. Stage 11a — diagnostik lingkungan** | belum dimulai | kecil | Catat informasi backend Iced, skala, font, locale, dan portal; siapkan laporan yang bisa disalin serta `scripts/report-environment.sh` sesuai rencana. | Laporan tidak memuat rahasia/path sensitif; kompilasi dan tes lulus. |
+| **1. Stage 11a — diagnostik lingkungan** | sedang dikerjakan; persetujuan saat ini hanya mencakup 11a | kecil | Catat tipe renderer Iced compile-time, scale factor window, font, locale, dan hint portal; siapkan laporan salin serta `scripts/report-environment.sh` dengan allowlist dan redaksi. | Laporan tidak memuat rahasia/path sensitif; kompilasi dan tes lulus. |
 | **2. Stage 11b — verifikasi target** | belum dilakukan; perlu mesin Arch + Hyprland | kecil (kode) + manual | Jalankan aplikasi di sesi Wayland/Hyprland; isi checklist portal/FileChooser, buka/simpan, IME, RTL, HiDPI, GPU, dan tutup aplikasi. Catat environment dan batas yang ditemukan. | Checklist manual terisi dan hasilnya dapat ditinjau. CI Xvfb tidak dapat menggantikan langkah ini. |
 | **3. Stage 11c — paket dan release build** | belum dimulai | kecil–sedang | Tinjau profil `--release` (LTO/strip bila sesuai), buat PKGBUILD, bangun di Arch bersih dengan dependensi terkunci, periksa isi/dependensi paket dan checksum. Ulangi build dengan input/toolchain tercatat untuk menilai reproducibility. | `makepkg` sukses; paket dapat dipasang dan executable dapat diluncurkan. Catat perintah, toolchain, versi, dan checksum; jangan klaim reproducible sebelum hasil pengulangan mendukungnya. |
 | **4. Gate Build rilis** | menunggu 1–3 | — | Gabungkan bukti kompilasi release, paket, dan smoke run target. | Artefak Arch terpasang dan berjalan pada cakupan checklist yang dicatat; jangan menyebutnya rilis 1.0 hanya berdasarkan build. |
@@ -152,8 +152,9 @@ boleh diklaim tervalidasi.
 sync belum dimulai. Keduanya bukan alasan untuk mengubah scope build ini; tetapi
 keduanya, bersama kriteria lain di bagian 1, tetap dapat menahan klaim selesai
 1.0. Rilis 0.2.0 (11d) juga langkah terpisah setelah gate Build, bukan bagian dari
-pekerjaan build itu sendiri. Roadmap ini hanya rencana; tidak memberi izin
-implementasi Stage 11a–11c tanpa persetujuan scope berikutnya.
+pekerjaan build itu sendiri. Stage 11a saja telah disetujui untuk dikerjakan
+pada scope saat ini. Roadmap ini tidak memberi izin untuk Stage 11b atau 11c;
+berhenti setelah verifikasi 11a sampai ada persetujuan terpisah.
 
 ---
 
