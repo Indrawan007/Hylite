@@ -295,7 +295,7 @@ impl Hylite {
         // while an opt-in probe or an editing draft is active.
         match &message {
             Message::ScaleFactorWindowChanged(id) => {
-                return window::get_scale_factor(id.clone()).map(Message::ScaleFactorUpdated);
+                return window::get_scale_factor(*id).map(Message::ScaleFactorUpdated);
             }
             Message::ScaleFactorUpdated(scale_factor) => {
                 self.scale_factor =
