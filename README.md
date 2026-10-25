@@ -60,10 +60,11 @@ Preview memakai model block/inline dan rich text Iced: heading, bold/italic/stri
 ## Roadmap
 
 Rencana sampai rilis 1.0 (fase A–D, Stage 8a–11e) beserta definisi "selesai" ada di
-[`docs/roadmap.md`](docs/roadmap.md). Baseline Stage 10b dan observasi incremental/fallback
-Stage 10a dicatat terpisah di [`docs/performance.md`](docs/performance.md), tanpa klaim performa.
-Stage 10a adalah fast path konservatif untuk Preview yang ada; 9c/9d tetap ditunda,
-sementara validasi target Arch + Hyprland dan packaging masih terbuka.
+[`docs/roadmap.md`](docs/roadmap.md). Jalur praktis yang tersisa sampai paket Build rilis
+ada di [roadmap hingga Build](docs/roadmap.md#jalur-tersisa-sampai-build-rilis). Baseline
+Stage 10b dan observasi incremental/fallback Stage 10a dicatat di
+[`docs/performance.md`](docs/performance.md), tanpa klaim performa. Stage 9c/9d tetap
+ditunda; validasi target Arch + Hyprland dan packaging masih terbuka.
 
 ## Build di Arch Linux
 

@@ -1,8 +1,8 @@
 # Roadmap Hylite — dari Stage 9b sampai rilis 1.0
 
-**Tanggal:** 24 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis kode terverifikasi:** `16bcb77`
-(CI [40094818086](https://github.com/Indrawan007/Hylite/actions/runs/40094818086) hijau;
-Stage 10a fast path terbatas dan observasi harness incremental/fallback tercatat di
+**Diperbarui:** 26 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Basis status:** `fa48010`
+(CI [40096439336](https://github.com/Indrawan007/Hylite/actions/runs/40096439336) hijau;
+raw timing Stage 10a tetap merujuk ke run pengukuran `40094818086` di
 [`docs/performance.md`](performance.md). Stage 9b asli dan probe custom-widget
 terpisah sama-sama berakhir **NO-GO** pada cakupan terbatas.)
 
@@ -125,6 +125,35 @@ klaim speed/performa umum atau perbandingan.
 | **11c** | **PKGBUILD + build release** (`--release`, LTO, strip), cek `makepkg` | kecil–sedang | sebagian (lint PKGBUILD) |
 | **11d** | **Rilis 0.2.0**: tag, changelog, catatan batas yang jujur | kecil | ya |
 | **11e** | **Rilis 1.0.0**: hanya setelah definisi di bagian 1 terpenuhi | kecil | ya |
+
+### Jalur tersisa sampai Build rilis
+
+Bagian ini memakai **Build** untuk berarti *artefak release Arch yang bisa dipasang*,
+bukan sekadar kompilasi debug atau klaim rilis 1.0. Kompilasi/build CI reguler
+sudah lulus; instruksi `cargo build --release` juga ada di README, tetapi belum
+menjadi bukti release build pada Arch atau paket terpasang. Status ini tidak
+mengubah estimasi roadmap ≈93% maupun kesiapan rilis ≈44%.
+
+| Urutan | Status | Estimasi usaha | Pekerjaan tersisa | Kriteria keluar |
+|---|---|---|---|---|
+| **0. Baseline build** | ✅ selesai | — | Pertahankan gate format, strict core, Clippy, build, unit/property test, dan smoke GUI yang ada. | CI terakhir yang tercatat lulus pada `fa48010` ([run `40096439336`](https://github.com/Indrawan007/Hylite/actions/runs/40096439336)); build ini bukan bukti paket Arch. |
+| **1. Stage 11a — diagnostik lingkungan** | belum dimulai | kecil | Catat informasi backend Iced, skala, font, locale, dan portal; siapkan laporan yang bisa disalin serta `scripts/report-environment.sh` sesuai rencana. | Laporan tidak memuat rahasia/path sensitif; kompilasi dan tes lulus. |
+| **2. Stage 11b — verifikasi target** | belum dilakukan; perlu mesin Arch + Hyprland | kecil (kode) + manual | Jalankan aplikasi di sesi Wayland/Hyprland; isi checklist portal/FileChooser, buka/simpan, IME, RTL, HiDPI, GPU, dan tutup aplikasi. Catat environment dan batas yang ditemukan. | Checklist manual terisi dan hasilnya dapat ditinjau. CI Xvfb tidak dapat menggantikan langkah ini. |
+| **3. Stage 11c — paket dan release build** | belum dimulai | kecil–sedang | Tinjau profil `--release` (LTO/strip bila sesuai), buat PKGBUILD, bangun di Arch bersih dengan dependensi terkunci, periksa isi/dependensi paket dan checksum. Ulangi build dengan input/toolchain tercatat untuk menilai reproducibility. | `makepkg` sukses; paket dapat dipasang dan executable dapat diluncurkan. Catat perintah, toolchain, versi, dan checksum; jangan klaim reproducible sebelum hasil pengulangan mendukungnya. |
+| **4. Gate Build rilis** | menunggu 1–3 | — | Gabungkan bukti kompilasi release, paket, dan smoke run target. | Artefak Arch terpasang dan berjalan pada cakupan checklist yang dicatat; jangan menyebutnya rilis 1.0 hanya berdasarkan build. |
+
+**Urutan praktis:** 11a → 11b → 11c → gate Build. Langkah 11b adalah
+pekerjaan manual di mesin target; langkah itu menunggu hasil dari pemilik mesin.
+Build biasa tetap bisa dicoba sebelum gate tersebut, tetapi status target tidak
+boleh diklaim tervalidasi.
+
+**Tidak menjadi blocker untuk artefak Build ini:** Stage 9c/9d tetap deferred
+(tidak ada marker hiding atau inline editing), dan Stage 10c viewport/scroll
+sync belum dimulai. Keduanya bukan alasan untuk mengubah scope build ini; tetapi
+keduanya, bersama kriteria lain di bagian 1, tetap dapat menahan klaim selesai
+1.0. Rilis 0.2.0 (11d) juga langkah terpisah setelah gate Build, bukan bagian dari
+pekerjaan build itu sendiri. Roadmap ini hanya rencana; tidak memberi izin
+implementasi Stage 11a–11c tanpa persetujuan scope berikutnya.
 
 ---
 
