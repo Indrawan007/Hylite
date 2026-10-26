@@ -5,10 +5,13 @@ use crate::block_edit::BlockStyle;
 use crate::commands::Message;
 use crate::editor::EditMode;
 use crate::text_edit::InlineStyle;
+use crate::ui::chrome::{self, Colors, SurfaceKind};
 use iced::widget::{button, container, row, scrollable, text, tooltip};
 use iced::{Element, Length};
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
+    let theme = app.theme();
+    let colors = Colors::from_theme(&theme);
     let editable = app.source_edit_allowed();
     let history_action = |redo| {
         if app.mode == EditMode::Preview {
@@ -71,12 +74,15 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         button("Move Down").on_press_maybe(
             editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown))
         ),
-        text(if app.mode == EditMode::Preview {
-            "Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: validated Preview edits only"
-        } else {
-            "Bold: Ctrl+Shift+B · Ctrl+B: sidebar"
-        })
-        .size(11),
+        tooltip(
+            text("Shortcuts").size(11).color(colors.muted),
+            if app.mode == EditMode::Preview {
+                "Preview history: Ctrl+Z undo · Ctrl+Shift+Z or Ctrl+Y redo. Only validated Preview edits are included."
+            } else {
+                "Source: Ctrl+Shift+B bold · Ctrl+I italic · Ctrl+E code · Ctrl+B toggles the sidebar · Ctrl+Shift+M cycles modes."
+            },
+            tooltip::Position::Top,
+        ),
     ]
     .spacing(8)
     .padding([6, 12]);
@@ -85,6 +91,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             scrollable::Scrollbar::default(),
         )),
     )
+    .style(chrome::surface_style(SurfaceKind::Toolbar))
     .width(Length::Fill)
     .into()
 }

@@ -1,6 +1,7 @@
 //! Explicit single-line raw Markdown drafts, not a second document buffer.
 use crate::commands::Message;
 use crate::preview_cell::{self, Direction};
+use crate::ui::chrome::{self, ButtonKind};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Length};
 
@@ -59,14 +60,14 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         container(text(context_line(draft)).size(13)).height(20),
         container(text("One line, up to 16 KiB · escape pipes as \\| · outer cell spacing is preserved").size(13)).height(20),
         container(input).height(36),
-        row![button("Apply").width(90).height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
-            button("Cancel (Esc)").width(130).height(32).on_press(Message::CancelPreviewCell),
-            button(text("Undo draft").size(14)).width(120).height(32).on_press_maybe(undo_message(draft)),
-            button(text("Redo draft").size(14)).width(120).height(32).on_press_maybe(redo_message(draft))].spacing(8).height(32),
-        row![button(text("Previous").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Previous).then_some(Message::MovePreviewCell(Direction::Previous))),
-            button(text("Next").size(14)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
-            button(text("Apply & Next").size(14)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
-            button(text("Apply & Previous").size(14)).width(160).height(32).on_press_maybe(apply_previous_message(draft))].spacing(8).height(32),
+        row![button("Apply").style(chrome::button_style(ButtonKind::Primary)).width(90).height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
+            button("Cancel (Esc)").style(chrome::button_style(ButtonKind::Neutral)).width(130).height(32).on_press(Message::CancelPreviewCell),
+            button(text("Undo draft").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(120).height(32).on_press_maybe(undo_message(draft)),
+            button(text("Redo draft").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(120).height(32).on_press_maybe(redo_message(draft))].spacing(8).height(32),
+        row![button(text("Previous").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Previous).then_some(Message::MovePreviewCell(Direction::Previous))),
+            button(text("Next").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
+            button(text("Apply & Next").size(14)).style(chrome::button_style(ButtonKind::Primary)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
+            button(text("Apply & Previous").size(14)).style(chrome::button_style(ButtonKind::Primary)).width(160).height(32).on_press_maybe(apply_previous_message(draft))].spacing(8).height(32),
         text(draft.error.or(draft.navigation_notice).unwrap_or("Ctrl+Z/Ctrl+Y = Undo/Redo draft · Enter = Apply and close · Previous/Next = unchanged move · Apply & Next/Previous commits one cell · Esc = Cancel")).size(13),
     ].spacing(12).width(Length::Fill);
     // Stable top-aligned controls; footer/error wrapping never moves the input

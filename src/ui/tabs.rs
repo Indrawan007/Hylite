@@ -1,80 +1,87 @@
 use crate::app::Hylite;
 use crate::commands::Message;
-use iced::widget::{button, container, row, text};
+use crate::ui::chrome::{self, ButtonKind};
+use iced::widget::{button, container, row, scrollable, text, tooltip};
 use iced::{Element, Length};
 
-fn tab_style(active: bool) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
-    move |_theme, status| {
-        let base = if active {
-            iced::Color::from_rgb(0.30, 0.34, 0.50)
-        } else {
-            iced::Color::from_rgb(0.14, 0.14, 0.19)
-        };
-        let background = match status {
-            button::Status::Hovered => iced::Color {
-                r: base.r + 0.05,
-                g: base.g + 0.05,
-                b: base.b + 0.05,
-                a: 1.0,
-            },
-            _ => base,
-        };
-        button::Style {
-            background: Some(background.into()),
-            text_color: iced::Color::from_rgb(0.85, 0.86, 0.92),
-            border: iced::Border {
-                radius: 5.0.into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        }
+fn short_title(title: &str, index: usize) -> String {
+    let (name, dirty) = title
+        .strip_suffix(" •")
+        .map_or((title, false), |name| (name, true));
+    let mut chars = name.chars();
+    let compact: String = chars.by_ref().take(12).collect();
+    let truncated = chars.next().is_some();
+    let suffix = if dirty { " •" } else { "" };
+    if truncated {
+        format!("{} {}…{}", index + 1, compact, suffix)
+    } else {
+        format!("{} {}{}", index + 1, compact, suffix)
     }
 }
 
-fn short_title(title: &str, index: usize) -> String {
-    // Keep the strip a fixed, predictable width: the tab order is the label,
-    // the file name is the hint. Long names never push other controls.
-    let name: String = title.chars().take(14).collect();
-    format!("{} {name}", index + 1)
-}
-
-/// Tab strip that lives inside the existing toolbar row, so the editor below
-/// keeps every coordinate the single-buffer layout had.
+/// Tab strip stays in the existing toolbar slot. It uses only the space its
+/// current tabs need, up to a cap; horizontal scrolling keeps later tabs reachable.
 pub fn view(app: &Hylite) -> Element<'_, Message> {
     let mut strip = row![].spacing(4).height(28);
     for index in 0..app.tab_count() {
         let active = index == app.active_tab();
-        strip = strip.push(
-            button(text(short_title(&app.tab_title(index), index)).size(11))
+        let title = app.tab_title(index);
+        strip = strip.push(tooltip(
+            button(text(short_title(&title, index)).size(11))
                 .on_press(Message::SwitchTab(index))
-                .style(tab_style(active))
+                .style(chrome::button_style(if active {
+                    ButtonKind::Selected
+                } else {
+                    ButtonKind::Neutral
+                }))
                 .padding([3, 8]),
-        );
+            text(title),
+            tooltip::Position::Bottom,
+        ));
         if active && app.tab_count() > 1 {
-            strip = strip.push(
+            strip = strip.push(tooltip(
                 button(text("×").size(11))
                     .on_press(Message::CloseTab(index))
-                    .style(tab_style(false))
+                    .style(chrome::button_style(ButtonKind::Quiet))
                     .padding([3, 6]),
-            );
+                "Close active tab · Ctrl+W",
+                tooltip::Position::Bottom,
+            ));
         }
     }
-    strip = strip.push(
+    strip = strip.push(tooltip(
         button(text("＋").size(12))
             .on_press(Message::NewTab)
-            .style(tab_style(false))
+            .style(chrome::button_style(ButtonKind::Neutral))
             .padding([3, 8]),
-    );
+        "New tab · Ctrl+T",
+        tooltip::Position::Bottom,
+    ));
     if app.tab_count() > 1 {
-        strip = strip.push(
+        strip = strip.push(tooltip(
             button(text("›").size(12))
                 .on_press(Message::CycleTab(false))
-                .style(tab_style(false))
+                .style(chrome::button_style(ButtonKind::Quiet))
                 .padding([3, 8]),
-        );
+            "Next tab",
+            tooltip::Position::Bottom,
+        ));
     }
+
+    let strip: Element<'_, Message> = if app.tab_count() > 2 {
+        scrollable(strip)
+            .direction(scrollable::Direction::Horizontal(
+                scrollable::Scrollbar::default(),
+            ))
+            .height(28)
+            .into()
+    } else {
+        strip.into()
+    };
+
     container(strip)
-        .width(Length::Fixed(330.0))
+        .width(Length::Shrink)
+        .max_width(330.0)
         .height(28)
         .clip(true)
         .into()

@@ -1,6 +1,7 @@
 //! Explicit raw paragraph drafts; Source remains the authority.
 use crate::commands::Message;
 use crate::preview_paragraph;
+use crate::ui::chrome::{self, ButtonKind};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Length};
 #[derive(Debug, Clone)]
@@ -87,9 +88,11 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .height(36),
         row![
             button("Apply")
+                .style(chrome::button_style(ButtonKind::Primary))
                 .height(32)
                 .on_press_maybe(apply_message(draft)),
             button("Cancel (Esc)")
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .height(32)
                 .on_press(Message::CancelPreviewParagraph)
         ]
@@ -97,6 +100,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .height(32),
         row![
             button(text("Previous paragraph").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .width(160)
                 .height(32)
                 .on_press_maybe(move_message(
@@ -104,6 +108,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                     crate::document::ParagraphDirection::Previous
                 )),
             button(text("Next paragraph").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .width(160)
                 .height(32)
                 .on_press_maybe(move_message(
@@ -115,6 +120,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .height(32),
         row![
             button(text("Apply & Previous").size(14))
+                .style(chrome::button_style(ButtonKind::Primary))
                 .width(160)
                 .height(32)
                 .on_press_maybe(apply_adjacent_message(
@@ -122,6 +128,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                     crate::document::ParagraphDirection::Previous
                 )),
             button(text("Apply & Next").size(14))
+                .style(chrome::button_style(ButtonKind::Primary))
                 .width(140)
                 .height(32)
                 .on_press_maybe(apply_adjacent_message(
@@ -129,10 +136,12 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                     crate::document::ParagraphDirection::Next
                 )),
             button(text("Undo draft").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .width(120)
                 .height(32)
                 .on_press_maybe(undo_message(draft)),
             button(text("Redo draft").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .width(120)
                 .height(32)
                 .on_press_maybe(redo_message(draft))

@@ -4,6 +4,7 @@ use crate::document::ParagraphDirection as Direction;
 use crate::multiline_draft_history::{History, Record};
 use crate::preview_paragraph::Target;
 use crate::preview_paragraph_multiline::{self, MAX_BYTES};
+use crate::ui::chrome::{self, ButtonKind};
 use iced::widget::{button, column, container, row, text, text_editor};
 use iced::{Element, Font, Length};
 pub struct Draft {
@@ -216,28 +217,44 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .height(200),
         row![
             button("Apply")
+                .style(chrome::button_style(ButtonKind::Primary))
                 .height(32)
                 .on_press_maybe(apply_message(draft)),
             button("Cancel (Esc)")
+                .style(chrome::button_style(ButtonKind::Neutral))
                 .height(32)
                 .on_press(Message::CancelMultilineParagraph),
-            button("Undo draft").height(32).on_press_maybe(
+            button("Undo draft")
+                .style(chrome::button_style(ButtonKind::Neutral))
+                .height(32)
+                .on_press_maybe(
                 draft.can_undo().then_some(Message::MultilineDraftHistory(false))),
-            button("Redo draft").height(32).on_press_maybe(
+            button("Redo draft")
+                .style(chrome::button_style(ButtonKind::Neutral))
+                .height(32)
+                .on_press_maybe(
                 draft.can_redo().then_some(Message::MultilineDraftHistory(true)))
         ]
         .spacing(8)
         .height(32),
         row![
-            button(text("Previous multiline").size(14)).width(160).height(32)
+            button(text("Previous multiline").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
+                .width(160).height(32)
                 .on_press_maybe(move_message(draft, Direction::Previous)),
-            button(text("Next multiline").size(14)).width(160).height(32)
+            button(text("Next multiline").size(14))
+                .style(chrome::button_style(ButtonKind::Neutral))
+                .width(160).height(32)
                 .on_press_maybe(move_message(draft, Direction::Next)),
-            button(text("Apply & Next").size(14)).width(160).height(32)
+            button(text("Apply & Next").size(14))
+                .style(chrome::button_style(ButtonKind::Primary))
+                .width(160).height(32)
                 .on_press_maybe(apply_next_message(draft))
         ].spacing(8).height(32),
         row![
-            button(text("Apply & Previous").size(14)).width(160).height(32)
+            button(text("Apply & Previous").size(14))
+                .style(chrome::button_style(ButtonKind::Primary))
+                .width(160).height(32)
                 .on_press_maybe(apply_previous_message(draft))
         ].spacing(8).height(32),
         text(draft.error.or(draft.navigation_notice).unwrap_or(

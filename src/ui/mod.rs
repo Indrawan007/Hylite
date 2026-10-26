@@ -1,4 +1,5 @@
 pub mod cell_edit;
+pub mod chrome;
 pub mod confirmation;
 pub mod editing;
 pub mod inline_advanced_probe;

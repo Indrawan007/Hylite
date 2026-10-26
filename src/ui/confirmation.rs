@@ -1,6 +1,7 @@
 //! Blocking unsaved-changes UI; all state transitions remain in the controller.
 
 use crate::commands::{Message, PendingAction};
+use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Length};
 
@@ -25,10 +26,15 @@ pub fn view(
                 text(question),
                 text(status),
                 row![
-                    button("Save & Continue").on_press_maybe(ready.then_some(Message::ConfirmSave)),
+                    button("Save & Continue")
+                        .style(chrome::button_style(ButtonKind::Primary))
+                        .on_press_maybe(ready.then_some(Message::ConfirmSave)),
                     button("Discard & Continue")
+                        .style(chrome::button_style(ButtonKind::Destructive))
                         .on_press_maybe(ready.then_some(Message::ConfirmDiscard)),
-                    button("Cancel").on_press_maybe(ready.then_some(Message::CancelPendingAction)),
+                    button("Cancel")
+                        .style(chrome::button_style(ButtonKind::Neutral))
+                        .on_press_maybe(ready.then_some(Message::CancelPendingAction)),
                 ]
                 .spacing(12),
                 text("Alt+S: Save & Continue · Alt+D: Discard & Continue · Esc: Cancel").size(12),
@@ -36,7 +42,8 @@ pub fn view(
             .spacing(20),
         )
         .padding(24)
-        .max_width(650),
+        .max_width(650)
+        .style(chrome::surface_style(SurfaceKind::Panel)),
     )
     .center_x(Length::Fill)
     .center_y(Length::Fill)

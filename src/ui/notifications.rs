@@ -1,6 +1,7 @@
 //! Persistent warnings and errors, including in Zen and confirmation views.
 
 use crate::commands::Message;
+use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use iced::widget::{button, column, container, text};
 use iced::{Element, Length};
 
@@ -24,11 +25,14 @@ pub fn view<'a>(
                     column![
                         text(title).size(16),
                         text(message),
-                        button("Dismiss").on_press(dismiss),
+                        button("Dismiss")
+                            .style(chrome::button_style(ButtonKind::Neutral))
+                            .on_press(dismiss),
                     ]
                     .spacing(8),
                 )
                 .padding(12)
+                .style(chrome::surface_style(SurfaceKind::Panel))
                 .width(Length::Fill),
             );
         }

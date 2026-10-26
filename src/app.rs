@@ -704,6 +704,9 @@ impl Hylite {
                 .max_width(self.config.appearance.content_width as f32)
                 .height(Length::Fill),
         )
+        .style(crate::ui::chrome::surface_style(
+            crate::ui::chrome::SurfaceKind::App,
+        ))
         .padding(48)
         .center_x(Length::Fill)
         .height(Length::Fill)
@@ -733,6 +736,9 @@ impl Hylite {
                 .width(Length::Fill)
                 .height(Length::Fill),
         )
+        .style(crate::ui::chrome::surface_style(
+            crate::ui::chrome::SurfaceKind::App,
+        ))
         .width(Length::Fill)
         .height(Length::Fill)
         .into()

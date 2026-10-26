@@ -1,6 +1,7 @@
 //! Go-to-line controls. Logical coordinates match the status bar, not soft-wrap.
 use crate::commands::Message;
 use crate::navigation::GoTo;
+use crate::ui::chrome::{self, SurfaceKind};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Length};
 
@@ -29,5 +30,9 @@ pub fn view(panel: &GoTo, line_count: usize, enabled: bool) -> Element<'_, Messa
     if let Some(error) = panel.error {
         controls = controls.push(text(error.to_string()).size(12));
     }
-    container(controls).padding(12).width(Length::Fill).into()
+    container(controls)
+        .padding(12)
+        .style(chrome::surface_style(SurfaceKind::Panel))
+        .width(Length::Fill)
+        .into()
 }

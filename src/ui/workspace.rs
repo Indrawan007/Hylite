@@ -2,33 +2,50 @@
 //! a mouse; Alt+J / Alt+K / Alt+Enter drive the same rows from the keyboard.
 use crate::app::Hylite;
 use crate::commands::Message;
+use crate::ui::chrome::{self, ButtonKind, Colors};
 use crate::workspace::{Row, Workspace};
-use iced::widget::{button, column, row, scrollable, text, Space};
+use iced::widget::{button, column, row, scrollable, text, tooltip, Space};
 use iced::{Element, Font, Length};
 
 const ROW_INDENT: f32 = 12.0;
 
+fn compact_label(value: &str, max_chars: usize) -> (String, bool) {
+    let mut chars = value.chars();
+    let compact: String = chars.by_ref().take(max_chars).collect();
+    let truncated = chars.next().is_some();
+    if truncated {
+        (format!("{compact}…"), true)
+    } else {
+        (compact, false)
+    }
+}
+
 fn row_style(
     selected: bool,
     active: bool,
+    colors: Colors,
 ) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
     move |_theme, status| {
+        let hovered = matches!(status, button::Status::Hovered);
         let background = if selected {
-            Some(iced::Color::from_rgb(0.20, 0.24, 0.36).into())
-        } else if matches!(status, button::Status::Hovered) {
-            Some(iced::Color::from_rgb(0.13, 0.13, 0.19).into())
+            Some(colors.accent_soft.into())
+        } else if hovered {
+            Some(colors.raised.into())
         } else {
             None
         };
-        let text_color = if active {
-            iced::Color::from_rgb(0.85, 0.90, 1.0)
-        } else {
-            iced::Color::from_rgb(0.74, 0.76, 0.86)
-        };
         button::Style {
             background,
-            text_color,
-            border: iced::Border::default(),
+            text_color: if active { colors.accent } else { colors.text },
+            border: iced::Border {
+                color: if selected {
+                    colors.accent
+                } else {
+                    colors.border
+                },
+                width: if selected { 0.75 } else { 0.0 },
+                radius: 5.0.into(),
+            },
             ..Default::default()
         }
     }
@@ -43,27 +60,33 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
 
 fn empty() -> Element<'static, Message> {
     column![
-        text("No folder open").size(13).color([0.72, 0.75, 0.86]),
-        text("Ctrl+Shift+O folder")
-            .size(11)
-            .color([0.42, 0.44, 0.54]),
-        text("F5 re-scans · no watcher")
-            .size(11)
-            .color([0.42, 0.44, 0.54]),
+        text("No folder open").size(13),
+        text("Ctrl+Shift+O folder").size(11),
+        text("F5 re-scans · no watcher").size(11),
     ]
     .spacing(6)
     .into()
 }
 
 fn tree(app: &Hylite, workspace: &Workspace) -> Element<'static, Message> {
+    let colors = Colors::from_theme(&app.theme());
     let header = row![
-        text(workspace.tree.name.clone())
-            .size(13)
-            .color([0.80, 0.82, 0.90])
-            .width(Length::Fill),
-        button(text("Refresh").size(11))
-            .padding([2, 6])
-            .on_press(Message::RefreshWorkspace),
+        tooltip(
+            text(compact_label(&workspace.tree.name, 24).0)
+                .size(13)
+                .color(colors.text)
+                .width(Length::Fill),
+            text(workspace.tree.root.display().to_string()),
+            tooltip::Position::Bottom,
+        ),
+        tooltip(
+            button(text("Refresh").size(11))
+                .padding([2, 6])
+                .style(chrome::button_style(ButtonKind::Neutral))
+                .on_press(Message::RefreshWorkspace),
+            "Refresh folder tree · F5",
+            tooltip::Position::Bottom,
+        ),
     ]
     .spacing(6)
     .align_y(iced::Alignment::Center);
@@ -71,13 +94,13 @@ fn tree(app: &Hylite, workspace: &Workspace) -> Element<'static, Message> {
     let rows = workspace.rows();
     let mut list = column![].spacing(1);
     for (index, entry) in rows.iter().enumerate() {
-        list = list.push(tree_row(app, entry, index == workspace.selected));
+        list = list.push(tree_row(app, entry, index == workspace.selected, colors));
     }
     if rows.is_empty() {
         list = list.push(
             text("No Markdown documents here")
                 .size(11)
-                .color([0.42, 0.44, 0.54]),
+                .color(colors.muted),
         );
     }
 
@@ -98,17 +121,22 @@ fn tree(app: &Hylite, workspace: &Workspace) -> Element<'static, Message> {
     column![
         header,
         scrollable(list).height(Length::Fill),
-        text(footer).size(10).color([0.42, 0.44, 0.54]),
+        text(footer).size(10).color(colors.muted),
         text("F5 refresh · Alt+J/K move · Alt+Enter open")
             .size(10)
-            .color([0.42, 0.44, 0.54]),
+            .color(colors.muted),
     ]
     .spacing(8)
     .height(Length::Fill)
     .into()
 }
 
-fn tree_row(app: &Hylite, entry: &Row, selected: bool) -> Element<'static, Message> {
+fn tree_row(
+    app: &Hylite,
+    entry: &Row,
+    selected: bool,
+    colors: Colors,
+) -> Element<'static, Message> {
     let glyph = if entry.is_dir() {
         if entry.collapsed {
             "▸"
@@ -118,8 +146,13 @@ fn tree_row(app: &Hylite, entry: &Row, selected: bool) -> Element<'static, Messa
     } else {
         "·"
     };
-    let mut label = format!("{glyph} {}", entry.name);
-    if entry.truncated {
+    let sidebar_width = app.config.appearance.sidebar_width;
+    let indent = (ROW_INDENT * entry.depth as f32) as u32;
+    let max_chars =
+        (sidebar_width.saturating_sub(48).saturating_sub(indent) / 7).clamp(10, 34) as usize;
+    let (name, name_truncated) = compact_label(&entry.name, max_chars);
+    let mut label = format!("{glyph} {name}");
+    if entry.truncated && !name_truncated {
         label.push('…');
     }
     let dirty = app.workspace_path_dirty(&entry.path);
@@ -127,25 +160,24 @@ fn tree_row(app: &Hylite, entry: &Row, selected: bool) -> Element<'static, Messa
         label.push_str(" •");
     }
     let active = app.document.path() == Some(entry.path.as_path());
-    let colour = if entry.is_dir() {
-        iced::Color::from_rgb(0.62, 0.66, 0.80)
-    } else {
-        iced::Color::from_rgb(0.86, 0.87, 0.94)
-    };
-
     let content = row![
         Space::with_width(ROW_INDENT * entry.depth as f32),
-        text(label).size(12).font(Font::MONOSPACE).color(colour),
+        text(label).size(12).font(Font::MONOSPACE),
     ];
 
     let button = button(content)
         .width(Length::Fill)
         .padding([2, 4])
-        .style(row_style(selected, active));
+        .style(row_style(selected, active, colors));
     let button = if entry.is_dir() {
         button.on_press(Message::ToggleWorkspaceDir(entry.path.clone()))
     } else {
         button.on_press(Message::OpenTreeFile(entry.path.clone()))
     };
-    button.into()
+    tooltip(
+        button,
+        text(entry.path.display().to_string()),
+        tooltip::Position::Right,
+    )
+    .into()
 }

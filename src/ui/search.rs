@@ -4,6 +4,7 @@ use crate::commands::Message;
 use crate::document::Document;
 use crate::search::Search;
 use crate::text_edit::valid_range;
+use crate::ui::chrome::{self, SurfaceKind};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Length};
 
@@ -73,5 +74,9 @@ pub fn view<'a>(search: &'a Search, document: &Document, editable: bool) -> Elem
         let preview = format!("Line {line}: …{prefix}⟦{found}⟧{suffix}…").replace('\n', " ↵ ");
         controls = controls.push(text(preview).size(12));
     }
-    container(controls).padding(12).width(Length::Fill).into()
+    container(controls)
+        .padding(12)
+        .style(chrome::surface_style(SurfaceKind::Panel))
+        .width(Length::Fill)
+        .into()
 }
