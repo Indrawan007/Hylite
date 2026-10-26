@@ -3,7 +3,7 @@ use crate::commands::Message;
 use crate::editor::EditMode;
 use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use crate::ui::icons::Icon;
-use crate::ui::layout::{self, COMPACT_BREAKPOINT};
+use crate::ui::layout::{self, ToolbarDensity};
 use iced::widget::{button, column, container, horizontal_space, row, text, tooltip};
 use iced::{Element, Length};
 
@@ -146,8 +146,8 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         .spacing(4),
     );
 
-    let layout: Element<'_, Message> = if app.viewport_width >= COMPACT_BREAKPOINT {
-        row![
+    let layout: Element<'_, Message> = match layout::toolbar_density(app.viewport_width) {
+        ToolbarDensity::Wide => row![
             file_group,
             tabs,
             horizontal_space(),
@@ -157,23 +157,52 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         .spacing(8)
         .align_y(iced::Alignment::Center)
         .padding([7, 12])
-        .into()
-    } else {
-        let file_row = layout::horizontal_overflow(
-            row![file_group].align_y(iced::Alignment::Center).into(),
-            app.viewport_width,
-        );
-        let navigation_row = layout::horizontal_overflow(
-            row![tabs, mode_group, utility_group]
+        .into(),
+        ToolbarDensity::Compact => {
+            let file_row = row![file_group].align_y(iced::Alignment::Center);
+            let navigation_row = row![tabs, mode_group, utility_group]
                 .spacing(6)
-                .align_y(iced::Alignment::Center)
-                .into(),
-            app.viewport_width,
-        );
-        column![file_row, navigation_row]
-            .spacing(4)
-            .padding([6, 10])
-            .into()
+                .align_y(iced::Alignment::Center);
+            column![file_row, navigation_row]
+                .spacing(4)
+                .padding([6, 10])
+                .into()
+        }
+        ToolbarDensity::Narrow => {
+            let file_row = row![file_group].align_y(iced::Alignment::Center);
+            let tabs_row = row![tabs].align_y(iced::Alignment::Center);
+            let mode_utility_row = row![mode_group, utility_group]
+                .spacing(6)
+                .align_y(iced::Alignment::Center);
+            column![file_row, tabs_row, mode_utility_row]
+                .spacing(4)
+                .padding([6, 10])
+                .into()
+        }
+        ToolbarDensity::Minimal => {
+            let file_row = layout::horizontal_overflow_below(
+                row![file_group].align_y(iced::Alignment::Center).into(),
+                app.viewport_width,
+                290.0,
+            );
+            let tabs_row = layout::horizontal_overflow_below(
+                row![tabs].align_y(iced::Alignment::Center).into(),
+                app.viewport_width,
+                350.0,
+            );
+            let mode_utility_row = layout::horizontal_overflow_below(
+                row![mode_group, utility_group]
+                    .spacing(6)
+                    .align_y(iced::Alignment::Center)
+                    .into(),
+                app.viewport_width,
+                224.0,
+            );
+            column![file_row, tabs_row, mode_utility_row]
+                .spacing(4)
+                .padding([4, 8])
+                .into()
+        }
     };
 
     container(layout)

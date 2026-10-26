@@ -7,7 +7,8 @@ use crate::editor::EditMode;
 use crate::text_edit::InlineStyle;
 use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use crate::ui::icons::Icon;
-use iced::widget::{button, container, row, scrollable, tooltip};
+use crate::ui::layout::{self, ToolbarDensity};
+use iced::widget::{button, column, container, row, tooltip};
 use iced::{Element, Length};
 
 fn icon_action(
@@ -200,23 +201,68 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         },
         tooltip::Position::Top,
     );
-    let actions = row![
-        history,
-        task_actions,
-        navigation_actions,
-        formatting_actions,
-        line_actions,
-        shortcuts,
-    ]
-    .spacing(8)
-    .padding([6, 12]);
+    let actions: Element<'_, Message> = match layout::toolbar_density(app.viewport_width) {
+        ToolbarDensity::Wide => row![
+            history,
+            task_actions,
+            navigation_actions,
+            formatting_actions,
+            line_actions,
+            shortcuts,
+        ]
+        .spacing(8)
+        .padding([6, 12])
+        .into(),
+        ToolbarDensity::Compact => column![
+            row![
+                history,
+                task_actions,
+                navigation_actions,
+                formatting_actions
+            ]
+            .spacing(8),
+            row![line_actions, shortcuts].spacing(8),
+        ]
+        .spacing(4)
+        .padding([6, 12])
+        .into(),
+        ToolbarDensity::Narrow => column![
+            row![history, task_actions].spacing(8),
+            row![navigation_actions, formatting_actions].spacing(8),
+            row![line_actions, shortcuts].spacing(8),
+        ]
+        .spacing(4)
+        .padding([6, 12])
+        .into(),
+        ToolbarDensity::Minimal => {
+            let history_navigation = layout::horizontal_overflow_below(
+                row![history, task_actions, navigation_actions]
+                    .spacing(8)
+                    .into(),
+                app.viewport_width,
+                322.0,
+            );
+            let formatting = layout::horizontal_overflow_below(
+                row![formatting_actions].into(),
+                app.viewport_width,
+                262.0,
+            );
+            let lines = layout::horizontal_overflow_below(
+                row![line_actions].into(),
+                app.viewport_width,
+                256.0,
+            );
+            let shortcuts =
+                layout::horizontal_overflow_below(row![shortcuts].into(), app.viewport_width, 58.0);
+            column![history_navigation, formatting, lines, shortcuts]
+                .spacing(4)
+                .padding([4, 8])
+                .into()
+        }
+    };
 
-    container(
-        scrollable(actions).direction(scrollable::Direction::Horizontal(
-            scrollable::Scrollbar::default(),
-        )),
-    )
-    .style(chrome::surface_style(SurfaceKind::Toolbar))
-    .width(Length::Fill)
-    .into()
+    container(actions)
+        .style(chrome::surface_style(SurfaceKind::Toolbar))
+        .width(Length::Fill)
+        .into()
 }

@@ -71,6 +71,15 @@ fn window_scale_factor_is_tracked_and_invalid_values_are_ignored() {
 }
 
 #[test]
+fn toolbars_build_at_wide_compact_narrow_and_minimal_viewport_widths() {
+    let mut app = app();
+    for width in [1200.0, 900.0, 700.0, 420.0, 300.0, 220.0] {
+        app.viewport_width = width;
+        let _view = app.view();
+    }
+}
+
+#[test]
 fn environment_report_excludes_document_text_and_file_path() {
     let app = app();
     let report = app.environment_report();
