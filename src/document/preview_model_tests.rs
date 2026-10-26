@@ -11,6 +11,10 @@ fn validate(blocks: &[Block], source: &str, parent: Range<usize>) {
             "{block:?}"
         );
         assert!(source.get(block.source.clone()).is_some());
+        if let Some(range) = &block.inline_text_payload {
+            assert!(block.source.start <= range.start && range.end <= block.source.end);
+            assert!(source.get(range.clone()).is_some());
+        }
         for run in &block.runs {
             assert!(block.source.start <= run.source.start && run.source.end <= block.source.end);
             assert!(source.get(run.source.clone()).is_some());
@@ -74,6 +78,34 @@ fn setext_headings_and_rules_remain_distinct() {
     let blocks = parse("Heading\n=======\n\n---\n");
     assert_eq!(blocks[0].kind, Kind::Heading(1));
     assert_eq!(blocks[1].kind, Kind::Rule);
+}
+
+#[test]
+fn inline_preview_text_payload_is_root_plain_and_excludes_link_like_syntax() {
+    let source = concat!(
+        "plain café🙂 &amp; text\n\n",
+        "**formatted**\n\n",
+        "[reference]\n\n",
+        "\\[escaped brackets\\]\n\n",
+        "> nested paragraph\n"
+    );
+    let blocks = parse(source);
+    assert_eq!(
+        blocks[0].inline_text_payload,
+        Some(0.."plain café🙂 &amp; text".len())
+    );
+    assert_eq!(text(&blocks[0]), "plain café🙂 & text");
+    assert!(blocks[1].inline_text_payload.is_none());
+    assert!(blocks[2].inline_text_payload.is_none());
+    assert_eq!(
+        blocks[3]
+            .inline_text_payload
+            .as_ref()
+            .map(|range| &source[range.clone()]),
+        Some("\\[escaped brackets\\]")
+    );
+    assert!(blocks[4].children[0].inline_text_payload.is_none());
+    assert!(parse("&nbsp;text\n")[0].inline_text_payload.is_none());
 }
 
 #[test]

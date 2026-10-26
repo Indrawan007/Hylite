@@ -221,6 +221,9 @@ fn remap_block(block: &mut Block, map: &impl Fn(usize) -> Option<usize>) -> Opti
     if let Some(range) = &mut block.multiline_paragraph_payload {
         remap_range(range, map)?;
     }
+    if let Some(range) = &mut block.inline_text_payload {
+        remap_range(range, map)?;
+    }
     match &mut block.kind {
         Kind::Item(Some(task)) => {
             if let Some(range) = &mut task.source {

@@ -12,6 +12,69 @@ fn target(doc: &Document) -> Target {
         payload: block.paragraph_payload.clone().unwrap(),
     }
 }
+fn inline_target(doc: &Document) -> Target {
+    let block = doc
+        .preview_blocks()
+        .iter()
+        .find(|b| b.inline_text_payload.is_some())
+        .unwrap();
+    Target {
+        snapshot: doc.snapshot(),
+        block: block.source.clone(),
+        payload: block.inline_text_payload.clone().unwrap(),
+    }
+}
+#[test]
+fn inline_preview_text_applies_visible_plain_text_as_one_validated_undo_edge() {
+    let source = "plain &amp; text\n\n**untouched**\n";
+    let mut doc = Document::new(source);
+    let target = inline_target(&doc);
+    assert_eq!(
+        doc.preview_inline_text(&target).as_deref(),
+        Some("plain & text")
+    );
+
+    let visible = r#"Literal *stars* [brackets] & <tag> \ `quotes`"#;
+    let encoded = crate::preview_paragraph::escape_plain_text(visible).unwrap();
+    let expected = format!("{encoded}\n\n**untouched**\n");
+    assert!(doc.edit_preview_inline_text(&target, visible));
+    assert_eq!(doc.buffer_text(), expected);
+    let rendered = &doc.preview_blocks()[0];
+    assert_eq!(
+        rendered
+            .runs
+            .iter()
+            .map(|run| run.text.as_str())
+            .collect::<String>(),
+        visible
+    );
+    assert!(rendered.inline_text_payload.is_some());
+    assert!(rendered
+        .runs
+        .iter()
+        .all(|run| run.style == Default::default()));
+    assert!(doc.restore_preview_history(false));
+    assert_eq!(doc.buffer_text(), source);
+    assert!(doc.restore_preview_history(true));
+    assert_eq!(doc.buffer_text(), expected);
+}
+
+#[test]
+fn inline_preview_text_refuses_rich_reference_and_stale_blocks() {
+    for source in ["**bold**\n", "[reference]\n"] {
+        let mut doc = Document::new(source);
+        let target = target(&doc);
+        assert!(doc.preview_inline_text(&target).is_none());
+        assert!(!doc.edit_preview_inline_text(&target, "changed"));
+        assert_eq!(doc.buffer_text(), source);
+        assert!(!doc.can_undo());
+    }
+    let mut doc = Document::new("plain\n");
+    let target = inline_target(&doc);
+    assert!(doc.edit_preview_inline_text(&target, "changed"));
+    assert!(doc.preview_inline_text(&target).is_none());
+}
+
 #[test]
 fn paragraph_apply_preserves_prefix_suffix_raw_bytes_and_one_atomic_edge_with_caret() {
     let source = "# before\n\ncafé🙂 **raw** &amp; a\\|b  \n\n# after\n\t";

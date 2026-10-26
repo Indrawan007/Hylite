@@ -1,4 +1,4 @@
-//! Explicit raw paragraph drafts; Source remains the authority.
+//! Paragraph draft UI for raw Markdown panels and in-place plain-text edits.
 use crate::commands::Message;
 use crate::preview_paragraph;
 use crate::ui::chrome::{self, ButtonKind};
@@ -14,6 +14,8 @@ pub struct Draft {
     pub navigation_notice: Option<&'static str>,
     /// `[previous, next]` eligible single-line roots at open/move time.
     pub neighbors: [bool; 2],
+    /// True when this draft is rendered in place in the Preview block.
+    pub inline_preview: bool,
     /// Bounded local snapshots; never Source history or document identity.
     pub history: crate::multiline_draft_history::History,
 }
@@ -21,8 +23,12 @@ pub fn input_id() -> text_input::Id {
     text_input::Id::new("hylite-paragraph-draft")
 }
 fn apply_message(draft: &Draft) -> Option<Message> {
-    (draft.error.is_none() && preview_paragraph::valid_value(&draft.value))
-        .then_some(Message::ApplyPreviewParagraph)
+    let valid = if draft.inline_preview {
+        preview_paragraph::escape_plain_text(&draft.value).is_some()
+    } else {
+        preview_paragraph::valid_value(&draft.value)
+    };
+    (draft.error.is_none() && valid).then_some(Message::ApplyPreviewParagraph)
 }
 fn provenance_line(draft: &Draft) -> String {
     match draft.line {
@@ -52,7 +58,8 @@ impl Draft {
 }
 fn can_move(draft: &Draft, direction: crate::document::ParagraphDirection) -> bool {
     use crate::document::ParagraphDirection as Direction;
-    draft.error.is_none()
+    !draft.inline_preview
+        && draft.error.is_none()
         && preview_paragraph::valid_value(&draft.value)
         && draft.neighbors[match direction {
             Direction::Previous => 0,
@@ -177,6 +184,41 @@ pub fn view(draft: &Draft, viewport_width: f32) -> Element<'_, Message> {
     .center_x(Length::Fill)
     .into()
 }
+
+/// A small editor embedded at the original Preview block position. This only
+/// accepts plain visible text; the raw Markdown draft panel remains separate.
+pub fn inline_preview_view(draft: &Draft) -> Element<'_, Message> {
+    let input = text_input("Edit plain paragraph text", &draft.value)
+        .id(input_id())
+        .on_input(Message::PreviewParagraphChanged)
+        .on_submit(Message::ApplyPreviewParagraph)
+        .size(16)
+        .padding([6, 8])
+        .width(Length::Fill);
+    let actions = row![
+        button(text("Apply").size(12))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .height(28)
+            .on_press_maybe(apply_message(draft)),
+        button(text("Cancel (Esc)").size(12))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .height(28)
+            .on_press(Message::CancelPreviewParagraph),
+    ]
+    .spacing(6);
+    column![
+        input,
+        actions,
+        text(draft.error.unwrap_or(
+            "Plain text only · Enter applies · Esc cancels · Ctrl+Z undoes draft typing"
+        ))
+        .size(11),
+    ]
+    .spacing(4)
+    .width(Length::Fill)
+    .into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,6 +235,7 @@ mod tests {
             line: None,
             navigation_notice: None,
             neighbors: [false, false],
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         };
         assert!(matches!(
@@ -203,6 +246,16 @@ mod tests {
             d.value = value.into();
             assert!(apply_message(&d).is_none());
         }
+        d.value = "valid".into();
+        d.inline_preview = true;
+        d.value = "visible *markdown* &".into();
+        assert!(matches!(
+            apply_message(&d),
+            Some(Message::ApplyPreviewParagraph)
+        ));
+        d.value = "*".repeat(preview_paragraph::MAX_BYTES / 2 + 1);
+        assert!(apply_message(&d).is_none());
+        d.inline_preview = false;
         d.value = "valid".into();
         d.error = Some("stale");
         assert!(apply_message(&d).is_none());
@@ -220,6 +273,7 @@ mod tests {
             line: Some(12),
             navigation_notice: None,
             neighbors: [false, false],
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         };
         assert_eq!(
@@ -251,6 +305,7 @@ mod tests {
             line: None,
             navigation_notice: Some("dirty move refused"),
             neighbors: [false, true],
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         };
         assert!(can_move(&d, Next));
@@ -280,6 +335,7 @@ mod tests {
             line: Some(3),
             navigation_notice: Some("last supported single-line paragraph"),
             neighbors: [true, false],
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         };
         assert!(apply_message(&d).is_some());
@@ -306,6 +362,7 @@ fn draft_history_affordances_track_local_snapshots_without_touching_apply() {
         line: None,
         navigation_notice: None,
         neighbors: [true, true],
+        inline_preview: false,
         history: crate::multiline_draft_history::History::default(),
     };
     assert!(!d.can_undo() && !d.can_redo());

@@ -1,4 +1,4 @@
-//! Paragraph drafts are modal staging input, not a second document buffer.
+//! Paragraph edits stage text until Apply; they never form a second document buffer.
 use super::Hylite;
 use crate::commands::Message;
 use crate::editor::EditMode;
@@ -69,6 +69,24 @@ impl Hylite {
         self.paragraph_draft = Some(draft);
         self.restore_input_focus()
     }
+    pub(super) fn open_inline_preview_text(&mut self, target: Target) -> Task<Message> {
+        if self.paragraph_draft.is_some() || !self.paragraph_operation_allowed() {
+            return Task::none();
+        }
+        let Some(value) = self.document.preview_inline_text(&target) else {
+            self.status_message =
+                "This Preview block is not eligible for direct plain-text editing".into();
+            return Task::none();
+        };
+        let Some(mut draft) = self.paragraph_draft_for(target) else {
+            self.status_message = "Preview text target is stale; document kept".into();
+            return Task::none();
+        };
+        draft.value = value;
+        draft.inline_preview = true;
+        self.paragraph_draft = Some(draft);
+        self.restore_input_focus()
+    }
     pub(super) fn change_preview_paragraph(&mut self, value: String) -> Task<Message> {
         if let Some(draft) = &mut self.paragraph_draft {
             // Typing (even an oversized paste) makes the last blocked history
@@ -80,8 +98,14 @@ impl Hylite {
                 draft
                     .history
                     .record(record_of(&draft.value), &record_of(&value));
-                draft.error = (!preview_paragraph::valid_value(&value))
-                    .then_some("Use one nonempty unindented line without control characters.");
+                draft.error = if draft.inline_preview {
+                    preview_paragraph::escape_plain_text(&value).is_none().then_some(
+                        "Use plain one-line text without leading whitespace/control characters; escaped Markdown must fit 16 KiB.",
+                    )
+                } else {
+                    (!preview_paragraph::valid_value(&value))
+                        .then_some("Use one nonempty unindented line without control characters.")
+                };
                 draft.value = value;
             }
         }
@@ -94,32 +118,54 @@ impl Hylite {
         let Some(draft) = &mut self.paragraph_draft else {
             return Task::none();
         };
-        if draft.error.is_some() || !preview_paragraph::valid_value(&draft.value) {
+        let inline_preview = draft.inline_preview;
+        let valid = if inline_preview {
+            preview_paragraph::escape_plain_text(&draft.value).is_some()
+        } else {
+            preview_paragraph::valid_value(&draft.value)
+        };
+        if draft.error.is_some() || !valid {
             draft.error = Some("Invalid paragraph draft; correct it or Cancel.");
             return Task::none();
         }
-        let Some(before) = self.document.preview_paragraph_payload(&draft.target) else {
+        let target = draft.target.clone();
+        let value = draft.value.clone();
+        let before = if inline_preview {
+            self.document.preview_inline_text(&target)
+        } else {
+            self.document.preview_paragraph_payload(&target)
+        };
+        let Some(before) = before else {
             draft.error =
                 Some("Paragraph target is stale; Cancel and reopen. Draft was not applied.");
             return Task::none();
         };
-        if before == draft.value {
+        if before == value {
             self.paragraph_draft = None;
             self.status_message = "Paragraph unchanged; no history step created".into();
             return self.restore_input_focus();
         }
-        if self
-            .document
-            .edit_preview_paragraph(&draft.target, &draft.value)
-        {
+        let applied = if inline_preview {
+            self.document.edit_preview_inline_text(&target, &value)
+        } else {
+            self.document.edit_preview_paragraph(&target, &value)
+        };
+        if applied {
             self.paragraph_draft = None;
-            self.status_message = "Paragraph raw Markdown applied to Source".into();
+            self.status_message = if inline_preview {
+                "Plain Preview text applied to Source"
+            } else {
+                "Paragraph raw Markdown applied to Source"
+            }
+            .into();
             self.edited();
             self.restore_input_focus()
         } else {
-            draft.error = Some(
-                "Replacement must remain the same complete root paragraph. Correct it or Cancel.",
-            );
+            draft.error = Some(if inline_preview {
+                "Text could not be kept as the same plain Preview paragraph. Draft kept."
+            } else {
+                "Replacement must remain the same complete root paragraph. Correct it or Cancel."
+            });
             Task::none()
         }
     }
@@ -127,7 +173,12 @@ impl Hylite {
         &mut self,
         direction: crate::document::ParagraphDirection,
     ) -> Task<Message> {
-        if !self.paragraph_operation_allowed() {
+        if !self.paragraph_operation_allowed()
+            || self
+                .paragraph_draft
+                .as_ref()
+                .is_some_and(|draft| draft.inline_preview)
+        {
             return Task::none();
         }
         let Some(draft) = &mut self.paragraph_draft else {
@@ -180,6 +231,7 @@ impl Hylite {
             line,
             navigation_notice: None,
             neighbors: [previous, next],
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         })
     }
@@ -198,7 +250,10 @@ impl Hylite {
     ) -> Option<AdjacentDecision> {
         use crate::document::ParagraphDirection::{Next, Previous};
         let draft = self.paragraph_draft.as_ref()?;
-        if draft.error.is_some() || !preview_paragraph::valid_value(&draft.value) {
+        if draft.inline_preview
+            || draft.error.is_some()
+            || !preview_paragraph::valid_value(&draft.value)
+        {
             return Some(AdjacentDecision::Refused(AdjacentRefusal::Invalid));
         }
         if self
@@ -236,6 +291,7 @@ impl Hylite {
             line: Some(plan.move_line()),
             navigation_notice: None,
             neighbors: plan.neighbors(),
+            inline_preview: false,
             history: crate::multiline_draft_history::History::default(),
         };
         Some(AdjacentDecision::Proceed {
@@ -309,8 +365,14 @@ impl Hylite {
             return self.restore_input_focus();
         }
         draft.value = target.text;
-        draft.error = (!preview_paragraph::valid_value(&draft.value))
-            .then_some("Use one nonempty unindented line without control characters.");
+        draft.error = if draft.inline_preview {
+            preview_paragraph::escape_plain_text(&draft.value).is_none().then_some(
+                "Use plain one-line text without leading whitespace/control characters; escaped Markdown must fit 16 KiB.",
+            )
+        } else {
+            (!preview_paragraph::valid_value(&draft.value))
+                .then_some("Use one nonempty unindented line without control characters.")
+        };
         draft.navigation_notice = None;
         self.restore_input_focus()
     }

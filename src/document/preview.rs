@@ -1,5 +1,5 @@
-//! Native preview: task checkboxes emit validated Source-edit requests.
-//! Other content is not editable; no browser, file reads or URL launching.
+//! Native preview: supported block controls emit validated Source-edit requests.
+//! Plain root paragraphs allow whole-block visual editing, not glyph/caret mapping.
 use super::preview_model::{Block, Kind, Run, Style};
 use super::Snapshot;
 use crate::commands::Message;
@@ -23,6 +23,12 @@ struct Colors {
     text: Color,
     accent: Color,
     surface: Color,
+}
+
+#[derive(Clone, Copy)]
+struct InlineTextEditor<'a> {
+    draft: Option<&'a crate::ui::paragraph_edit::Draft>,
+    enabled: bool,
 }
 
 impl Colors {
@@ -49,7 +55,41 @@ pub fn render_preview<'a>(
     snapshot: Snapshot,
     base_dir: Option<&Path>,
 ) -> Element<'a, Message> {
-    render_preview_internal(blocks, theme, snapshot, base_dir, None, None)
+    render_preview_internal(
+        blocks,
+        theme,
+        snapshot,
+        base_dir,
+        None,
+        None,
+        InlineTextEditor {
+            draft: None,
+            enabled: false,
+        },
+    )
+}
+
+/// Render Preview with an optional single-line plain-text block editor.
+/// Rich inline runs continue to use the explicit raw-Markdown draft panel.
+pub fn render_preview_with_inline_text<'a>(
+    blocks: &'a [Block],
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    draft: Option<&'a crate::ui::paragraph_edit::Draft>,
+) -> Element<'a, Message> {
+    render_preview_internal(
+        blocks,
+        theme,
+        snapshot,
+        base_dir,
+        None,
+        None,
+        InlineTextEditor {
+            draft,
+            enabled: true,
+        },
+    )
 }
 
 /// Render the opt-in Stage 9a caret-edit spike without changing the default
@@ -68,6 +108,10 @@ pub fn render_inline_spike_preview<'a>(
         base_dir,
         spike,
         Some(crate::ui::inline_spike::InputMode::Stage9a),
+        InlineTextEditor {
+            draft: None,
+            enabled: false,
+        },
     )
 }
 
@@ -87,6 +131,10 @@ pub fn render_inline_probe_preview<'a>(
         base_dir,
         probe.map(|probe| &probe.draft),
         Some(crate::ui::inline_spike::InputMode::Stage9b),
+        InlineTextEditor {
+            draft: None,
+            enabled: false,
+        },
     )
 }
 
@@ -129,12 +177,13 @@ fn render_preview_internal<'a>(
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
+    inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot, base_dir, spike, mode)
+        render_blocks(blocks, colors, snapshot, base_dir, spike, mode, inline_edit)
     };
     let instructions = match mode {
         Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
@@ -147,7 +196,7 @@ fn render_preview_internal<'a>(
         )
         .size(11)
         .color(colors.accent),
-        None => text("Task / heading / table controls edit Source · links and other text inert")
+        None => text("Tasks, tables, headings and plain root text have limited Preview edits")
             .size(11)
             .color(colors.text),
     };
@@ -215,11 +264,12 @@ fn render_blocks<'a>(
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
+    inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir, spike, mode)),
+            .map(|block| render_block(block, colors, snapshot, base_dir, spike, mode, inline_edit)),
     )
     .spacing(10)
     .width(Length::Fill)
@@ -265,70 +315,78 @@ fn render_block<'a>(
     base_dir: Option<&Path>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
+    inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let origin = format!(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
     );
-    let element: Element<'_, Message> = match &block.kind {
-        Kind::Paragraph | Kind::Heading(_) => {
-            // Only a paragraph that is *just* one image becomes a picture;
-            // inline images mixed with text stay their inert marker.
-            if let [run] = block.runs.as_slice() {
-                if let Some(spec) = run.image.as_ref() {
-                    return render_image(spec, base_dir, colors);
+    let inline_draft = inline_edit.draft.filter(|draft| {
+        draft.inline_preview
+            && draft.target.snapshot == snapshot
+            && draft.target.block == block.source
+            && block.inline_text_payload.as_ref() == Some(&draft.target.payload)
+    });
+    let element: Element<'_, Message> =
+        match &block.kind {
+            Kind::Paragraph | Kind::Heading(_) => {
+                // Only a paragraph that is *just* one image becomes a picture;
+                // inline images mixed with text stay their inert marker.
+                if let [run] = block.runs.as_slice() {
+                    if let Some(spec) = run.image.as_ref() {
+                        return render_image(spec, base_dir, colors);
+                    }
+                }
+                if let Some(draft) = inline_draft {
+                    crate::ui::paragraph_edit::inline_preview_view(draft)
+                } else if let Some(spike) = spike.filter(|spike| spike.target.block == block.source)
+                {
+                    crate::ui::inline_spike::editor(
+                        spike,
+                        mode.expect("interactive inline editor requires an experiment mode"),
+                    )
+                } else {
+                    let heading = matches!(block.kind, Kind::Heading(_));
+                    let size = match block.kind {
+                        Kind::Heading(1) => 32,
+                        Kind::Heading(2) => 27,
+                        Kind::Heading(3) => 23,
+                        Kind::Heading(4) => 20,
+                        Kind::Heading(5) => 18,
+                        _ => 16,
+                    };
+                    let spans: Vec<text::Span<'_, Message>> = block
+                        .runs
+                        .iter()
+                        .map(|run| styled_span(run, heading, colors))
+                        .collect();
+                    rich_text(spans).size(size).width(Length::Fill).into()
                 }
             }
-            if let Some(spike) = spike.filter(|spike| spike.target.block == block.source) {
-                crate::ui::inline_spike::editor(
-                    spike,
-                    mode.expect("interactive inline editor requires an experiment mode"),
-                )
-            } else {
-                let heading = matches!(block.kind, Kind::Heading(_));
-                let size = match block.kind {
-                    Kind::Heading(1) => 32,
-                    Kind::Heading(2) => 27,
-                    Kind::Heading(3) => 23,
-                    Kind::Heading(4) => 20,
-                    Kind::Heading(5) => 18,
-                    _ => 16,
-                };
-                let spans: Vec<text::Span<'_, Message>> = block
-                    .runs
-                    .iter()
-                    .map(|run| styled_span(run, heading, colors))
-                    .collect();
-                rich_text(spans).size(size).width(Length::Fill).into()
-            }
-        }
-        Kind::Quote => container(render_blocks(
-            &block.children,
-            colors,
-            snapshot,
-            base_dir,
-            spike,
-            mode,
-        ))
-        .padding([8, 16])
-        .width(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(colors.surface.into()),
-            border: Border {
-                color: colors.accent,
-                width: 1.0,
-                ..Border::default()
-            },
-            ..container::Style::default()
-        })
-        .into(),
-        Kind::List(start) => {
-            let items =
-                block
-                    .children
-                    .iter()
-                    .enumerate()
-                    .map(|(index, item)| -> Element<'_, Message> {
+            Kind::Quote => container(render_blocks(
+                &block.children,
+                colors,
+                snapshot,
+                base_dir,
+                spike,
+                mode,
+                inline_edit,
+            ))
+            .padding([8, 16])
+            .width(Length::Fill)
+            .style(move |_| container::Style {
+                background: Some(colors.surface.into()),
+                border: Border {
+                    color: colors.accent,
+                    width: 1.0,
+                    ..Border::default()
+                },
+                ..container::Style::default()
+            })
+            .into(),
+            Kind::List(start) => {
+                let items = block.children.iter().enumerate().map(
+                    |(index, item)| -> Element<'_, Message> {
                         let marker = start.map_or_else(
                             || "•".into(),
                             |start| format!("{}.", start.saturating_add(index as u64)),
@@ -352,7 +410,8 @@ fn render_block<'a>(
                                         snapshot,
                                         base_dir,
                                         spike,
-                                        mode
+                                        mode,
+                                        inline_edit,
                                     )
                                 ]
                                 .spacing(8)
@@ -360,36 +419,56 @@ fn render_block<'a>(
                             }
                             _ => row![
                                 text(marker).color(colors.text),
-                                render_block(item, colors, snapshot, base_dir, spike, mode)
+                                render_block(
+                                    item,
+                                    colors,
+                                    snapshot,
+                                    base_dir,
+                                    spike,
+                                    mode,
+                                    inline_edit,
+                                )
                             ]
                             .spacing(8)
                             .into(),
                         }
-                    });
-            column(items).spacing(6).width(Length::Fill).into()
-        }
-        Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir, spike, mode),
-        Kind::Code {
-            info,
-            text: payload,
-        } => {
-            let label = if info.is_empty() {
-                "Code".to_owned()
-            } else {
-                format!("Code · {info}")
-            };
-            code_panel(label, payload, colors)
-        }
-        Kind::Math { display } => math_panel(block, *display, colors),
-        Kind::Literal {
-            label,
-            text: payload,
-        } => code_panel((*label).into(), payload, colors),
-        Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
-        Kind::Rule => horizontal_rule(1).into(),
-    };
+                    },
+                );
+                column(items).spacing(6).width(Length::Fill).into()
+            }
+            Kind::Item(_) => render_blocks(
+                &block.children,
+                colors,
+                snapshot,
+                base_dir,
+                spike,
+                mode,
+                inline_edit,
+            ),
+            Kind::Code {
+                info,
+                text: payload,
+            } => {
+                let label = if info.is_empty() {
+                    "Code".to_owned()
+                } else {
+                    format!("Code · {info}")
+                };
+                code_panel(label, payload, colors)
+            }
+            Kind::Math { display } => math_panel(block, *display, colors),
+            Kind::Literal {
+                label,
+                text: payload,
+            } => code_panel((*label).into(), payload, colors),
+            Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
+            Kind::Rule => horizontal_rule(1).into(),
+        };
     let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
-    let element = if spike_target {
+    let inline_session = inline_edit.draft.is_some_and(|draft| draft.inline_preview);
+    let element = if inline_session {
+        element
+    } else if spike_target {
         let (label, finish) = match mode.expect("active inline editor has a mode") {
             crate::ui::inline_spike::InputMode::Stage9a => {
                 ("Finish inline spike (Esc)", Message::FinishInlineSpike)
@@ -432,6 +511,14 @@ fn render_block<'a>(
                         ),
                 );
             }
+        }
+        if let Some(action) = inline_text_action(block, snapshot).filter(|_| inline_edit.enabled) {
+            actions = actions.push(
+                button(text("Edit text").size(11))
+                    .padding([2, 6])
+                    .height(24)
+                    .on_press(action),
+            );
         }
         if let Some(action) = paragraph_action(block, snapshot) {
             actions = actions.push(
@@ -512,6 +599,17 @@ fn paragraph_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
             payload: block.paragraph_payload.clone()?,
         },
     ))
+}
+
+fn inline_text_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
+    if block.kind != Kind::Paragraph {
+        return None;
+    }
+    Some(Message::OpenInlinePreviewText(Target {
+        snapshot,
+        block: block.source.clone(),
+        payload: block.inline_text_payload.clone()?,
+    }))
 }
 
 fn heading_action(
@@ -2017,6 +2115,27 @@ mod tests {
             ));
         }
     }
+    #[test]
+    fn inline_text_action_authenticates_only_plain_root_paragraph_bytes() {
+        let source = "plain &amp; text\n\n**formatted**\n\n[reference]\n";
+        let blocks = super::super::preview_model::parse(source);
+        let snapshot = Snapshot {
+            document_id: 7,
+            revision: 3,
+            state_id: 11,
+        };
+        let Message::OpenInlinePreviewText(target) =
+            inline_text_action(&blocks[0], snapshot).unwrap()
+        else {
+            panic!("inline text action")
+        };
+        assert_eq!(target.snapshot, snapshot);
+        assert_eq!(target.block, blocks[0].source);
+        assert_eq!(target.payload, 0.."plain &amp; text".len());
+        assert_eq!(inline_text_action(&blocks[1], snapshot), None);
+        assert_eq!(inline_text_action(&blocks[2], snapshot), None);
+    }
+
     #[test]
     fn paragraph_action_carries_exact_warm_projection_ranges_and_snapshot() {
         let source = "café🙂 **raw** &amp;  \n\n# end\n";

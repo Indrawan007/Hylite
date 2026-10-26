@@ -461,6 +461,7 @@ impl Hylite {
             Message::ApplyMultilineParagraph => self.apply_multiline_paragraph(),
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
+            Message::OpenInlinePreviewText(target) => self.open_inline_preview_text(target),
             Message::InlineSpikeAction(action) => self.inline_spike_action(action),
             Message::FinishInlineSpike => self.finish_inline_spike(),
             Message::InlineProbeAction(action) => self.inline_probe_action(action),
@@ -687,7 +688,11 @@ impl Hylite {
             )
         } else if let Some(draft) = &self.multiline_draft {
             crate::ui::multiline_paragraph::view(draft, self.viewport_width)
-        } else if let Some(draft) = &self.paragraph_draft {
+        } else if let Some(draft) = self
+            .paragraph_draft
+            .as_ref()
+            .filter(|draft| !draft.inline_preview)
+        {
             crate::ui::paragraph_edit::view(draft, self.viewport_width)
         } else if let Some(draft) = &self.cell_draft {
             crate::ui::cell_edit::view(draft, self.viewport_width)
@@ -825,6 +830,17 @@ impl Hylite {
         let snapshot = self.document.snapshot();
         let blocks = self.document.preview_blocks();
         let base_dir = self.document.path().and_then(|path| path.parent());
+        let inline_draft = self
+            .paragraph_draft
+            .as_ref()
+            .filter(|draft| draft.inline_preview);
+        let inline_draft_is_current = inline_draft.is_some_and(|draft| {
+            draft.target.snapshot == snapshot
+                && blocks.iter().any(|block| {
+                    block.source == draft.target.block
+                        && block.inline_text_payload.as_ref() == Some(&draft.target.payload)
+                })
+        });
         let parsed = if self.inline_alt_probe_enabled {
             crate::document::render_inline_alt_probe_preview(
                 blocks,
@@ -850,7 +866,26 @@ impl Hylite {
                 self.inline_probe.as_ref(),
             )
         } else {
-            crate::document::render_preview(blocks, &theme, snapshot, base_dir)
+            crate::document::render_preview_with_inline_text(
+                blocks,
+                &theme,
+                snapshot,
+                base_dir,
+                inline_draft,
+            )
+        };
+        let parsed = if let Some(draft) = inline_draft.filter(|_| !inline_draft_is_current) {
+            column![
+                iced::widget::text(
+                    "This Preview text target is stale; the draft is kept. Cancel or reopen it."
+                ),
+                crate::ui::paragraph_edit::inline_preview_view(draft),
+                parsed,
+            ]
+            .spacing(8)
+            .into()
+        } else {
+            parsed
         };
 
         container(

@@ -990,6 +990,71 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewParagraph)
     }
 
+    /// Display text for a supported whole-paragraph Preview edit. The model
+    /// authenticates the root block and rejects rich runs that need mapping.
+    pub(crate) fn preview_inline_text(
+        &self,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<String> {
+        if target.snapshot != self.snapshot {
+            return None;
+        }
+        let block = self.preview.get()?.iter().find(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.source == target.block
+                && block.inline_text_payload.as_ref() == Some(&target.payload)
+        })?;
+        Some(block.runs.iter().map(|run| run.text.as_str()).collect())
+    }
+
+    /// Replace one whole visible plain-text paragraph. Markdown punctuation is
+    /// escaped and the candidate must parse back to the same plain block.
+    pub(crate) fn edit_preview_inline_text(
+        &mut self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> bool {
+        if self.preview_inline_text(target).is_none() {
+            return false;
+        }
+        let Some(replacement) = crate::preview_paragraph::escape_plain_text(value) else {
+            return false;
+        };
+        let source = self.buffer_text();
+        let Some(change) =
+            crate::preview_paragraph::plan(&source, self.snapshot, target, &replacement)
+        else {
+            return false;
+        };
+        let mut candidate = source;
+        candidate.replace_range(change.range.clone(), &change.replacement);
+        let Some(payload_end) = target.block.start.checked_add(replacement.len()) else {
+            return false;
+        };
+        let Some(block_end) = payload_end.checked_add(1) else {
+            return false;
+        };
+        let payload = target.block.start..payload_end;
+        let expected = target.block.start..block_end;
+        let preserves_plain_text = preview_model::parse(&candidate).iter().any(|block| {
+            block.kind == preview_model::Kind::Paragraph
+                && block.source == expected
+                && block.inline_text_payload.as_ref() == Some(&payload)
+                && block
+                    .runs
+                    .iter()
+                    .map(|run| run.text.as_str())
+                    .collect::<String>()
+                    == value
+        });
+        if !preserves_plain_text {
+            return false;
+        }
+        self.break_undo_group();
+        let before = self.record();
+        self.commit_kind(before, change, EditKind::PreviewParagraph)
+    }
+
     pub(crate) fn preview_paragraph_payload(
         &self,
         target: &crate::preview_paragraph::Target,

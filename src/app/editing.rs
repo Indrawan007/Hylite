@@ -45,7 +45,7 @@ impl Hylite {
 
     /// Confirmations and mode switches can replace the editor/input widget
     /// tree. Restore the logical input context instead of relying on the old
-    /// widget's focus surviving. Preview never steals focus; no document mutation.
+    /// widget's focus surviving. Preview without an active draft never steals focus.
     pub(super) fn restore_input_focus(&self) -> Task<Message> {
         if self.inline_spike.is_some() || self.inline_probe.is_some() {
             crate::source_focus::task_in(crate::ui::inline_spike::input_id())
@@ -106,7 +106,12 @@ impl Hylite {
     }
 
     pub(crate) fn preview_task_batch_action(&self, checked: bool) -> Option<Message> {
-        if self.mode == EditMode::Source || !self.navigation_allowed() {
+        if self.mode == EditMode::Source
+            || !self.navigation_allowed()
+            || self.paragraph_draft.is_some()
+            || self.cell_draft.is_some()
+            || self.multiline_draft.is_some()
+        {
             return None;
         }
         let _ = self.document.preview_blocks();
@@ -267,6 +272,9 @@ impl Hylite {
     pub(crate) fn preview_history_allowed(&self, redo: bool) -> bool {
         self.mode == EditMode::Preview
             && self.navigation_allowed()
+            && self.paragraph_draft.is_none()
+            && self.cell_draft.is_none()
+            && self.multiline_draft.is_none()
             && !self.search.open
             && !self.go_to.open
             && self.document.preview_history_available(redo)

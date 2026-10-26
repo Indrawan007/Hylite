@@ -4449,6 +4449,99 @@ fn paragraph_target(app: &Hylite) -> crate::preview_paragraph::Target {
     }
 }
 #[test]
+fn inline_preview_edit_stays_in_the_document_view_and_applies_one_undoable_text_change() {
+    let mut app = app();
+    let source = "plain &amp; text\n\n**untouched**\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let block = app
+        .document
+        .preview_blocks()
+        .iter()
+        .find(|block| block.inline_text_payload.is_some())
+        .unwrap();
+    let target = crate::preview_paragraph::Target {
+        snapshot: app.document.snapshot(),
+        block: block.source.clone(),
+        payload: block.inline_text_payload.clone().unwrap(),
+    };
+
+    let _ = app.update(Message::OpenInlinePreviewText(target));
+    let draft = app.paragraph_draft.as_ref().unwrap();
+    assert!(draft.inline_preview);
+    assert_eq!(draft.value, "plain & text");
+    assert_eq!(app.document.buffer_text(), source);
+    {
+        let _view = app.view();
+    }
+
+    let visible = r#"Literal *stars* [brackets] & <tag> \ `quotes`"#;
+    let _ = app.update(Message::PreviewParagraphChanged(visible.into()));
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::DraftHistory(false));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, "plain & text");
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::DraftHistory(true));
+    assert_eq!(app.paragraph_draft.as_ref().unwrap().value, visible);
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::ApplyPreviewParagraph);
+    let encoded = crate::preview_paragraph::escape_plain_text(visible).unwrap();
+    let expected = format!("{encoded}\n\n**untouched**\n");
+    assert_eq!(app.document.buffer_text(), expected);
+    assert!(app.paragraph_draft.is_none());
+    assert!(app.document.preview_blocks()[1]
+        .runs
+        .iter()
+        .any(|run| run.style.strong));
+    assert_eq!(
+        app.document.preview_blocks()[0]
+            .runs
+            .iter()
+            .map(|run| run.text.as_str())
+            .collect::<String>(),
+        visible
+    );
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+}
+
+#[test]
+fn inline_preview_cancel_discards_local_draft_and_preserves_source_history() {
+    let mut app = app();
+    let source = "plain paragraph\n";
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let target = {
+        let block = app.document.preview_blocks().first().unwrap();
+        crate::preview_paragraph::Target {
+            snapshot: app.document.snapshot(),
+            block: block.source.clone(),
+            payload: block.inline_text_payload.clone().unwrap(),
+        }
+    };
+
+    let _ = app.update(Message::OpenInlinePreviewText(target));
+    let _ = app.update(Message::PreviewParagraphChanged("discard this".into()));
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.preview_history_available(false));
+    let _ = app.update(Message::CancelPreviewParagraph);
+    assert!(app.paragraph_draft.is_none());
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.can_undo());
+}
+
+#[test]
+fn inline_preview_edit_refuses_formatted_paragraph_without_changing_source() {
+    let mut app = paragraph_app();
+    let target = paragraph_target(&app);
+    let source = app.document.buffer_text();
+    let _ = app.update(Message::OpenInlinePreviewText(target));
+    assert!(app.paragraph_draft.is_none());
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(app.status_message.contains("not eligible"));
+}
+
+#[test]
 fn paragraph_draft_typing_cancel_never_change_document_cache_caret_history_or_mode() {
     let mut app = paragraph_app();
     let t = paragraph_target(&app);

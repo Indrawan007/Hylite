@@ -67,6 +67,9 @@ pub struct Block {
     /// Single physical-line unindented root paragraphs only; not a glyph map.
     pub paragraph_payload: Option<Range<usize>>,
     pub multiline_paragraph_payload: Option<Range<usize>>,
+    /// Root plain-text paragraphs editable as a whole block in Preview. This
+    /// identifies Source bytes, not character or caret positions.
+    pub inline_text_payload: Option<Range<usize>>,
 }
 
 impl Block {
@@ -160,7 +163,61 @@ fn node(kind: Kind, source: Range<usize>, runs: Vec<Run>, children: Vec<Block>) 
         setext_marker: None,
         paragraph_payload: None,
         multiline_paragraph_payload: None,
+        inline_text_payload: None,
     }
+}
+
+fn inline_text_payload(source: &str, block: &Block) -> Option<Range<usize>> {
+    if block.kind != Kind::Paragraph
+        || !block.children.is_empty()
+        || block.multiline_paragraph_payload.is_some()
+    {
+        return None;
+    }
+    let payload = block.paragraph_payload.as_ref()?;
+    if block.source.start != payload.start
+        || payload.end.checked_add(1) != Some(block.source.end)
+        || block.setext_marker.is_some()
+    {
+        return None;
+    }
+    let raw = source.get(payload.clone())?;
+    if raw.contains('\n') || has_unescaped_square_bracket(raw) || block.runs.is_empty() {
+        return None;
+    }
+    let before = source.get(..block.source.start)?;
+    let after = source.get(block.source.end..)?;
+    if (block.source.start != 0 && !before.ends_with("\n\n"))
+        || (block.source.end != source.len() && !after.starts_with('\n'))
+    {
+        return None;
+    }
+    if block
+        .runs
+        .iter()
+        .any(|run| run.style != Style::default() || run.math.is_some() || run.image.is_some())
+    {
+        return None;
+    }
+    let visible: String = block.runs.iter().map(|run| run.text.as_str()).collect();
+    crate::preview_paragraph::valid_value(&visible).then(|| payload.clone())
+}
+
+fn has_unescaped_square_bracket(source: &str) -> bool {
+    let mut backslashes = 0;
+    for byte in source.bytes() {
+        match byte {
+            b'\\' => backslashes += 1,
+            b'[' | b']' => {
+                if backslashes % 2 == 0 {
+                    return true;
+                }
+                backslashes = 0;
+            }
+            _ => backslashes = 0,
+        }
+    }
+    false
 }
 
 #[derive(Default)]
@@ -371,6 +428,7 @@ fn blocks(
                                         source,
                                         &block.source,
                                     );
+                                block.inline_text_payload = inline_text_payload(source, &block);
                             }
                             if let Kind::Heading(level) = block.kind {
                                 block.heading_marker = crate::preview_heading::marker_range(

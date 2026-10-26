@@ -42,6 +42,9 @@ fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Mess
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
     let editable = app.source_edit_allowed();
+    let preview_draft_active =
+        app.paragraph_draft.is_some() || app.cell_draft.is_some() || app.multiline_draft.is_some();
+    let navigation_enabled = app.navigation_allowed() && !preview_draft_active;
     let history_action = |redo| {
         if app.mode == EditMode::Preview {
             app.preview_history_allowed(redo)
@@ -86,17 +89,17 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         row![
             icon_action(
                 Icon::Search,
-                Some(Message::OpenFind(false)),
+                navigation_enabled.then_some(Message::OpenFind(false)),
                 "Find · Ctrl+F"
             ),
             icon_action(
                 Icon::GoToLine,
-                app.navigation_allowed().then_some(Message::OpenGoTo),
+                navigation_enabled.then_some(Message::OpenGoTo),
                 "Go to line · Ctrl+G"
             ),
             icon_action(
                 Icon::Replace,
-                Some(Message::OpenFind(true)),
+                navigation_enabled.then_some(Message::OpenFind(true)),
                 "Find and replace · Ctrl+H"
             ),
         ]

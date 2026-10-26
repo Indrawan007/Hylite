@@ -18,6 +18,33 @@ pub fn valid_value(value: &str) -> bool {
         && !value.chars().any(char::is_control)
 }
 
+/// Encode visible text as Markdown that parses back to the same unformatted
+/// text. This is intentionally block-level; it does not map caret positions.
+pub fn escape_plain_text(value: &str) -> Option<String> {
+    if !valid_value(value) {
+        return None;
+    }
+    let mut escaped = String::with_capacity(value.len());
+    let trailing_space_start = value.trim_end_matches(' ').len();
+    for (offset, character) in value.char_indices() {
+        match character {
+            ' ' if offset >= trailing_space_start => escaped.push_str("&#32;"),
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            punctuation if punctuation.is_ascii_punctuation() => {
+                escaped.push('\\');
+                escaped.push(punctuation);
+            }
+            other => escaped.push(other),
+        }
+        if escaped.len() > MAX_BYTES {
+            return None;
+        }
+    }
+    Some(escaped)
+}
+
 /// Conservative physical-line eligibility only. Document must authenticate root membership.
 pub fn payload_range(source: &str, block: &Range<usize>) -> Option<Range<usize>> {
     if block.start != 0 && source.as_bytes().get(block.start.checked_sub(1)?) != Some(&b'\n') {
@@ -89,6 +116,34 @@ mod tests {
             assert!(payload_range(source, &(0..source.len())).is_none());
         }
     }
+    #[test]
+    fn plain_preview_text_escapes_markdown_and_round_trips_as_unformatted_text() {
+        let visible =
+            r#"Literal #heading *stars* _underscores_ [brackets] & <angle> \\ `quotes`!  "#;
+        let escaped = escape_plain_text(visible).unwrap();
+        assert_ne!(escaped, visible);
+        let source = format!("{escaped}\n");
+        let blocks = crate::document::preview_model::parse(&source);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].inline_text_payload, Some(0..escaped.len()));
+        assert_eq!(
+            blocks[0]
+                .runs
+                .iter()
+                .map(|run| run.text.as_str())
+                .collect::<String>(),
+            visible
+        );
+        assert!(blocks[0]
+            .runs
+            .iter()
+            .all(|run| run.style == Default::default()
+                && run.math.is_none()
+                && run.image.is_none()));
+        assert!(escape_plain_text(" leading").is_none());
+        assert!(escape_plain_text("two\nlines").is_none());
+    }
+
     #[test]
     fn cold_lexical_ranges_cannot_authenticate_heading_or_fence() {
         let source = "```\nplain\n```\n";
