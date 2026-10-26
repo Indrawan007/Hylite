@@ -145,9 +145,13 @@ melalui pemeriksaan user systemd yang dibatasi timeout.
 
 Tipe renderer bukan identifikasi GPU/backend window runtime; service portal
 aktif bukan bukti provider dialog dipilih. Aplikasi tidak mengintrospeksi
-provider `rfd`. Diagnostik ini tidak menjalankan atau menggantikan checklist
-Stage 11b, dan tidak mengubah estimasi roadmap/kesiapan rilis. Rincian privasi,
-tes, dan batas klaim: [catatan Stage 11a](testing-stage11a.md).
+provider `rfd`. Template/instruksi Stage 11b kini disiapkan di
+[`docs/testing-stage11b.md`](testing-stage11b.md), tetapi belum ada satu pun
+pemeriksaan runtime target yang dijalankan atau hasil yang dicatat. Persetujuan
+untuk 11b terbatas pada checklist ini; verifikasi memerlukan mesin Arch +
+Hyprland/Wayland milik pengguna. Tidak ada perubahan kode produksi atau Stage
+11c, dan estimasi roadmap/kesiapan rilis tidak berubah. Rincian Stage 11a:
+[catatan diagnostik](testing-stage11a.md).
 
 ### Verifikasi otomatis — semua gate CI lulus
 
