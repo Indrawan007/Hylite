@@ -4,7 +4,7 @@ use crate::editor::EditMode;
 use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use crate::ui::icons::Icon;
 use crate::ui::layout::{self, COMPACT_BREAKPOINT};
-use iced::widget::{button, column, container, horizontal_space, row, tooltip};
+use iced::widget::{button, column, container, horizontal_space, row, text, tooltip};
 use iced::{Element, Length};
 
 fn icon_control(icon: Icon, message: Message, kind: ButtonKind) -> Element<'static, Message> {
@@ -44,7 +44,7 @@ fn mode_action(
     };
     tooltip(
         icon_control(icon, Message::SwitchMode(mode), kind),
-        format!("{label} mode · Ctrl+Shift+M cycles modes"),
+        text(format!("{label} mode · Ctrl+Shift+M cycles modes")),
         tooltip::Position::Bottom,
     )
     .into()

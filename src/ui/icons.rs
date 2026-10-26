@@ -185,7 +185,7 @@ fn handle(icon: Icon) -> svg::Handle {
                 .into_iter()
                 .map(|icon| {
                     let markup = format!(
-                        r#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{}</g></svg>"#,
+                        r##"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{}</g></svg>"##,
                         icon.paths()
                     );
                     svg::Handle::from_memory(markup.into_bytes())
