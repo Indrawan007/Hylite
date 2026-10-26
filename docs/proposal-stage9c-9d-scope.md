@@ -82,3 +82,25 @@ acceptance tests yang sudah dibatasi. Kelulusan probe saja bukan izin otomatis.
 - **Stage 9c/9d:** deferred; tidak ada marker hiding, mapping per glyph, atau pensiun panel draft.
 - **Stage 10a:** fast path konservatif sudah diimplementasikan secara terpisah; scope, fallback, verifikasi, dan observasi Stage 10b ada di [proposal Stage 10a](proposal-stage10a-scope.md) dan [performance notes](performance.md).
 - **Perubahan kode editor produksi untuk 9c/9d:** tidak diizinkan oleh keputusan ini.
+
+## 6. Pembaruan scope — 26 Oktober 2026
+
+Permintaan pengguna yang lebih baru, **“Implementasikan WYSIWYG umum ala
+MarkText”**, secara eksplisit membuka kembali pekerjaan produk Stage 9c/9d dan
+menggantikan keputusan defer pada bagian sebelumnya. Riwayat pilihan A tetap
+benar untuk tanggal/keadaan saat itu, tetapi bukan batas scope yang berlaku
+sekarang. Probe 9b dan custom-widget tetap NO-GO historis terbatas; hasilnya
+**tidak** dipakai sebagai bukti hit-testing/selection produksi.
+
+Irisan awal yang sedang dikerjakan memakai editor visual whole-block pada
+Preview untuk paragraf root satu baris dan heading ATX root: teks hasil render
+serta style inline diproyeksikan ke draft, ada format seleksi dan Undo/Redo lokal,
+dan Apply melewati full parser preflight sebelum satu transaksi Source. Ini
+menghindari klaim pemetaan caret/glyph ke Source. Scope tersebut **belum WYSIWYG
+umum ala MarkText**; nested/list/quote/table, multiline, Setext, pemetaan glyph,
+validasi desktop, serta paritas visual masih terbuka. Status kode dan verifikasi
+harus diperbarui berdasarkan hasil implementasi terbaru, bukan dianggap selesai
+dari catatan rencana ini.
+
+Pembukaan kembali ini hanya mengotorisasi pekerjaan WYSIWYG/Stage 9c/9d. Stage
+11b tetap menunggu validasi desktop nyata; Stage 11c/packaging tidak tercakup.

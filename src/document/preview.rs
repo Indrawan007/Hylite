@@ -28,6 +28,7 @@ struct Colors {
 #[derive(Clone, Copy)]
 struct InlineTextEditor<'a> {
     draft: Option<&'a crate::ui::paragraph_edit::Draft>,
+    visual_draft: Option<&'a crate::ui::visual_edit::Draft>,
     enabled: bool,
 }
 
@@ -62,8 +63,10 @@ pub fn render_preview<'a>(
         base_dir,
         None,
         None,
+        None,
         InlineTextEditor {
             draft: None,
+            visual_draft: None,
             enabled: false,
         },
     )
@@ -85,8 +88,36 @@ pub fn render_preview_with_inline_text<'a>(
         base_dir,
         None,
         None,
+        None,
         InlineTextEditor {
             draft,
+            visual_draft: None,
+            enabled: true,
+        },
+    )
+}
+
+/// Render Preview with source-authenticated, in-place visual text editing.
+pub fn render_preview_with_visual_edit<'a>(
+    blocks: &'a [Block],
+    source: &str,
+    theme: &Theme,
+    snapshot: Snapshot,
+    base_dir: Option<&Path>,
+    draft: Option<&'a crate::ui::paragraph_edit::Draft>,
+    visual_draft: Option<&'a crate::ui::visual_edit::Draft>,
+) -> Element<'a, Message> {
+    render_preview_internal(
+        blocks,
+        theme,
+        snapshot,
+        base_dir,
+        Some(source),
+        None,
+        None,
+        InlineTextEditor {
+            draft,
+            visual_draft,
             enabled: true,
         },
     )
@@ -106,10 +137,12 @@ pub fn render_inline_spike_preview<'a>(
         theme,
         snapshot,
         base_dir,
+        None,
         spike,
         Some(crate::ui::inline_spike::InputMode::Stage9a),
         InlineTextEditor {
             draft: None,
+            visual_draft: None,
             enabled: false,
         },
     )
@@ -129,10 +162,12 @@ pub fn render_inline_probe_preview<'a>(
         theme,
         snapshot,
         base_dir,
+        None,
         probe.map(|probe| &probe.draft),
         Some(crate::ui::inline_spike::InputMode::Stage9b),
         InlineTextEditor {
             draft: None,
+            visual_draft: None,
             enabled: false,
         },
     )
@@ -175,6 +210,7 @@ fn render_preview_internal<'a>(
     theme: &Theme,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
+    source: Option<&str>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
     inline_edit: InlineTextEditor<'a>,
@@ -183,7 +219,16 @@ fn render_preview_internal<'a>(
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot, base_dir, spike, mode, inline_edit)
+        render_blocks(
+            blocks,
+            colors,
+            snapshot,
+            base_dir,
+            source,
+            spike,
+            mode,
+            inline_edit,
+        )
     };
     let instructions = match mode {
         Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
@@ -262,15 +307,23 @@ fn render_blocks<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
+    source: Option<&str>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
     inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
-    column(
-        blocks
-            .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir, spike, mode, inline_edit)),
-    )
+    column(blocks.iter().map(|block| {
+        render_block(
+            block,
+            colors,
+            snapshot,
+            base_dir,
+            source,
+            spike,
+            mode,
+            inline_edit,
+        )
+    }))
     .spacing(10)
     .width(Length::Fill)
     .into()
@@ -313,6 +366,7 @@ fn render_block<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
+    source: Option<&str>,
     spike: Option<&'a crate::ui::inline_spike::Draft>,
     mode: Option<crate::ui::inline_spike::InputMode>,
     inline_edit: InlineTextEditor<'a>,
@@ -321,6 +375,17 @@ fn render_block<'a>(
         "Source bytes {}..{} · not a caret map",
         block.source.start, block.source.end
     );
+    let visual_target = if inline_edit.enabled {
+        source.and_then(|source| {
+            crate::preview_visual::Target::for_block(block, source, snapshot)
+                .filter(|_| crate::preview_visual::Projection::from_block(block).is_some())
+        })
+    } else {
+        None
+    };
+    let visual_draft = inline_edit
+        .visual_draft
+        .filter(|draft| visual_target.as_ref() == Some(&draft.target));
     let inline_draft = inline_edit.draft.filter(|draft| {
         draft.inline_preview
             && draft.target.snapshot == snapshot
@@ -337,7 +402,9 @@ fn render_block<'a>(
                         return render_image(spec, base_dir, colors);
                     }
                 }
-                if let Some(draft) = inline_draft {
+                if let Some(draft) = visual_draft {
+                    crate::ui::visual_edit::view(draft)
+                } else if let Some(draft) = inline_draft {
                     crate::ui::paragraph_edit::inline_preview_view(draft)
                 } else if let Some(spike) = spike.filter(|spike| spike.target.block == block.source)
                 {
@@ -368,6 +435,7 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
+                source,
                 spike,
                 mode,
                 inline_edit,
@@ -409,6 +477,7 @@ fn render_block<'a>(
                                         colors,
                                         snapshot,
                                         base_dir,
+                                        source,
                                         spike,
                                         mode,
                                         inline_edit,
@@ -424,6 +493,7 @@ fn render_block<'a>(
                                     colors,
                                     snapshot,
                                     base_dir,
+                                    source,
                                     spike,
                                     mode,
                                     inline_edit,
@@ -441,6 +511,7 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
+                source,
                 spike,
                 mode,
                 inline_edit,
@@ -465,7 +536,8 @@ fn render_block<'a>(
             Kind::Rule => horizontal_rule(1).into(),
         };
     let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
-    let inline_session = inline_edit.draft.is_some_and(|draft| draft.inline_preview);
+    let inline_session =
+        inline_edit.draft.is_some_and(|draft| draft.inline_preview) || visual_draft.is_some();
     let element = if inline_session {
         element
     } else if spike_target {
@@ -512,7 +584,16 @@ fn render_block<'a>(
                 );
             }
         }
-        if let Some(action) = inline_text_action(block, snapshot).filter(|_| inline_edit.enabled) {
+        if let Some(target) = visual_target.filter(|_| inline_edit.enabled) {
+            actions = actions.push(
+                button(text("Edit visually").size(11))
+                    .padding([2, 6])
+                    .height(24)
+                    .on_press(Message::OpenPreviewVisualText(target)),
+            );
+        } else if let Some(action) =
+            inline_text_action(block, snapshot).filter(|_| inline_edit.enabled)
+        {
             actions = actions.push(
                 button(text("Edit text").size(11))
                     .padding([2, 6])

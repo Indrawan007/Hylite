@@ -99,6 +99,11 @@ pub enum Message {
     CancelMultilineParagraph,
     OpenPreviewParagraph(crate::preview_paragraph::Target),
     OpenInlinePreviewText(crate::preview_paragraph::Target),
+    OpenPreviewVisualText(crate::preview_visual::Target),
+    EditPreviewVisualDraft(text_editor::Action),
+    FormatPreviewVisual(crate::preview_visual::InlineFormat),
+    ApplyPreviewVisualText,
+    CancelPreviewVisualText,
     InlineSpikeAction(text_editor::Action),
     FinishInlineSpike,
     InlineProbeAction(text_editor::Action),
@@ -299,6 +304,7 @@ pub fn preview_history_shortcut(
 pub enum DraftHistoryPanel {
     Paragraph,
     Cell,
+    Visual,
 }
 
 /// Keyboard Undo/Redo shared by the two `text_input` draft panels and by

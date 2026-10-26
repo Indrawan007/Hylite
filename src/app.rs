@@ -7,6 +7,7 @@ mod multiline_paragraph;
 mod navigation;
 mod paragraph_edit;
 mod tabs;
+mod visual_edit;
 mod workspace;
 
 use crate::commands::{Message, PendingAction};
@@ -36,6 +37,7 @@ pub struct Hylite {
     pub go_to: crate::navigation::GoTo,
     pub multiline_draft: Option<crate::ui::multiline_paragraph::Draft>,
     pub paragraph_draft: Option<crate::ui::paragraph_edit::Draft>,
+    pub visual_draft: Option<crate::ui::visual_edit::Draft>,
     pub cell_draft: Option<crate::ui::cell_edit::Draft>,
     inline_spike_enabled: bool,
     inline_spike_pending: bool,
@@ -126,6 +128,7 @@ impl Hylite {
             go_to: crate::navigation::GoTo::default(),
             cell_draft: None,
             paragraph_draft: None,
+            visual_draft: None,
             multiline_draft: None,
             inline_spike_enabled,
             inline_spike_pending,
@@ -201,6 +204,11 @@ impl Hylite {
         } else {
             ""
         };
+        let visual = if self.visual_draft.is_some() {
+            " [visual text draft]"
+        } else {
+            ""
+        };
         let multiline = if self.multiline_draft.is_some() {
             " [multiline paragraph draft]"
         } else {
@@ -231,7 +239,7 @@ impl Hylite {
             .inline_alt_probe
             .as_ref()
             .map_or_else(String::new, |probe| format!(" [{}]", probe.title_marker()));
-        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{multiline}{inline_spike}{inline_probe}{inline_alt_probe} — Hylite")
+        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{visual}{multiline}{inline_spike}{inline_probe}{inline_alt_probe} — Hylite")
     }
 
     /// A blocked gesture must not look like a dead click. Only user commands that
@@ -277,6 +285,7 @@ impl Hylite {
         match self.draft_history_panel() {
             Some(DraftHistoryPanel::Paragraph) => self.history_preview_paragraph(redo),
             Some(DraftHistoryPanel::Cell) => self.history_preview_cell(redo),
+            Some(DraftHistoryPanel::Visual) => self.history_preview_visual_text(redo),
             None => self.preview_undo_redo(redo),
         }
     }
@@ -286,9 +295,14 @@ impl Hylite {
     /// routed to the wrong local stack.
     fn draft_history_panel(&self) -> Option<crate::commands::DraftHistoryPanel> {
         use crate::commands::DraftHistoryPanel;
-        match (self.paragraph_draft.is_some(), self.cell_draft.is_some()) {
-            (true, false) => Some(DraftHistoryPanel::Paragraph),
-            (false, true) => Some(DraftHistoryPanel::Cell),
+        match (
+            self.paragraph_draft.is_some(),
+            self.cell_draft.is_some(),
+            self.visual_draft.is_some(),
+        ) {
+            (true, false, false) => Some(DraftHistoryPanel::Paragraph),
+            (false, true, false) => Some(DraftHistoryPanel::Cell),
+            (false, false, true) => Some(DraftHistoryPanel::Visual),
             _ => None,
         }
     }
@@ -365,6 +379,26 @@ impl Hylite {
                         "Stage 9a is active: press Esc to finish before another action".into();
                     return Task::none();
                 }
+            }
+        }
+        if self.visual_draft.is_some() {
+            if matches!(&message, Message::ExitZenMode) {
+                return self.cancel_preview_visual_text();
+            }
+            if !matches!(
+                &message,
+                Message::EditPreviewVisualDraft(_)
+                    | Message::FormatPreviewVisual(_)
+                    | Message::ApplyPreviewVisualText
+                    | Message::CancelPreviewVisualText
+                    | Message::DraftHistory(_)
+                    | Message::EndTypingGroup
+                    | Message::FileOpened(..)
+                    | Message::FileSaved(..)
+                    | Message::HtmlExported(..)
+            ) {
+                self.report_blocked_draft_action(&message, "A visual text draft");
+                return Task::none();
             }
         }
         if self.multiline_draft.is_some() {
@@ -462,6 +496,11 @@ impl Hylite {
             Message::CancelMultilineParagraph => self.cancel_multiline_paragraph(),
             Message::OpenPreviewParagraph(target) => self.open_preview_paragraph(target),
             Message::OpenInlinePreviewText(target) => self.open_inline_preview_text(target),
+            Message::OpenPreviewVisualText(target) => self.open_preview_visual_text(target),
+            Message::EditPreviewVisualDraft(action) => self.edit_preview_visual_draft(action),
+            Message::FormatPreviewVisual(format) => self.format_preview_visual_draft(format),
+            Message::ApplyPreviewVisualText => self.apply_preview_visual_text(),
+            Message::CancelPreviewVisualText => self.cancel_preview_visual_text(),
             Message::InlineSpikeAction(action) => self.inline_spike_action(action),
             Message::FinishInlineSpike => self.finish_inline_spike(),
             Message::InlineProbeAction(action) => self.inline_probe_action(action),
@@ -829,6 +868,7 @@ impl Hylite {
         let theme = self.theme();
         let snapshot = self.document.snapshot();
         let blocks = self.document.preview_blocks();
+        let source = self.document.buffer_text();
         let base_dir = self.document.path().and_then(|path| path.parent());
         let inline_draft = self
             .paragraph_draft
@@ -839,6 +879,16 @@ impl Hylite {
                 && blocks.iter().any(|block| {
                     block.source == draft.target.block
                         && block.inline_text_payload.as_ref() == Some(&draft.target.payload)
+                })
+        });
+        let visual_draft = self.visual_draft.as_ref();
+        let visual_draft_is_current = visual_draft.is_some_and(|draft| {
+            draft.target.snapshot == snapshot
+                && blocks.iter().any(|block| {
+                    crate::preview_visual::Target::for_block(block, &source, snapshot).as_ref()
+                        == Some(&draft.target)
+                        && crate::preview_visual::Projection::from_block(block).as_ref()
+                            == Some(&draft.original)
                 })
         });
         let parsed = if self.inline_alt_probe_enabled {
@@ -868,12 +918,14 @@ impl Hylite {
         } else if blocks.is_empty() {
             crate::document::render_preview(blocks, &theme, snapshot, base_dir)
         } else {
-            crate::document::render_preview_with_inline_text(
+            crate::document::render_preview_with_visual_edit(
                 blocks,
+                &source,
                 &theme,
                 snapshot,
                 base_dir,
                 inline_draft,
+                visual_draft,
             )
         };
         let parsed = if let Some(draft) = inline_draft.filter(|_| !inline_draft_is_current) {
@@ -882,6 +934,19 @@ impl Hylite {
                     "This Preview text target is stale; the draft is kept. Cancel or reopen it."
                 ),
                 crate::ui::paragraph_edit::inline_preview_view(draft),
+                parsed,
+            ]
+            .spacing(8)
+            .into()
+        } else {
+            parsed
+        };
+        let parsed = if let Some(draft) = visual_draft.filter(|_| !visual_draft_is_current) {
+            column![
+                iced::widget::text(
+                    "This visual text target is stale; Apply is refused. Cancel the draft to continue."
+                ),
+                crate::ui::visual_edit::view(draft),
                 parsed,
             ]
             .spacing(8)

@@ -31,6 +31,7 @@ mod preview_table_column;
 mod preview_table_edit;
 mod preview_table_row;
 mod preview_task;
+mod preview_visual;
 mod search;
 mod source_focus;
 mod syntax;

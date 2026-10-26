@@ -15,6 +15,7 @@ fn app() -> Hylite {
         go_to: crate::navigation::GoTo::default(),
         cell_draft: None,
         paragraph_draft: None,
+        visual_draft: None,
         multiline_draft: None,
         inline_spike_enabled: false,
         inline_spike_pending: false,
@@ -77,6 +78,80 @@ fn toolbars_build_at_wide_compact_narrow_and_minimal_viewport_widths() {
         app.viewport_width = width;
         let _view = app.view();
     }
+}
+
+#[test]
+fn visual_preview_draft_edits_rendered_text_preserves_style_and_applies_atomically() {
+    let source = "**bold** plain\n";
+    let mut app = app();
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let block = &app.document.preview_blocks()[0];
+    let target =
+        crate::preview_visual::Target::for_block(block, source, app.document.snapshot()).unwrap();
+    let _ = app.update(Message::OpenPreviewVisualText(target));
+    assert!(app.visual_draft.is_some());
+    assert_eq!(app.document.buffer_text(), source);
+    {
+        let _view = app.view();
+    }
+
+    let _ = app.update(Message::EditPreviewVisualDraft(text_editor::Action::Edit(
+        text_editor::Edit::Insert('X'),
+    )));
+    assert_eq!(app.visual_draft.as_ref().unwrap().value(), "Xbold plain");
+    assert_eq!(app.document.buffer_text(), source);
+    let _ = app.update(Message::DraftHistory(false));
+    assert_eq!(app.visual_draft.as_ref().unwrap().value(), "bold plain");
+    let _ = app.update(Message::DraftHistory(true));
+    assert_eq!(app.visual_draft.as_ref().unwrap().value(), "Xbold plain");
+    {
+        let draft = app.visual_draft.as_mut().unwrap();
+        draft.content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentStart,
+        ));
+        for _ in 0..5 {
+            draft
+                .content
+                .perform(text_editor::Action::Select(text_editor::Motion::Right));
+        }
+    }
+    let _ = app.update(Message::FormatPreviewVisual(
+        crate::preview_visual::InlineFormat::Italic,
+    ));
+    assert!(app
+        .visual_draft
+        .as_ref()
+        .unwrap()
+        .spans()
+        .iter()
+        .any(|span| { span.style.strong && span.style.emphasis && span.visible == (0..5) }));
+
+    let _ = app.update(Message::ApplyPreviewVisualText);
+    assert!(app.visual_draft.is_none());
+    assert_eq!(app.document.buffer_text(), "***Xbold*** plain\n");
+    assert!(app.document.preview_history_available(false));
+    let _ = app.update(Message::PreviewHistory(false));
+    assert_eq!(app.document.buffer_text(), source);
+}
+
+#[test]
+fn canceling_visual_preview_draft_never_changes_source_or_document_history() {
+    let source = "plain **bold**\n";
+    let mut app = app();
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let block = &app.document.preview_blocks()[0];
+    let target =
+        crate::preview_visual::Target::for_block(block, source, app.document.snapshot()).unwrap();
+    let _ = app.update(Message::OpenPreviewVisualText(target));
+    let _ = app.update(Message::EditPreviewVisualDraft(text_editor::Action::Edit(
+        text_editor::Edit::Insert('!'),
+    )));
+    let _ = app.update(Message::CancelPreviewVisualText);
+    assert!(app.visual_draft.is_none());
+    assert_eq!(app.document.buffer_text(), source);
+    assert!(!app.document.can_undo());
 }
 
 #[test]

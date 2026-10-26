@@ -18,6 +18,7 @@ impl Hylite {
             && self.inline_alt_probe.is_none()
             && self.cell_draft.is_none()
             && self.paragraph_draft.is_none()
+            && self.visual_draft.is_none()
             && self.multiline_draft.is_none()
             && self.pending_action.is_none()
             && self.mode != EditMode::Preview
@@ -109,6 +110,7 @@ impl Hylite {
         if self.mode == EditMode::Source
             || !self.navigation_allowed()
             || self.paragraph_draft.is_some()
+            || self.visual_draft.is_some()
             || self.cell_draft.is_some()
             || self.multiline_draft.is_some()
         {
@@ -273,6 +275,7 @@ impl Hylite {
         self.mode == EditMode::Preview
             && self.navigation_allowed()
             && self.paragraph_draft.is_none()
+            && self.visual_draft.is_none()
             && self.cell_draft.is_none()
             && self.multiline_draft.is_none()
             && !self.search.open

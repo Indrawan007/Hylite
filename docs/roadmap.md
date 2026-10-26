@@ -70,8 +70,8 @@ fondasi → perluasan**, bukan big bang.
 |---|---|---|---|
 | **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; hit-testing/selection tetap belum terbukti setelah probe 9b NO-GO |
 | **9b** ⚠️ NO-GO (probe selesai) | **Feasibility terbatas**: satu fixture ASCII, hit-testing caret dan selection pada widget native, tanpa Source edit atau implementasi mapping. Hasil: hanya caret 0 yang teramati; drag tidak dijalankan karena endpoint 3/7 tidak ditemukan — [bukti lengkap](testing-stage9b.md) | kecil–sedang | probe tertutup; hit-testing/selection belum layak dibuktikan |
-| **9c** | **DEFERRED — pilihan pengguna A**. Marker hiding (`**`, `_`, `` ` ``, `#`) tidak dimulai setelah dua probe NO-GO terbatas. Preview dan panel draft tetap; pembukaan kembali perlu keputusan baru. Lihat [keputusan scope](proposal-stage9c-9d-scope.md). | sedang–besar | sedang |
-| **9d** | **DEFERRED — pilihan pengguna A**. Editing langsung ke heading/list/quote/sel tabel dan pensiun panel draft tidak dimulai; butuh scope/gate baru jika dibuka kembali. Lihat [keputusan scope](proposal-stage9c-9d-scope.md). | besar | tinggi |
+| **9c** | **DIBUKA KEMBALI — irisan awal sedang dikerjakan.** Whole-block styled draft untuk paragraf root satu baris dan heading ATX root, marker tersembunyi, format seleksi terbatas, history lokal dan Apply atomik sudah ditulis; belum diverifikasi dan bukan caret/glyph mapping ke Source. Lihat [riwayat scope](proposal-stage9c-9d-scope.md). | sedang–besar | sedang |
+| **9d** | **DIBUKA KEMBALI — belum lengkap.** General editing untuk nested block/list/quote/table, multiline, cakupan grammar, dan kriteria penutupan panel draft belum dipenuhi. WYSIWYG umum ala MarkText belum tersedia. Lihat [riwayat scope](proposal-stage9c-9d-scope.md). | besar | tinggi |
 
 **Hasil gate 9a:** CI 40039268185 lulus 1041 Cargo / 344 strict core / 90
 Python / 29 suite GUI / 512 pemeriksaan. Tes `Content` mencakup perjalanan caret
@@ -98,11 +98,14 @@ untuk fixture ASCII dan X11 + Xvfb + tiny-skia; bukan penilaian drag yang tidak
 diuji dan bukan klaim universal. Lihat [kontrak dan hasil probe
 alternatif](proposal-alternative-widget-probe.md).
 
-**Aturan berhenti:** NO-GO Stage 9b asli tetap historis dan final; probe
-alternatif terpisah tidak menimpanya. Kedua hasil tidak memulai 9c/9d dan tidak
-membenarkan mapping Source, editing inline produksi, atau WYSIWYG. Implementasi
-alternatif hanya alat studi test-only/opt-in; Preview default dan seluruh gate
-lama tidak diubah. Tidak ada klaim bahwa semua Iced/backend mustahil.
+**Batas bukti:** NO-GO Stage 9b asli tetap historis dan final; probe
+alternatif terpisah tidak menimpanya. Kedua hasil tidak membuktikan kelayakan
+mapping Source atau pointer hit-testing produksi. Permintaan produk yang lebih
+baru secara terpisah membuka kembali Stage 9c/9d; irisan awal memakai draft
+whole-block terautentikasi dan parser preflight, bukan hasil probe sebagai peta.
+Probe alternatif tetap test-only/opt-in. Tidak ada klaim bahwa semua
+Iced/backend mustahil, tidak ada klaim WYSIWYG umum, dan gate desktop tetap
+terbuka.
 
 ### Fase C — Skala dan performa (Stage 10a–10c)
 
@@ -147,16 +150,13 @@ pekerjaan manual di mesin target; langkah itu menunggu hasil dari pemilik mesin.
 Build biasa tetap bisa dicoba sebelum gate tersebut, tetapi status target tidak
 boleh diklaim tervalidasi.
 
-**Tidak menjadi blocker untuk artefak Build ini:** Stage 9c/9d tetap deferred
-(tidak ada marker hiding atau inline editing), dan Stage 10c viewport/scroll
-sync belum dimulai. Keduanya bukan alasan untuk mengubah scope build ini; tetapi
-keduanya, bersama kriteria lain di bagian 1, tetap dapat menahan klaim selesai
-1.0. Rilis 0.2.0 (11d) juga langkah terpisah setelah gate Build, bukan bagian dari
-pekerjaan build itu sendiri. Stage 11a telah selesai; Stage 11b memiliki preflight
-parsial dari laporan pengguna, tetapi portal/dialog dan pemeriksaan runtime lainnya
-belum dicatat. Persetujuan Stage 11b tetap terbatas pada dokumentasi/checklist;
-Stage 11c tidak diotorisasi. Lanjutkan hanya dengan hasil manual dari mesin target,
-lalu tinjau sebelum menentukan scope berikutnya.
+**Scope yang tetap terpisah dari artefak Build:** Stage 9c/9d kini dibuka kembali
+untuk permintaan WYSIWYG, tetapi belum lengkap; Stage 10c viewport/scroll sync juga
+belum dimulai. Pekerjaan tersebut tidak mengubah otorisasi packaging. Stage 11a
+telah selesai; Stage 11b memiliki preflight parsial, tetapi portal/dialog dan
+pemeriksaan runtime lainnya belum dicatat. Stage 11c/packaging tidak diotorisasi
+oleh permintaan WYSIWYG ini. Rilis 0.2.0 (11d) tetap langkah terpisah setelah
+gate Build.
 
 ---
 
@@ -171,7 +171,7 @@ lalu tinjau sebelum menentukan scope berikutnya.
                          │
                          └──► [probe custom-widget test-only selesai; NO-GO terbatas]
                                       │
-                                      └──► 9c/9d DEFERRED (pilihan pengguna A)
+                                      └──► 9c/9d dibuka kembali (iris awal; belum lengkap)
                                        10a incremental ✅ (fast path terbatas; full-parse fallback)
                                        10b benchmark ✅ (baseline sebelum 10a; observasi terbaru di docs/performance.md)
                                        10c culling + scroll sync
@@ -211,10 +211,10 @@ milestone/fitur produk. Lihat snapshot [`progress-report.md`](progress-report.md
 ## 5. Keputusan yang sudah ditetapkan
 
 - Urutan **Fase A → B** dipertahankan. Stage 9b asli telah ditutup NO-GO;
-  percobaan custom-widget terpisah juga berakhir NO-GO terbatas. Tidak ada izin
-  otomatis untuk Stage 9c/9d, production mapping, atau WYSIWYG umum. Probe
-  alternatif yang telah selesai tetap terisolasi sebagai alat test-only/opt-in
-  ([kontrak dan hasil](proposal-alternative-widget-probe.md)).
+  percobaan custom-widget terpisah juga berakhir NO-GO terbatas. Permintaan
+  pengguna terbaru membuka kembali pekerjaan produk Stage 9c/9d; kedua probe
+  tetap alat test-only/opt-in dan tidak menjadi peta Source produksi
+  ([kontrak dan hasil](proposal-alternative-widget-probe.md), [riwayat keputusan](proposal-stage9c-9d-scope.md)).
 - Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
   Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
 - Crate baru boleh minimal; implementasi 8e tidak menambah dependency.

@@ -1055,6 +1055,92 @@ impl Document {
         self.commit_kind(before, change, EditKind::PreviewParagraph)
     }
 
+    /// Current, parser-authenticated visual projection for one eligible block.
+    pub(crate) fn preview_visual_projection(
+        &self,
+        target: &crate::preview_visual::Target,
+    ) -> Option<crate::preview_visual::Projection> {
+        if target.snapshot != self.snapshot {
+            return None;
+        }
+        let source = self.buffer_text();
+        let block = self
+            .preview
+            .get()?
+            .iter()
+            .find(|block| block.source == target.block)?;
+        (crate::preview_visual::Target::for_block(block, &source, self.snapshot).as_ref()
+            == Some(target))
+        .then(|| crate::preview_visual::Projection::from_block(block))?
+    }
+
+    /// Apply a rendered-text draft as one whole-block, parser-preflighted edit.
+    /// No visible-character offset is translated to a Source caret position.
+    pub(crate) fn edit_preview_visual(
+        &mut self,
+        target: &crate::preview_visual::Target,
+        original: &crate::preview_visual::Projection,
+        visible: &str,
+        spans: &[crate::preview_visual::Span],
+    ) -> bool {
+        if self.preview_visual_projection(target).as_ref() != Some(original) {
+            return false;
+        }
+        if visible == original.visible && spans == original.spans {
+            return true;
+        }
+        let Some(replacement) = target.replacement(visible, spans) else {
+            return false;
+        };
+        let source = self.buffer_text();
+        if !crate::text_edit::valid_range(&source, &target.replace) {
+            return false;
+        }
+        let mut candidate = source;
+        candidate.replace_range(target.replace.clone(), &replacement);
+        let blocks = preview_model::parse(&candidate);
+        let Some(replacement_end) = target.replace.start.checked_add(replacement.len()) else {
+            return false;
+        };
+        let Some(updated) = blocks.iter().find(|block| {
+            block.source.start < replacement_end && target.replace.start < block.source.end
+        }) else {
+            return false;
+        };
+        let expected_kind = match target.kind {
+            crate::preview_visual::BlockKind::Paragraph => preview_model::Kind::Paragraph,
+            crate::preview_visual::BlockKind::Heading(level) => preview_model::Kind::Heading(level),
+        };
+        let Some(parsed_projection) = crate::preview_visual::Projection::from_block(updated) else {
+            return false;
+        };
+        let expected_projection = crate::preview_visual::Projection {
+            visible: visible.to_owned(),
+            spans: spans.to_vec(),
+        };
+        if updated.kind != expected_kind || parsed_projection != expected_projection {
+            return false;
+        }
+        if candidate == self.buffer_text() {
+            return true;
+        }
+        let Some(caret) = replacement.len().checked_sub(target.suffix.len()) else {
+            return false;
+        };
+        let change = TextChange {
+            range: target.replace.clone(),
+            caret,
+            replacement,
+        };
+        self.break_undo_group();
+        let before = self.record();
+        if !self.commit_kind(before, change, EditKind::PreviewParagraph) {
+            return false;
+        }
+        self.install_preview(candidate, blocks);
+        true
+    }
+
     pub(crate) fn preview_paragraph_payload(
         &self,
         target: &crate::preview_paragraph::Target,
@@ -1655,6 +1741,10 @@ mod preview_cell_tests;
 #[cfg(test)]
 #[path = "preview_paragraph_tests.rs"]
 mod preview_paragraph_tests;
+
+#[cfg(test)]
+#[path = "preview_visual_tests.rs"]
+mod preview_visual_tests;
 
 #[cfg(test)]
 #[path = "preview_multiline_paragraph_tests.rs"]

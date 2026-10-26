@@ -15,4 +15,5 @@ pub mod sidebar;
 pub mod statusbar;
 pub mod tabs;
 pub mod toolbar;
+pub mod visual_edit;
 pub mod workspace;
