@@ -198,12 +198,13 @@ fn paragraph_target(
     } else {
         (raw.len(), "")
     };
-    let content = raw.get(..payload_len)?;
-    if content.is_empty()
-        || content.contains('\n')
-        || content.contains('\r')
-        || content.starts_with(char::is_whitespace)
-    {
+    let line = raw.get(..payload_len)?;
+    let content_start = line.len()
+        - line
+            .trim_start_matches(|character| matches!(character, ' ' | '\t'))
+            .len();
+    let content = line.get(content_start..)?;
+    if content.is_empty() || content.contains('\n') || content.contains('\r') {
         return None;
     }
     let parsed = crate::document::preview_model::parse(content);
@@ -221,9 +222,10 @@ fn paragraph_target(
     if !original_projection.same_presentation(&standalone_projection) {
         return None;
     }
+    let replace_start = block.source.start.checked_add(content_start)?;
     Some((
         BlockKind::Paragraph,
-        block.source.clone(),
+        replace_start..block.source.end,
         String::new(),
         line_ending.to_owned(),
     ))
