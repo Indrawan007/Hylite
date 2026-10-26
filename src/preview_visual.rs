@@ -891,7 +891,12 @@ mod tests {
         let quote_child = &blocks[2].children[0];
         assert!(Target::for_block(quote_child, source, Snapshot::default()).is_some());
         let list_child = &blocks[3].children[0].children[0];
-        assert!(Target::for_block(list_child, source, Snapshot::default()).is_some());
+        assert!(
+            Target::for_block(list_child, source, Snapshot::default()).is_some(),
+            "list source: {:?}; leaf: {list_child:#?}; raw: {:?}",
+            source,
+            source.get(list_child.source.clone())
+        );
         let setext = "title\n---\n";
         let block = &crate::document::preview_model::parse(setext)[0];
         assert!(Target::for_block(block, setext, Snapshot::default()).is_none());
