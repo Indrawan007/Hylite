@@ -199,10 +199,7 @@ fn paragraph_target(
         (raw.len(), "")
     };
     let line = raw.get(..payload_len)?;
-    let content_start = line.len()
-        - line
-            .trim_start_matches(|character| matches!(character, ' ' | '\t'))
-            .len();
+    let content_start = line.len() - line.trim_start_matches([' ', '\t']).len();
     let content = line.get(content_start..)?;
     if content.is_empty() || content.contains('\n') || content.contains('\r') {
         return None;
