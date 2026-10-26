@@ -342,7 +342,7 @@ fn render_block<'a>(
     let visual_target = if inline_edit.enabled {
         inline_edit.source.as_deref().and_then(|source| {
             crate::preview_visual::Target::for_block(block, source, snapshot)
-                .filter(|_| crate::preview_visual::Projection::from_block(block).is_some())
+                .filter(|_| crate::preview_visual::Projection::from_block(block, source).is_some())
         })
     } else {
         None
@@ -492,7 +492,13 @@ fn render_block<'a>(
                 label,
                 text: payload,
             } => code_panel((*label).into(), payload, colors),
-            Kind::Table(table) => table::render(table, &block.source, snapshot, colors),
+            Kind::Table(_) => table::render(
+                block,
+                snapshot,
+                colors,
+                inline_edit.source.as_deref(),
+                inline_edit.visual_draft,
+            ),
             Kind::Rule => horizontal_rule(1).into(),
         };
     let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
@@ -579,7 +585,10 @@ fn render_block<'a>(
                     .on_press(action),
             );
         }
-        let choices = table_picker_choices(block, snapshot);
+        let mut choices = table_picker_choices(block, snapshot);
+        if let Some(source) = inline_edit.source.as_deref() {
+            choices.extend(visual_table_cell_choices(block, source, snapshot));
+        }
         if !choices.is_empty() {
             actions = actions.push(
                 pick_list(
@@ -712,6 +721,7 @@ fn setext_action(
 enum TableActionChoice {
     Alignment(TableAlignmentChoice),
     Cell(crate::preview_cell::Target),
+    VisualCell(crate::preview_visual::Target),
     Column(
         crate::preview_table_column::Target,
         crate::preview_table_column::Action,
@@ -726,6 +736,7 @@ impl TableActionChoice {
         match self {
             Self::Alignment(choice) => Message::AlignPreviewTable(choice.target, choice.desired),
             Self::Cell(target) => Message::OpenPreviewCell(target),
+            Self::VisualCell(target) => Message::OpenPreviewVisualText(target),
             Self::Column(target, action) => Message::EditPreviewTableColumn(target, action),
             Self::Row(target, action) => Message::EditPreviewTableRow(target, action),
         }
@@ -736,6 +747,12 @@ impl std::fmt::Display for TableActionChoice {
         match self {
             Self::Alignment(choice) => choice.fmt(f),
             Self::Cell(target) => write!(f, "Cell {}:{}: Edit", target.row, target.column + 1),
+            Self::VisualCell(target) => match target.kind {
+                crate::preview_visual::BlockKind::TableCell { row, column } => {
+                    write!(f, "Cell {}:{}: Visual edit", row + 1, column + 1)
+                }
+                _ => f.write_str("Cell: Visual edit"),
+            },
             Self::Column(target, action) => write!(f, "Column {}: {action}", target.column + 1),
             Self::Row(target, action) => write!(f, "Row {}: {action}", target.row),
         }
@@ -940,6 +957,28 @@ fn table_picker_choices(block: &Block, snapshot: Snapshot) -> Vec<TableActionCho
         }
     }
     choices
+}
+
+fn visual_table_cell_choices(
+    block: &Block,
+    source: &str,
+    snapshot: Snapshot,
+) -> Vec<TableActionChoice> {
+    let Kind::Table(table) = &block.kind else {
+        return Vec::new();
+    };
+    let Some(rows) = &table.editable_cells else {
+        return Vec::new();
+    };
+    rows.iter()
+        .enumerate()
+        .flat_map(|(row, cells)| {
+            cells.iter().enumerate().filter_map(move |(column, _)| {
+                crate::preview_visual::Target::for_table_cell(block, source, snapshot, row, column)
+                    .map(TableActionChoice::VisualCell)
+            })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1430,6 +1469,32 @@ mod tests {
             choices[10].clone().message(),
             Message::OpenPreviewCell(_)
         ));
+    }
+    #[test]
+    fn visual_table_cell_choices_are_separate_from_existing_raw_cell_actions() {
+        let source = "|a|b|\n|-|-|\n|x|y|\n";
+        let blocks = super::super::preview_model::parse(source);
+        let choices = visual_table_cell_choices(&blocks[0], source, Snapshot::default());
+        assert_eq!(choices.len(), 4);
+        let TableActionChoice::VisualCell(target) = &choices[2] else {
+            panic!("visual cell target")
+        };
+        assert_eq!(
+            target.kind,
+            crate::preview_visual::BlockKind::TableCell { row: 1, column: 0 }
+        );
+        assert!(matches!(
+            choices[2].clone().message(),
+            Message::OpenPreviewVisualText(_)
+        ));
+        let nested_source = "> |a|b|\n> |-|-|\n> |x|y|\n";
+        let nested = super::super::preview_model::parse(nested_source);
+        assert!(visual_table_cell_choices(
+            &nested[0].children[0],
+            nested_source,
+            Snapshot::default()
+        )
+        .is_empty());
     }
     #[test]
     fn ragged_and_nested_table_pickers_never_offer_cell_edit() {

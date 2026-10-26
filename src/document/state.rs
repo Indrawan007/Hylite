@@ -1064,14 +1064,9 @@ impl Document {
             return None;
         }
         let source = self.buffer_text();
-        let block = self
-            .preview
-            .get()?
-            .iter()
-            .find(|block| block.source == target.block)?;
-        (crate::preview_visual::Target::for_block(block, &source, self.snapshot).as_ref()
-            == Some(target))
-        .then(|| crate::preview_visual::Projection::from_block(block))?
+        let block =
+            crate::preview_visual::find_block(self.preview.get()?, &source, self.snapshot, target)?;
+        crate::preview_visual::Projection::for_target(block, &source, target)
     }
 
     /// Apply a rendered-text draft as one whole-block, parser-preflighted edit.
@@ -1102,23 +1097,23 @@ impl Document {
         let Some(replacement_end) = target.replace.start.checked_add(replacement.len()) else {
             return false;
         };
-        let Some(updated) = blocks.iter().find(|block| {
-            block.source.start < replacement_end && target.replace.start < block.source.end
-        }) else {
+        let replacement_range = target.replace.start..replacement_end;
+        let Some(updated) =
+            crate::preview_visual::find_updated_block(&blocks, &replacement_range, target.kind)
+        else {
             return false;
         };
-        let expected_kind = match target.kind {
-            crate::preview_visual::BlockKind::Paragraph => preview_model::Kind::Paragraph,
-            crate::preview_visual::BlockKind::Heading(level) => preview_model::Kind::Heading(level),
-        };
-        let Some(parsed_projection) = crate::preview_visual::Projection::from_block(updated) else {
+        let Some(parsed_projection) =
+            crate::preview_visual::Projection::for_target(updated, &candidate, target)
+        else {
             return false;
         };
         let expected_projection = crate::preview_visual::Projection {
             visible: visible.to_owned(),
             spans: spans.to_vec(),
+            source_segments: Vec::new(),
         };
-        if updated.kind != expected_kind || parsed_projection != expected_projection {
+        if !parsed_projection.same_presentation(&expected_projection) {
             return false;
         }
         if candidate == self.buffer_text() {

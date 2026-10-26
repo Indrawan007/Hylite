@@ -884,12 +884,12 @@ impl Hylite {
         let visual_draft = self.visual_draft.as_ref();
         let visual_draft_is_current = visual_draft.is_some_and(|draft| {
             draft.target.snapshot == snapshot
-                && blocks.iter().any(|block| {
-                    crate::preview_visual::Target::for_block(block, &source, snapshot).as_ref()
-                        == Some(&draft.target)
-                        && crate::preview_visual::Projection::from_block(block).as_ref()
-                            == Some(&draft.original)
-                })
+                && crate::preview_visual::find_block(blocks, &source, snapshot, &draft.target)
+                    .and_then(|block| {
+                        crate::preview_visual::Projection::for_target(block, &source, &draft.target)
+                    })
+                    .as_ref()
+                    == Some(&draft.original)
         });
         let parsed = if self.inline_alt_probe_enabled {
             crate::document::render_inline_alt_probe_preview(

@@ -1,8 +1,9 @@
-//! Source-authenticated projection for the first production visual editor.
+//! Source-authenticated projection for visual Preview editing.
 //!
 //! A draft edits rendered text and style spans, then serializes one authenticated
-//! root paragraph or ATX heading as a single atomic Source transaction. Markdown
-//! syntax may be canonicalized; this is block editing, not a glyph-to-Source map.
+//! text block as a single atomic Source transaction. Markdown syntax may be
+//! canonicalized; exact per-run Source ranges are exposed only where parsing
+//! proves a linear visible-text mapping.
 use crate::document::preview_model::{Block, Kind, Style};
 use crate::document::Snapshot;
 use std::ops::Range;
@@ -13,6 +14,7 @@ pub const MAX_BYTES: usize = 16 * 1024;
 pub enum BlockKind {
     Paragraph,
     Heading(u8),
+    TableCell { row: usize, column: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,26 +44,33 @@ pub struct Span {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceSegment {
+    pub visible: Range<usize>,
+    pub source: Range<usize>,
+    /// True only when the bytes decode to this run without entities, escapes,
+    /// soft-break normalization, or other source/display transformations.
+    pub exact: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceAffinity {
+    Before,
+    After,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Projection {
     pub visible: String,
     pub spans: Vec<Span>,
+    pub source_segments: Vec<SourceSegment>,
 }
 
 impl Target {
-    /// Make a target only from parser-authenticated root paragraph/ATX metadata.
+    /// Make a target from parser-authenticated paragraphs, root ATX headings, or
+    /// single-physical-line paragraph leaves inside quote/list containers.
     pub fn for_block(block: &Block, source: &str, snapshot: Snapshot) -> Option<Self> {
         let (kind, replace, prefix, suffix) = match &block.kind {
-            Kind::Paragraph => {
-                let payload = block.paragraph_payload.clone()?;
-                if block.source.start != payload.start
-                    || payload.end.checked_add(1) != Some(block.source.end)
-                    || source.get(payload.clone())?.contains('\n')
-                    || source.get(payload.clone())?.contains('\r')
-                {
-                    return None;
-                }
-                (BlockKind::Paragraph, payload, String::new(), String::new())
-            }
+            Kind::Paragraph => paragraph_target(block, source)?,
             Kind::Heading(level) => {
                 let level = *level;
                 let marker = block.heading_marker.as_ref()?;
@@ -116,6 +125,40 @@ impl Target {
         })
     }
 
+    /// Authenticate a non-empty cell in a canonical root table. Table cell
+    /// offsets are exact raw payload ranges, not character-level projections.
+    pub fn for_table_cell(
+        block: &Block,
+        source: &str,
+        snapshot: Snapshot,
+        row: usize,
+        column: usize,
+    ) -> Option<Self> {
+        let Kind::Table(table) = &block.kind else {
+            return None;
+        };
+        let payload = table
+            .editable_cells
+            .as_ref()?
+            .get(row)?
+            .get(column)?
+            .clone();
+        if payload.is_empty()
+            || !crate::text_edit::valid_range(source, &payload)
+            || Projection::from_target_cell(block, source, row, column).is_none()
+        {
+            return None;
+        }
+        Some(Self {
+            snapshot,
+            block: block.source.clone(),
+            replace: payload,
+            kind: BlockKind::TableCell { row, column },
+            prefix: String::new(),
+            suffix: String::new(),
+        })
+    }
+
     pub fn replacement(&self, visible: &str, spans: &[Span]) -> Option<String> {
         Some(format!(
             "{}{}{}",
@@ -126,13 +169,98 @@ impl Target {
     }
 }
 
+fn paragraph_target(
+    block: &Block,
+    source: &str,
+) -> Option<(BlockKind, Range<usize>, String, String)> {
+    if let Some(payload) = block.paragraph_payload.clone() {
+        if block.source.start != payload.start
+            || payload.end.checked_add(1) != Some(block.source.end)
+            || source.get(payload.clone())?.contains('\n')
+            || source.get(payload.clone())?.contains('\r')
+        {
+            return None;
+        }
+        return Some((BlockKind::Paragraph, payload, String::new(), String::new()));
+    }
+
+    // Nested paragraph event ranges vary with container syntax. Accept one only
+    // when its exact raw slice independently parses to the same one-line
+    // paragraph projection; this keeps list/quote prefixes outside the edit.
+    if block.source.is_empty() || block.source.len() > MAX_BYTES {
+        return None;
+    }
+    let raw = source.get(block.source.clone())?;
+    let (payload_len, line_ending) = if raw.ends_with("\r\n") {
+        (raw.len().checked_sub(2)?, "\r\n")
+    } else if raw.ends_with('\n') {
+        (raw.len().checked_sub(1)?, "\n")
+    } else {
+        (raw.len(), "")
+    };
+    let content = raw.get(..payload_len)?;
+    if content.is_empty()
+        || content.contains('\n')
+        || content.contains('\r')
+        || content.starts_with(char::is_whitespace)
+    {
+        return None;
+    }
+    let parsed = crate::document::preview_model::parse(content);
+    let [standalone] = parsed.as_slice() else {
+        return None;
+    };
+    if standalone.kind != Kind::Paragraph
+        || standalone.source.start != 0
+        || standalone.source.end != content.len()
+    {
+        return None;
+    }
+    let original_projection = Projection::from_block(block, source)?;
+    let standalone_projection = Projection::from_block(standalone, content)?;
+    if !original_projection.same_presentation(&standalone_projection) {
+        return None;
+    }
+    Some((
+        BlockKind::Paragraph,
+        block.source.clone(),
+        String::new(),
+        line_ending.to_owned(),
+    ))
+}
+
 impl Projection {
-    /// Flatten only ordinary inline runs. Images/math and multiline blocks stay
-    /// on their existing dedicated Preview paths.
-    pub fn from_block(block: &Block) -> Option<Self> {
+    /// Flatten ordinary inline runs and retain exact source segments where a
+    /// run is byte-for-byte identical to the visible text. Other runs stay
+    /// editable through block serialization but have no glyph-to-Source map.
+    pub fn from_block(block: &Block, source: &str) -> Option<Self> {
+        Self::from_runs(&block.runs, source)
+    }
+
+    pub fn for_target(block: &Block, source: &str, target: &Target) -> Option<Self> {
+        match target.kind {
+            BlockKind::TableCell { row, column } => {
+                Self::from_target_cell(block, source, row, column)
+            }
+            BlockKind::Paragraph | BlockKind::Heading(_) => Self::from_block(block, source),
+        }
+    }
+
+    fn from_target_cell(block: &Block, source: &str, row: usize, column: usize) -> Option<Self> {
+        let Kind::Table(table) = &block.kind else {
+            return None;
+        };
+        let cell = table.rows.get(row)?.cells.get(column)?;
+        let payload = table.editable_cells.as_ref()?.get(row)?.get(column)?;
+        (cell.source.start <= payload.start && payload.end <= cell.source.end)
+            .then(|| Self::from_runs(&cell.runs, source))?
+    }
+
+    pub fn from_runs(runs: &[crate::document::preview_model::Run], source: &str) -> Option<Self> {
         let mut visible = String::new();
-        let mut spans: Vec<Span> = Vec::with_capacity(block.runs.len());
-        for run in &block.runs {
+        let mut spans: Vec<Span> = Vec::with_capacity(runs.len());
+        let mut source_segments: Vec<SourceSegment> = Vec::with_capacity(runs.len());
+        for run in runs {
             if run.math.is_some() || run.image.is_some() {
                 return None;
             }
@@ -145,6 +273,12 @@ impl Projection {
             let start = visible.len();
             visible.push_str(&run.text);
             let end = visible.len();
+            let raw = source.get(run.source.clone())?;
+            source_segments.push(SourceSegment {
+                visible: start..end,
+                source: run.source.clone(),
+                exact: raw == run.text,
+            });
             if let Some(previous) = spans.last_mut() {
                 if previous.visible.end == start && previous.style == run.style {
                     previous.visible.end = end;
@@ -159,7 +293,109 @@ impl Projection {
         if visible.is_empty() || visible.len() > MAX_BYTES || !valid_spans(&visible, &spans) {
             return None;
         }
-        Some(Self { visible, spans })
+        Some(Self {
+            visible,
+            spans,
+            source_segments,
+        })
+    }
+
+    pub fn same_presentation(&self, other: &Self) -> bool {
+        self.visible == other.visible && self.spans == other.spans
+    }
+
+    /// Map an unambiguous visible selection only when every selected byte is
+    /// backed by contiguous, exact Source text in one or more parser runs.
+    pub fn source_range_for_visible(&self, visible: Range<usize>) -> Option<Range<usize>> {
+        if visible.is_empty()
+            || visible.end > self.visible.len()
+            || !self.visible.is_char_boundary(visible.start)
+            || !self.visible.is_char_boundary(visible.end)
+        {
+            return None;
+        }
+        let mut next_visible = visible.start;
+        let mut source_start = None;
+        let mut source_end = None;
+        for segment in self.source_segments.iter().filter(|segment| {
+            segment.visible.start < visible.end && visible.start < segment.visible.end
+        }) {
+            if !segment.exact {
+                return None;
+            }
+            let start = segment.visible.start.max(visible.start);
+            let end = segment.visible.end.min(visible.end);
+            if start != next_visible {
+                return None;
+            }
+            let mapped_start = segment
+                .source
+                .start
+                .checked_add(start - segment.visible.start)?;
+            let mapped_end = segment
+                .source
+                .start
+                .checked_add(end - segment.visible.start)?;
+            if source_end.is_some_and(|previous| previous != mapped_start) {
+                return None;
+            }
+            source_start.get_or_insert(mapped_start);
+            source_end = Some(mapped_end);
+            next_visible = end;
+        }
+        (next_visible == visible.end)
+            .then(|| source_start.zip(source_end).map(|(start, end)| start..end))
+            .flatten()
+    }
+
+    /// Map a visible caret boundary with explicit affinity when hidden Markdown
+    /// delimiters create distinct source offsets on either side of the glyph.
+    pub fn source_offset_for_visible(
+        &self,
+        visible: usize,
+        affinity: SourceAffinity,
+    ) -> Option<usize> {
+        if visible > self.visible.len() || !self.visible.is_char_boundary(visible) {
+            return None;
+        }
+        let interior = self
+            .source_segments
+            .iter()
+            .find(|segment| segment.visible.start < visible && visible < segment.visible.end);
+        if let Some(segment) = interior {
+            return segment
+                .exact
+                .then(|| {
+                    segment
+                        .source
+                        .start
+                        .checked_add(visible - segment.visible.start)
+                })
+                .flatten();
+        }
+        let before = self
+            .source_segments
+            .iter()
+            .find(|segment| segment.visible.end == visible);
+        let after = self
+            .source_segments
+            .iter()
+            .find(|segment| segment.visible.start == visible);
+        let segment = match (before, after, affinity) {
+            (None, Some(after), _) if visible == 0 => after,
+            (Some(before), None, _) if visible == self.visible.len() => before,
+            (Some(before), _, SourceAffinity::Before) => before,
+            (_, Some(after), SourceAffinity::After) => after,
+            _ => return None,
+        };
+        if !segment.exact {
+            return None;
+        }
+        if segment.visible.end == visible {
+            Some(segment.source.end)
+        } else {
+            Some(segment.source.start)
+        }
     }
 }
 
@@ -231,6 +467,59 @@ pub fn restyle(before: &str, after: &str, spans: &[Span]) -> Option<Vec<Span>> {
     }
     coalesce(&mut output);
     valid_spans(after, &output).then_some(output)
+}
+
+/// Find the current parser-owned block for a visual target, including leaves
+/// nested in quotes and list items. The source range and snapshot must match.
+pub fn find_block<'a>(
+    blocks: &'a [Block],
+    source: &str,
+    snapshot: Snapshot,
+    target: &Target,
+) -> Option<&'a Block> {
+    for block in blocks {
+        let current = match target.kind {
+            BlockKind::TableCell { row, column } => {
+                Target::for_table_cell(block, source, snapshot, row, column)
+            }
+            BlockKind::Paragraph | BlockKind::Heading(_) => {
+                Target::for_block(block, source, snapshot)
+            }
+        };
+        if current.as_ref() == Some(target) {
+            return Some(block);
+        }
+        if let Some(found) = find_block(&block.children, source, snapshot, target) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+/// Locate a reparsed block intersecting the candidate source replacement while
+/// preserving its parser-authenticated kind. Nested containers are traversed.
+pub fn find_updated_block<'a>(
+    blocks: &'a [Block],
+    replacement: &Range<usize>,
+    kind: BlockKind,
+) -> Option<&'a Block> {
+    for block in blocks {
+        let kind_matches = match kind {
+            BlockKind::Paragraph => block.kind == Kind::Paragraph,
+            BlockKind::Heading(level) => block.kind == Kind::Heading(level),
+            BlockKind::TableCell { .. } => matches!(block.kind, Kind::Table(_)),
+        };
+        if kind_matches
+            && block.source.start < replacement.end
+            && replacement.start < block.source.end
+        {
+            return Some(block);
+        }
+        if let Some(found) = find_updated_block(&block.children, replacement, kind) {
+            return Some(found);
+        }
+    }
+    None
 }
 
 pub fn valid_spans(visible: &str, spans: &[Span]) -> bool {
@@ -490,13 +779,12 @@ mod tests {
         assert!(blocks[0].runs.iter().any(|run| run.style.code));
         assert!(blocks[0].runs.iter().any(|run| run.style.strike));
         assert!(blocks[0].runs.iter().any(|run| run.style.link.is_some()));
-        assert_eq!(
-            Projection::from_block(&blocks[0]).unwrap(),
-            Projection {
-                visible: visible.to_owned(),
-                spans,
-            }
-        );
+        let parsed = Projection::from_block(&blocks[0], &encoded).unwrap();
+        assert!(parsed.same_presentation(&Projection {
+            visible: visible.to_owned(),
+            spans,
+            source_segments: Vec::new(),
+        }));
     }
 
     #[test]
@@ -517,14 +805,14 @@ mod tests {
             span(strong, " end", 11),
         ];
         let encoded = serialize(visible, &spans).unwrap();
-        let blocks = crate::document::preview_model::parse(&format!("{encoded}\n"));
-        assert_eq!(
-            Projection::from_block(&blocks[0]).unwrap(),
-            Projection {
-                visible: visible.to_owned(),
-                spans,
-            }
-        );
+        let source = format!("{encoded}\n");
+        let blocks = crate::document::preview_model::parse(&source);
+        let parsed = Projection::from_block(&blocks[0], &source).unwrap();
+        assert!(parsed.same_presentation(&Projection {
+            visible: visible.to_owned(),
+            spans,
+            source_segments: Vec::new(),
+        }));
     }
 
     #[test]
@@ -567,12 +855,44 @@ mod tests {
     }
 
     #[test]
-    fn target_only_authenticates_root_paragraphs_and_atx_headings() {
-        let source = "plain **bold**\n\n## title *here*\n\n> nested\n";
+    fn source_map_is_exact_inside_runs_and_explicitly_affine_at_hidden_markers() {
+        let source = "plain **café🙂** tail &amp;";
+        let blocks = crate::document::preview_model::parse(source);
+        let projection = Projection::from_block(&blocks[0], source).unwrap();
+        let styled = projection.visible.find("café🙂").unwrap();
+        let styled_len = "café🙂".len();
+        let raw_styled = source.find("café🙂").unwrap();
+        assert_eq!(
+            projection.source_range_for_visible(styled..styled + styled_len),
+            Some(raw_styled..raw_styled + styled_len)
+        );
+        assert_eq!(
+            projection.source_offset_for_visible(styled, SourceAffinity::Before),
+            Some(source.find("**").unwrap())
+        );
+        assert_eq!(
+            projection.source_offset_for_visible(styled, SourceAffinity::After),
+            Some(raw_styled)
+        );
+        assert!(projection
+            .source_range_for_visible(0..projection.visible.len())
+            .is_none());
+        assert!(projection
+            .source_segments
+            .iter()
+            .any(|segment| !segment.exact));
+    }
+
+    #[test]
+    fn target_authenticates_root_blocks_and_single_line_paragraph_leaves() {
+        let source = "plain **bold**\n\n## title *here*\n\n> nested\n\n- list **item**\n";
         let blocks = crate::document::preview_model::parse(source);
         assert!(Target::for_block(&blocks[0], source, Snapshot::default()).is_some());
         assert!(Target::for_block(&blocks[1], source, Snapshot::default()).is_some());
-        assert!(Target::for_block(&blocks[2], source, Snapshot::default()).is_none());
+        let quote_child = &blocks[2].children[0];
+        assert!(Target::for_block(quote_child, source, Snapshot::default()).is_some());
+        let list_child = &blocks[3].children[0].children[0];
+        assert!(Target::for_block(list_child, source, Snapshot::default()).is_some());
         let setext = "title\n---\n";
         let block = &crate::document::preview_model::parse(setext)[0];
         assert!(Target::for_block(block, setext, Snapshot::default()).is_none());

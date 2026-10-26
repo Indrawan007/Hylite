@@ -1,8 +1,9 @@
 //! Fixed-width native table grid, horizontally scrollable inside the outer
-//! vertical preview. No WebView, editable cells, URL actions or image loading.
+//! vertical preview. Active visual cell drafts are local/preflighted; there are
+//! no WebView, URL actions or table-image loading.
 use super::{styled_span, Colors, Snapshot};
 use crate::commands::Message;
-use crate::document::preview_model::{Alignment, Cell, Table};
+use crate::document::preview_model::{Alignment, Block, Cell, Kind};
 use crate::preview_navigation::Target;
 use iced::widget::{
     column, container, horizontal_rule, mouse_area, rich_text, row, scrollable, stack, text,
@@ -21,8 +22,23 @@ fn alignment(value: Alignment) -> alignment::Horizontal {
     }
 }
 
-fn cell(cell: &Cell, align: Alignment, header: bool, colors: Colors) -> Element<'_, Message> {
+fn cell<'a>(
+    cell: &'a Cell,
+    align: Alignment,
+    header: bool,
+    colors: Colors,
+    target: Option<&crate::preview_visual::Target>,
+    visual_draft: Option<&'a crate::ui::visual_edit::Draft>,
+) -> Element<'a, Message> {
     debug_assert!(cell.source.start <= cell.source.end);
+    if let (Some(target), Some(draft)) = (target, visual_draft) {
+        if target == &draft.target {
+            return container(crate::ui::visual_edit::view(draft))
+                .width(CELL_WIDTH)
+                .padding(8)
+                .into();
+        }
+    }
     let mut spans: Vec<text::Span<'_, Message>> = cell
         .runs
         .iter()
@@ -46,11 +62,15 @@ fn cell(cell: &Cell, align: Alignment, header: bool, colors: Colors) -> Element<
 }
 
 pub(super) fn render<'a>(
-    table: &'a Table,
-    source: &Range<usize>,
+    table_block: &'a Block,
     snapshot: Snapshot,
     colors: Colors,
+    source: Option<&str>,
+    visual_draft: Option<&'a crate::ui::visual_edit::Draft>,
 ) -> Element<'a, Message> {
+    let Kind::Table(table) = &table_block.kind else {
+        return text("[table model unavailable]").into();
+    };
     let columns = table.alignments.len();
     debug_assert!(columns > 0);
     let width = CELL_WIDTH * columns as f32 + columns.saturating_sub(1) as f32;
@@ -72,9 +92,27 @@ pub(super) fn render<'a>(
             if index > 0 {
                 separators.push(vertical_rule(1).into());
             }
-            let content = cell(value, align, table_row.header, colors);
+            let visual_target = match (visual_draft, source) {
+                (Some(_), Some(source)) => crate::preview_visual::Target::for_table_cell(
+                    table_block,
+                    source,
+                    snapshot,
+                    row_index,
+                    index,
+                ),
+                _ => None,
+            };
+            let content = cell(
+                value,
+                align,
+                table_row.header,
+                colors,
+                visual_target.as_ref(),
+                visual_draft,
+            );
             cells.push(
-                if let Some(action) = cell_source_action(value, snapshot, source, row_index, index)
+                if let Some(action) =
+                    cell_source_action(value, snapshot, &table_block.source, row_index, index)
                 {
                     mouse_area(content).on_right_press(action).into()
                 } else {
@@ -115,7 +153,7 @@ pub(super) fn render<'a>(
             ..container::Style::default()
         });
     column![
-        text("Right-click cell → Source · padded cells have no target")
+        text("Right-click cell → Source · Table actions → visual edit · padded cells have no target")
             .size(11)
             .color(colors.text),
         scrollable(grid)
@@ -166,18 +204,44 @@ mod tests {
         let source = "| **a** | b | c | d |\n| --- | :--- | :---: | ---: |\n| | *é* | `x` | [link](javascript:alert%281%29) |\n| <b>raw</b> | ![alt](file:///no-read) | $x$ | |\n";
         for theme in [Theme::Dark, Theme::Light] {
             let blocks = preview_model::parse(source);
-            let preview_model::Kind::Table(table) = &blocks[0].kind else {
+            let preview_model::Kind::Table(_) = &blocks[0].kind else {
                 panic!("expected table")
             };
             let view = render(
-                table,
-                &blocks[0].source,
+                &blocks[0],
                 Snapshot::default(),
                 Colors::new(&theme),
+                None,
+                None,
             );
             assert_eq!(view.as_widget().size_hint().height, Length::Shrink);
         }
     }
+    #[test]
+    fn active_visual_cell_draft_builds_in_the_fixed_width_table_grid() {
+        let source = "| **old** | other |\n| --- | --- |\n| next | value |\n";
+        let blocks = preview_model::parse(source);
+        let target = crate::preview_visual::Target::for_table_cell(
+            &blocks[0],
+            source,
+            Snapshot::default(),
+            1,
+            0,
+        )
+        .unwrap();
+        let projection =
+            crate::preview_visual::Projection::for_target(&blocks[0], source, &target).unwrap();
+        let draft = crate::ui::visual_edit::Draft::new(target, projection).unwrap();
+        let view = render(
+            &blocks[0],
+            Snapshot::default(),
+            Colors::new(&Theme::Dark),
+            Some(source),
+            Some(&draft),
+        );
+        assert_eq!(view.as_widget().size_hint().height, Length::Shrink);
+    }
+
     #[test]
     fn cell_actions_stamp_exact_raw_cell_not_strong_run_or_glyph_position() {
         use crate::preview_navigation::Origin;

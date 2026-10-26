@@ -500,7 +500,7 @@ mod tests {
         let source = "**bold** plain\n";
         let blocks = crate::document::preview_model::parse(source);
         let target = Target::for_block(&blocks[0], source, Default::default()).unwrap();
-        let original = Projection::from_block(&blocks[0]).unwrap();
+        let original = Projection::from_block(&blocks[0], source).unwrap();
         Draft::new(target, original).unwrap()
     }
 
@@ -576,7 +576,7 @@ mod tests {
         let source = "aaaa\n";
         let blocks = crate::document::preview_model::parse(source);
         let target = Target::for_block(&blocks[0], source, Default::default()).unwrap();
-        let original = Projection::from_block(&blocks[0]).unwrap();
+        let original = Projection::from_block(&blocks[0], source).unwrap();
         let mut draft = Draft::new(target, original).unwrap();
         draft.content.perform(text_editor::Action::Move(
             text_editor::Motion::DocumentStart,
