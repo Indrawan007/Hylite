@@ -2134,8 +2134,8 @@ mod tests {
         assert_eq!(target.snapshot, snapshot);
         assert_eq!(target.block, blocks[0].source);
         assert_eq!(target.payload, 0.."plain &amp; text".len());
-        assert_eq!(inline_text_action(&blocks[1], snapshot), None);
-        assert_eq!(inline_text_action(&blocks[2], snapshot), None);
+        assert!(inline_text_action(&blocks[1], snapshot).is_none());
+        assert!(inline_text_action(&blocks[2], snapshot).is_none());
     }
 
     #[test]
