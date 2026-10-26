@@ -71,7 +71,74 @@ fn apply_adjacent_message(
 fn move_message(draft: &Draft, direction: crate::document::ParagraphDirection) -> Option<Message> {
     can_move(draft, direction).then_some(Message::MovePreviewParagraph(direction))
 }
-pub fn view(draft: &Draft) -> Element<'_, Message> {
+pub fn view(draft: &Draft, viewport_width: f32) -> Element<'_, Message> {
+    let primary_actions = row![
+        button("Apply")
+            .style(chrome::button_style(ButtonKind::Primary))
+            .height(32)
+            .on_press_maybe(apply_message(draft)),
+        button("Cancel (Esc)")
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .height(32)
+            .on_press(Message::CancelPreviewParagraph),
+    ]
+    .spacing(8)
+    .height(32);
+    let navigation = row![
+        button(text("Previous paragraph").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(160)
+            .height(32)
+            .on_press_maybe(move_message(
+                draft,
+                crate::document::ParagraphDirection::Previous
+            )),
+        button(text("Next paragraph").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(160)
+            .height(32)
+            .on_press_maybe(move_message(
+                draft,
+                crate::document::ParagraphDirection::Next
+            )),
+    ]
+    .spacing(8)
+    .height(32);
+    let adjacent_actions = row![
+        button(text("Apply & Previous").size(14))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(160)
+            .height(32)
+            .on_press_maybe(apply_adjacent_message(
+                draft,
+                crate::document::ParagraphDirection::Previous
+            )),
+        button(text("Apply & Next").size(14))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(140)
+            .height(32)
+            .on_press_maybe(apply_adjacent_message(
+                draft,
+                crate::document::ParagraphDirection::Next
+            )),
+        button(text("Undo draft").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(120)
+            .height(32)
+            .on_press_maybe(undo_message(draft)),
+        button(text("Redo draft").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(120)
+            .height(32)
+            .on_press_maybe(redo_message(draft)),
+    ]
+    .spacing(8)
+    .height(32);
+    let primary_actions =
+        crate::ui::layout::horizontal_overflow(primary_actions.into(), viewport_width);
+    let navigation = crate::ui::layout::horizontal_overflow(navigation.into(), viewport_width);
+    let adjacent_actions =
+        crate::ui::layout::horizontal_overflow(adjacent_actions.into(), viewport_width);
     let controls = column![
         container(text("Edit root paragraph — raw Markdown draft").size(20)).height(28),
         container(text(provenance_line(draft)).size(13)).height(20),
@@ -86,68 +153,9 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                 .on_submit(Message::ApplyPreviewParagraph)
         )
         .height(36),
-        row![
-            button("Apply")
-                .style(chrome::button_style(ButtonKind::Primary))
-                .height(32)
-                .on_press_maybe(apply_message(draft)),
-            button("Cancel (Esc)")
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .height(32)
-                .on_press(Message::CancelPreviewParagraph)
-        ]
-        .spacing(8)
-        .height(32),
-        row![
-            button(text("Previous paragraph").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(160)
-                .height(32)
-                .on_press_maybe(move_message(
-                    draft,
-                    crate::document::ParagraphDirection::Previous
-                )),
-            button(text("Next paragraph").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(160)
-                .height(32)
-                .on_press_maybe(move_message(
-                    draft,
-                    crate::document::ParagraphDirection::Next
-                ))
-        ]
-        .spacing(8)
-        .height(32),
-        row![
-            button(text("Apply & Previous").size(14))
-                .style(chrome::button_style(ButtonKind::Primary))
-                .width(160)
-                .height(32)
-                .on_press_maybe(apply_adjacent_message(
-                    draft,
-                    crate::document::ParagraphDirection::Previous
-                )),
-            button(text("Apply & Next").size(14))
-                .style(chrome::button_style(ButtonKind::Primary))
-                .width(140)
-                .height(32)
-                .on_press_maybe(apply_adjacent_message(
-                    draft,
-                    crate::document::ParagraphDirection::Next
-                )),
-            button(text("Undo draft").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(120)
-                .height(32)
-                .on_press_maybe(undo_message(draft)),
-            button(text("Redo draft").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(120)
-                .height(32)
-                .on_press_maybe(redo_message(draft))
-        ]
-        .spacing(8)
-        .height(32),
+        primary_actions,
+        navigation,
+        adjacent_actions,
         text(
             draft.error.or(draft.navigation_notice).unwrap_or(
                 "Ctrl+Z/Ctrl+Y = Undo/Redo draft · Enter = Apply and close · Previous/Next = unchanged move · Esc = Cancel"
@@ -157,12 +165,17 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
     ]
     .spacing(12)
     .width(Length::Fill);
-    container(container(controls).width(Length::Fill).max_width(820))
-        .padding(32)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .into()
+    container(
+        container(controls)
+            .width(Length::Fill)
+            .max_width(820)
+            .style(chrome::surface_style(crate::ui::chrome::SurfaceKind::Panel)),
+    )
+    .padding(crate::ui::layout::panel_padding(viewport_width))
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_x(Length::Fill)
+    .into()
 }
 #[cfg(test)]
 mod tests {

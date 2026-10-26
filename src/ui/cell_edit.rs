@@ -50,34 +50,105 @@ fn can_move(draft: &Draft, direction: Direction) -> bool {
 fn apply_previous_message(draft: &Draft) -> Option<Message> {
     can_move(draft, Direction::Previous).then_some(Message::ApplyPreviewCellPrevious)
 }
-pub fn view(draft: &Draft) -> Element<'_, Message> {
+pub fn view(draft: &Draft, viewport_width: f32) -> Element<'_, Message> {
     let input = text_input("Single-line raw Markdown", &draft.value)
         .id(input_id())
         .on_input(Message::PreviewCellChanged)
         .on_submit(Message::ApplyPreviewCell);
-    let controls=column![
-        container(text(format!("Edit table cell {}:{} — raw Markdown draft",draft.target.row,draft.target.column+1)).size(20)).height(28),
+    let actions = row![
+        button("Apply")
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(90)
+            .height(32)
+            .on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
+        button("Cancel (Esc)")
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(130)
+            .height(32)
+            .on_press(Message::CancelPreviewCell),
+        button(text("Undo draft").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(120)
+            .height(32)
+            .on_press_maybe(undo_message(draft)),
+        button(text("Redo draft").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(120)
+            .height(32)
+            .on_press_maybe(redo_message(draft)),
+    ]
+    .spacing(8)
+    .height(32);
+    let navigation = row![
+        button(text("Previous").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(112)
+            .height(32)
+            .on_press_maybe(
+                can_move(draft, Direction::Previous)
+                    .then_some(Message::MovePreviewCell(Direction::Previous))
+            ),
+        button(text("Next").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(112)
+            .height(32)
+            .on_press_maybe(
+                can_move(draft, Direction::Next)
+                    .then_some(Message::MovePreviewCell(Direction::Next))
+            ),
+        button(text("Apply & Next").size(14))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(140)
+            .height(32)
+            .on_press_maybe(
+                can_move(draft, Direction::Next).then_some(Message::ApplyPreviewCellNext)
+            ),
+        button(text("Apply & Previous").size(14))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(160)
+            .height(32)
+            .on_press_maybe(apply_previous_message(draft)),
+    ]
+    .spacing(8)
+    .height(32);
+    let actions = crate::ui::layout::horizontal_overflow(actions.into(), viewport_width);
+    let navigation = crate::ui::layout::horizontal_overflow(navigation.into(), viewport_width);
+    let controls = column![
+        container(
+            text(format!(
+                "Edit table cell {}:{} — raw Markdown draft",
+                draft.target.row,
+                draft.target.column + 1
+            ))
+            .size(20)
+        )
+        .height(28),
         container(text(context_line(draft)).size(13)).height(20),
-        container(text("One line, up to 16 KiB · escape pipes as \\| · outer cell spacing is preserved").size(13)).height(20),
+        container(
+            text("One line, up to 16 KiB · escape pipes as \\| · outer cell spacing is preserved")
+                .size(13)
+        )
+        .height(20),
         container(input).height(36),
-        row![button("Apply").style(chrome::button_style(ButtonKind::Primary)).width(90).height(32).on_press_maybe(draft.error.is_none().then_some(Message::ApplyPreviewCell)),
-            button("Cancel (Esc)").style(chrome::button_style(ButtonKind::Neutral)).width(130).height(32).on_press(Message::CancelPreviewCell),
-            button(text("Undo draft").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(120).height(32).on_press_maybe(undo_message(draft)),
-            button(text("Redo draft").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(120).height(32).on_press_maybe(redo_message(draft))].spacing(8).height(32),
-        row![button(text("Previous").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Previous).then_some(Message::MovePreviewCell(Direction::Previous))),
-            button(text("Next").size(14)).style(chrome::button_style(ButtonKind::Neutral)).width(112).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::MovePreviewCell(Direction::Next))),
-            button(text("Apply & Next").size(14)).style(chrome::button_style(ButtonKind::Primary)).width(140).height(32).on_press_maybe(can_move(draft,Direction::Next).then_some(Message::ApplyPreviewCellNext)),
-            button(text("Apply & Previous").size(14)).style(chrome::button_style(ButtonKind::Primary)).width(160).height(32).on_press_maybe(apply_previous_message(draft))].spacing(8).height(32),
+        actions,
+        navigation,
         text(draft.error.or(draft.navigation_notice).unwrap_or("Ctrl+Z/Ctrl+Y = Undo/Redo draft · Enter = Apply and close · Previous/Next = unchanged move · Apply & Next/Previous commits one cell · Esc = Cancel")).size(13),
-    ].spacing(12).width(Length::Fill);
-    // Stable top-aligned controls; footer/error wrapping never moves the input
-    // or navigation buttons. No impact on the normal Preview/Split action bar.
-    container(container(controls).width(Length::Fill).max_width(820))
-        .padding(32)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .into()
+    ]
+    .spacing(12)
+    .width(Length::Fill);
+    // Keep the default top-aligned geometry while allowing action rows to scroll
+    // instead of clipping when the window is narrower than their natural width.
+    container(
+        container(controls)
+            .width(Length::Fill)
+            .max_width(820)
+            .style(chrome::surface_style(crate::ui::chrome::SurfaceKind::Panel)),
+    )
+    .padding(crate::ui::layout::panel_padding(viewport_width))
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_x(Length::Fill)
+    .into()
 }
 #[cfg(test)]
 mod tests {

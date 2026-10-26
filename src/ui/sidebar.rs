@@ -1,6 +1,7 @@
 use crate::app::Hylite;
 use crate::commands::Message;
 use crate::ui::chrome::{self, ButtonKind, Colors, SurfaceKind};
+use crate::ui::layout;
 use iced::widget::{button, column, container, row, text, tooltip};
 use iced::{Element, Length};
 
@@ -14,14 +15,20 @@ fn compact_label(value: &str, max_chars: usize) -> String {
     }
 }
 
+pub fn effective_width(app: &Hylite) -> f32 {
+    layout::sidebar_width(app.config.appearance.sidebar_width, app.viewport_width)
+}
+
 pub fn view(app: &Hylite) -> Element<'_, Message> {
     let theme = app.theme();
     let colors = Colors::from_theme(&theme);
+    let width = effective_width(app);
+    let folder_label = if width < 180.0 { "+" } else { "Folder" };
     let header = row![
         text("FILES").size(12).color(colors.muted),
         iced::widget::horizontal_space(),
         tooltip(
-            button(text("Folder").size(11))
+            button(text(folder_label).size(11))
                 .padding([2, 6])
                 .style(chrome::button_style(ButtonKind::Neutral))
                 .on_press(Message::OpenWorkspace),
@@ -36,8 +43,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         .and_then(|path| path.file_name())
         .and_then(|name| name.to_str())
         .unwrap_or("Untitled");
-    let max_name_chars =
-        ((app.config.appearance.sidebar_width.saturating_sub(36) / 7) as usize).clamp(10, 34);
+    let max_name_chars = ((width as u32).saturating_sub(36) / 7).clamp(6, 34) as usize;
     let current_label = tooltip(
         text(compact_label(current, max_name_chars))
             .size(13)
@@ -81,7 +87,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
 
     container(column![header, body, hints].spacing(12).padding(14))
         .style(chrome::surface_style(SurfaceKind::Sidebar))
-        .width(app.config.appearance.sidebar_width as f32)
+        .width(width)
         .height(Length::Fill)
         .into()
 }

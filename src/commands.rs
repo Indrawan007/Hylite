@@ -165,8 +165,10 @@ pub enum Message {
     ExportPdf,
     PdfExported(OperationToken, FileResult<PathBuf>),
     CloseRequested(window::Id),
-    /// A window opened or resized; request its current logical-to-physical scale.
+    /// A window opened; request its current logical-to-physical scale.
     ScaleFactorWindowChanged(window::Id),
+    /// Logical width is used only for responsive layout decisions.
+    WindowResized(window::Id, f32),
     ScaleFactorUpdated(f32),
     ConfirmSave,
     ConfirmDiscard,

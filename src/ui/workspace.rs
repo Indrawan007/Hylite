@@ -146,7 +146,7 @@ fn tree_row(
     } else {
         "·"
     };
-    let sidebar_width = app.config.appearance.sidebar_width;
+    let sidebar_width = crate::ui::sidebar::effective_width(app) as u32;
     let indent = (ROW_INDENT * entry.depth as f32) as u32;
     let max_chars =
         (sidebar_width.saturating_sub(48).saturating_sub(indent) / 7).clamp(10, 34) as usize;

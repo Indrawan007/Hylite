@@ -51,6 +51,8 @@ pub struct Hylite {
     pub zen_mode: bool,
     pub status_message: String,
     pub config: Config,
+    /// Current logical width, updated from Iced window resize events.
+    pub viewport_width: f32,
     /// Scale factor queried from the live Iced window; `None` until its first event.
     scale_factor: Option<f32>,
     pub hyprland: HyprlandIntegration,
@@ -139,6 +141,7 @@ impl Hylite {
             zen_mode: false,
             status_message: status,
             config,
+            viewport_width: 1200.0,
             scale_factor: None,
             hyprland,
             operations: Operations::default(),
@@ -295,6 +298,12 @@ impl Hylite {
         // while an opt-in probe or an editing draft is active.
         match &message {
             Message::ScaleFactorWindowChanged(id) => {
+                return window::get_scale_factor(*id).map(Message::ScaleFactorUpdated);
+            }
+            Message::WindowResized(id, width) => {
+                if width.is_finite() && *width > 0.0 {
+                    self.viewport_width = *width;
+                }
                 return window::get_scale_factor(*id).map(Message::ScaleFactorUpdated);
             }
             Message::ScaleFactorUpdated(scale_factor) => {
@@ -597,7 +606,9 @@ impl Hylite {
 
             // ── UI ──
             Message::CopyEnvironmentReport => self.copy_environment_report(),
-            Message::ScaleFactorWindowChanged(_) | Message::ScaleFactorUpdated(_) => Task::none(),
+            Message::ScaleFactorWindowChanged(_)
+            | Message::WindowResized(_, _)
+            | Message::ScaleFactorUpdated(_) => Task::none(),
 
             Message::ToggleSidebar => {
                 self.sidebar_open = !self.sidebar_open;
@@ -672,13 +683,14 @@ impl Hylite {
                 action,
                 self.operations.active().is_none(),
                 self.file_error.as_deref().unwrap_or(&self.status_message),
+                self.viewport_width,
             )
         } else if let Some(draft) = &self.multiline_draft {
-            crate::ui::multiline_paragraph::view(draft)
+            crate::ui::multiline_paragraph::view(draft, self.viewport_width)
         } else if let Some(draft) = &self.paragraph_draft {
-            crate::ui::paragraph_edit::view(draft)
+            crate::ui::paragraph_edit::view(draft, self.viewport_width)
         } else if let Some(draft) = &self.cell_draft {
-            crate::ui::cell_edit::view(draft)
+            crate::ui::cell_edit::view(draft, self.viewport_width)
         } else if self.zen_mode {
             self.view_zen()
         } else {
@@ -701,13 +713,14 @@ impl Hylite {
 
         container(
             container(editor)
+                .width(Length::Fill)
                 .max_width(self.config.appearance.content_width as f32)
                 .height(Length::Fill),
         )
         .style(crate::ui::chrome::surface_style(
             crate::ui::chrome::SurfaceKind::App,
         ))
-        .padding(48)
+        .padding(crate::ui::layout::panel_padding(self.viewport_width).max(24.0))
         .center_x(Length::Fill)
         .height(Length::Fill)
         .into()
@@ -756,6 +769,7 @@ impl Hylite {
                     &self.go_to,
                     self.document.content().line_count(),
                     self.navigation_allowed(),
+                    self.viewport_width,
                 ),
                 area
             ]
@@ -763,7 +777,12 @@ impl Hylite {
             .into()
         } else if self.search.open {
             column![
-                crate::ui::search::view(&self.search, &self.document, self.source_edit_allowed()),
+                crate::ui::search::view(
+                    &self.search,
+                    &self.document,
+                    self.source_edit_allowed(),
+                    self.viewport_width,
+                ),
                 area
             ]
             .height(Length::Fill)
@@ -837,7 +856,8 @@ impl Hylite {
         container(
             iced::widget::scrollable(
                 container(parsed)
-                    .padding(32)
+                    .width(Length::Fill)
+                    .padding(crate::ui::layout::panel_padding(self.viewport_width))
                     .max_width(self.config.appearance.content_width as f32)
                     .center_x(Length::Fill),
             )
@@ -849,14 +869,29 @@ impl Hylite {
 
     fn view_split(&self) -> Element<'_, Message> {
         let source = self.view_source();
+        let preview = self.view_preview();
 
-        row![
-            container(source).width(Length::FillPortion(1)),
-            container(self.view_preview()).width(Length::FillPortion(1)),
-        ]
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        if self.viewport_width < crate::ui::layout::NARROW_BREAKPOINT {
+            column![
+                container(source)
+                    .width(Length::Fill)
+                    .height(Length::FillPortion(1)),
+                container(preview)
+                    .width(Length::Fill)
+                    .height(Length::FillPortion(1)),
+            ]
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+        } else {
+            row![
+                container(source).width(Length::FillPortion(1)),
+                container(preview).width(Length::FillPortion(1)),
+            ]
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+        }
     }
 
     pub fn theme(&self) -> Theme {
@@ -885,7 +920,7 @@ impl Hylite {
             editing_events,
             window::close_requests().map(Message::CloseRequested),
             window::open_events().map(Message::ScaleFactorWindowChanged),
-            window::resize_events().map(|(id, _size)| Message::ScaleFactorWindowChanged(id)),
+            window::resize_events().map(|(id, size)| Message::WindowResized(id, size.width)),
         ])
     }
 }

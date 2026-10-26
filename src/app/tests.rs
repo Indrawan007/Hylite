@@ -30,6 +30,7 @@ fn app() -> Hylite {
         zen_mode: false,
         status_message: String::new(),
         config: Config::default(),
+        viewport_width: 1200.0,
         scale_factor: None,
         hyprland: HyprlandIntegration::default(),
         operations: Operations::default(),

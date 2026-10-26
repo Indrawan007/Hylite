@@ -194,9 +194,65 @@ fn provenance_line(draft: &Draft) -> String {
         None => "Source changes only on Apply · result must remain one root paragraph".into(),
     }
 }
-pub fn view(draft: &Draft) -> Element<'_, Message> {
-    let controls =
-        column![
+pub fn view(draft: &Draft, viewport_width: f32) -> Element<'_, Message> {
+    let actions = row![
+        button("Apply")
+            .style(chrome::button_style(ButtonKind::Primary))
+            .height(32)
+            .on_press_maybe(apply_message(draft)),
+        button("Cancel (Esc)")
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .height(32)
+            .on_press(Message::CancelMultilineParagraph),
+        button("Undo draft")
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .height(32)
+            .on_press_maybe(
+                draft
+                    .can_undo()
+                    .then_some(Message::MultilineDraftHistory(false))
+            ),
+        button("Redo draft")
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .height(32)
+            .on_press_maybe(
+                draft
+                    .can_redo()
+                    .then_some(Message::MultilineDraftHistory(true))
+            ),
+    ]
+    .spacing(8)
+    .height(32);
+    let navigation = row![
+        button(text("Previous multiline").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(160)
+            .height(32)
+            .on_press_maybe(move_message(draft, Direction::Previous)),
+        button(text("Next multiline").size(14))
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(160)
+            .height(32)
+            .on_press_maybe(move_message(draft, Direction::Next)),
+        button(text("Apply & Next").size(14))
+            .style(chrome::button_style(ButtonKind::Primary))
+            .width(160)
+            .height(32)
+            .on_press_maybe(apply_next_message(draft)),
+    ]
+    .spacing(8)
+    .height(32);
+    let adjacent = row![button(text("Apply & Previous").size(14))
+        .style(chrome::button_style(ButtonKind::Primary))
+        .width(160)
+        .height(32)
+        .on_press_maybe(apply_previous_message(draft)),]
+    .spacing(8)
+    .height(32);
+    let actions = crate::ui::layout::horizontal_overflow(actions.into(), viewport_width);
+    let navigation = crate::ui::layout::horizontal_overflow(navigation.into(), viewport_width);
+    let adjacent = crate::ui::layout::horizontal_overflow(adjacent.into(), viewport_width);
+    let controls = column![
         container(text("Edit multiline root paragraph — raw Markdown draft").size(20)).height(28),
         container(text(provenance_line(draft)).size(13)).height(20),
         container(
@@ -215,61 +271,27 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         )
         .id(input_id())
         .height(200),
-        row![
-            button("Apply")
-                .style(chrome::button_style(ButtonKind::Primary))
-                .height(32)
-                .on_press_maybe(apply_message(draft)),
-            button("Cancel (Esc)")
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .height(32)
-                .on_press(Message::CancelMultilineParagraph),
-            button("Undo draft")
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .height(32)
-                .on_press_maybe(
-                draft.can_undo().then_some(Message::MultilineDraftHistory(false))),
-            button("Redo draft")
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .height(32)
-                .on_press_maybe(
-                draft.can_redo().then_some(Message::MultilineDraftHistory(true)))
-        ]
-        .spacing(8)
-        .height(32),
-        row![
-            button(text("Previous multiline").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(160).height(32)
-                .on_press_maybe(move_message(draft, Direction::Previous)),
-            button(text("Next multiline").size(14))
-                .style(chrome::button_style(ButtonKind::Neutral))
-                .width(160).height(32)
-                .on_press_maybe(move_message(draft, Direction::Next)),
-            button(text("Apply & Next").size(14))
-                .style(chrome::button_style(ButtonKind::Primary))
-                .width(160).height(32)
-                .on_press_maybe(apply_next_message(draft))
-        ].spacing(8).height(32),
-        row![
-            button(text("Apply & Previous").size(14))
-                .style(chrome::button_style(ButtonKind::Primary))
-                .width(160).height(32)
-                .on_press_maybe(apply_previous_message(draft))
-        ].spacing(8).height(32),
+        actions,
+        navigation,
+        adjacent,
         text(draft.error.or(draft.navigation_notice).unwrap_or(
             "Ctrl+Enter = Apply · Ctrl+PageUp/PageDown = Apply & Previous/Next · Esc = Cancel · Enter = newline"
         ))
         .size(13),
     ]
-        .spacing(12)
-        .width(Length::Fill);
-    container(container(controls).width(Length::Fill).max_width(820))
-        .padding(32)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .into()
+    .spacing(12)
+    .width(Length::Fill);
+    container(
+        container(controls)
+            .width(Length::Fill)
+            .max_width(820)
+            .style(chrome::surface_style(crate::ui::chrome::SurfaceKind::Panel)),
+    )
+    .padding(crate::ui::layout::panel_padding(viewport_width))
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_x(Length::Fill)
+    .into()
 }
 
 #[cfg(test)]
