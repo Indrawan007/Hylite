@@ -153,9 +153,11 @@ pub(super) fn render<'a>(
             ..container::Style::default()
         });
     column![
-        text("Right-click cell → Source · Table actions → visual edit · padded cells have no target")
-            .size(11)
-            .color(colors.text),
+        text(
+            "Right-click cell → Source · Table actions → visual edit · padded cells have no target"
+        )
+        .size(11)
+        .color(colors.text),
         scrollable(grid)
             .direction(scrollable::Direction::Horizontal(
                 scrollable::Scrollbar::new()
