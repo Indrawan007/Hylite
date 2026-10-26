@@ -920,7 +920,7 @@ impl Hylite {
         } else {
             crate::document::render_preview_with_visual_edit(
                 blocks,
-                &source,
+                source,
                 &theme,
                 snapshot,
                 base_dir,
