@@ -117,34 +117,6 @@ mod tests {
         }
     }
     #[test]
-    fn plain_preview_text_escapes_markdown_and_round_trips_as_unformatted_text() {
-        let visible =
-            r#"Literal #heading *stars* _underscores_ [brackets] & <angle> \\ `quotes`!  "#;
-        let escaped = escape_plain_text(visible).unwrap();
-        assert_ne!(escaped, visible);
-        let source = format!("{escaped}\n");
-        let blocks = crate::document::preview_model::parse(&source);
-        assert_eq!(blocks.len(), 1);
-        assert_eq!(blocks[0].inline_text_payload, Some(0..escaped.len()));
-        assert_eq!(
-            blocks[0]
-                .runs
-                .iter()
-                .map(|run| run.text.as_str())
-                .collect::<String>(),
-            visible
-        );
-        assert!(blocks[0]
-            .runs
-            .iter()
-            .all(|run| run.style == Default::default()
-                && run.math.is_none()
-                && run.image.is_none()));
-        assert!(escape_plain_text(" leading").is_none());
-        assert!(escape_plain_text("two\nlines").is_none());
-    }
-
-    #[test]
     fn cold_lexical_ranges_cannot_authenticate_heading_or_fence() {
         let source = "```\nplain\n```\n";
         let t = Target {

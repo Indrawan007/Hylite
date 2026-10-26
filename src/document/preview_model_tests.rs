@@ -109,6 +109,24 @@ fn inline_preview_text_payload_is_root_plain_and_excludes_link_like_syntax() {
 }
 
 #[test]
+fn plain_preview_text_escapes_markdown_and_round_trips_as_unformatted_text() {
+    let visible = r#"Literal #heading *stars* _underscores_ [brackets] & <angle> \\\\ `quotes`!  "#;
+    let escaped = crate::preview_paragraph::escape_plain_text(visible).unwrap();
+    assert_ne!(escaped, visible);
+    let source = format!("{escaped}\n");
+    let blocks = parse(&source);
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(blocks[0].inline_text_payload, Some(0..escaped.len()));
+    assert_eq!(text(&blocks[0]), visible);
+    assert!(blocks[0]
+        .runs
+        .iter()
+        .all(|run| run.style == Style::default() && run.math.is_none() && run.image.is_none()));
+    assert!(crate::preview_paragraph::escape_plain_text(" leading").is_none());
+    assert!(crate::preview_paragraph::escape_plain_text("two\nlines").is_none());
+}
+
+#[test]
 fn nested_styles_restore_outer_state_after_closing() {
     let blocks = parse("plain **bold *both* end** plain ~~gone~~\n");
     let runs = &blocks[0].runs;

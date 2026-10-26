@@ -865,6 +865,8 @@ impl Hylite {
                 base_dir,
                 self.inline_probe.as_ref(),
             )
+        } else if blocks.is_empty() {
+            crate::document::render_preview(blocks, &theme, snapshot, base_dir)
         } else {
             crate::document::render_preview_with_inline_text(
                 blocks,

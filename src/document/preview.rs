@@ -605,11 +605,13 @@ fn inline_text_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
     if block.kind != Kind::Paragraph {
         return None;
     }
-    Some(Message::OpenInlinePreviewText(Target {
-        snapshot,
-        block: block.source.clone(),
-        payload: block.inline_text_payload.clone()?,
-    }))
+    Some(Message::OpenInlinePreviewText(
+        crate::preview_paragraph::Target {
+            snapshot,
+            block: block.source.clone(),
+            payload: block.inline_text_payload.clone()?,
+        },
+    ))
 }
 
 fn heading_action(
