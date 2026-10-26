@@ -117,6 +117,16 @@ mod tests {
         }
     }
     #[test]
+    fn plain_preview_text_encoder_escapes_punctuation_and_trailing_spaces() {
+        assert_eq!(
+            escape_plain_text("text & *").as_deref(),
+            Some("text &amp; \\*")
+        );
+        assert_eq!(escape_plain_text("x  ").as_deref(), Some("x&#32;&#32;"));
+        assert!(escape_plain_text(" leading").is_none());
+    }
+
+    #[test]
     fn cold_lexical_ranges_cannot_authenticate_heading_or_fence() {
         let source = "```\nplain\n```\n";
         let t = Target {
