@@ -121,7 +121,7 @@ klaim speed/performa umum atau perbandingan.
 | Stage | Isi | Usaha | Bisa saya verifikasi? |
 |---|---|---|---|
 | **11a ✅** | **Instrumentasi target**: log diagnostik (tipe renderer Iced compile-time, skala window, font, locale, hint portal), tombol salin laporan, skrip `scripts/report-environment.sh`; laporan dibatasi allowlist dan redaksi | kecil | ya — seluruh gate lulus di [CI `40244045608`](https://github.com/Indrawan007/Hylite/actions/runs/40244045608) |
-| **11b (checklist disiapkan; runtime belum diuji)** | **Checklist manual Arch + Hyprland/Wayland**: portal file dialog, IME (`fcitx5`/`ibus`), HiDPI, RTL, GPU; template hasil tersedia di [`docs/testing-stage11b.md`](testing-stage11b.md) | kecil (dokumentasi) + manual | **tidak** — butuh mesinmu |
+| **11b (preflight parsial; pemeriksaan GUI tersisa)** | **Checklist manual Arch + Hyprland/Wayland**: portal file dialog, IME (`fcitx5`/`ibus`), HiDPI, RTL, GPU; preflight environment/build dari pengguna dicatat di [`docs/testing-stage11b.md`](testing-stage11b.md) | dokumentasi + manual | **tidak** — butuh mesinmu |
 | **11c** | **PKGBUILD + build release** (`--release`, LTO, strip), cek `makepkg` | kecil–sedang | sebagian (lint PKGBUILD) |
 | **11d** | **Rilis 0.2.0**: tag, changelog, catatan batas yang jujur | kecil | ya |
 | **11e** | **Rilis 1.0.0**: hanya setelah definisi di bagian 1 terpenuhi | kecil | ya |
@@ -138,7 +138,7 @@ mengubah estimasi roadmap ≈93% maupun kesiapan rilis ≈44%.
 |---|---|---|---|---|
 | **0. Baseline build** | ✅ selesai | — | Pertahankan gate format, strict core, Clippy, build, unit/property test, dan smoke GUI yang ada. | Baseline CI pada `fa48010` lulus ([run `40096439336`](https://github.com/Indrawan007/Hylite/actions/runs/40096439336)); revisi roadmap `f36f2c6` juga lulus CI ([run `40238939360`](https://github.com/Indrawan007/Hylite/actions/runs/40238939360)). Keduanya bukan bukti paket Arch. |
 | **1. Stage 11a — diagnostik lingkungan** | ✅ selesai — [CI `40244045608`](https://github.com/Indrawan007/Hylite/actions/runs/40244045608) pada `fdf991b` lulus seluruh gate | kecil | Tipe renderer compile-time, scale factor window, konfigurasi font, locale, status endpoint yang disamarkan, hint service portal, tombol Copy env, dan script shell kini tersedia; rinciannya di [`docs/testing-stage11a.md`](testing-stage11a.md). | Tes privasi memastikan rahasia/path tidak ikut laporan; format, strict core, Clippy, build, tes Cargo dan smoke CI lulus. |
-| **2. Stage 11b — verifikasi target** | template checklist disiapkan saja; runtime belum dilakukan, perlu mesin Arch + Hyprland/Wayland | kecil (dokumentasi) + manual | Jalankan aplikasi di sesi target, lalu isi tabel hasil di [`docs/testing-stage11b.md`](testing-stage11b.md) untuk portal/FileChooser, buka/simpan, IME, RTL, HiDPI, GPU, dan tutup aplikasi. Catat environment dan batas yang ditemukan. | Hasil manual dapat ditinjau; CI Xvfb tidak dapat menggantikan langkah ini. |
+| **2. Stage 11b — verifikasi target** | preflight parsial dari pengguna: Arch/Wayland/Hyprland dilaporkan dan build debug lulus; uji interaksi GUI belum tercatat | dokumentasi + manual | Lanjutkan tabel di [`docs/testing-stage11b.md`](testing-stage11b.md): portal/FileChooser, buka/simpan, IME, RTL, HiDPI, GPU, tutup aplikasi. Catat environment dan batas yang ditemukan. | Hasil manual dapat ditinjau; CI Xvfb dan status service saja tidak menggantikan langkah ini. |
 | **3. Stage 11c — paket dan release build** | belum dimulai | kecil–sedang | Tinjau profil `--release` (LTO/strip bila sesuai), buat PKGBUILD, bangun di Arch bersih dengan dependensi terkunci, periksa isi/dependensi paket dan checksum. Ulangi build dengan input/toolchain tercatat untuk menilai reproducibility. | `makepkg` sukses; paket dapat dipasang dan executable dapat diluncurkan. Catat perintah, toolchain, versi, dan checksum; jangan klaim reproducible sebelum hasil pengulangan mendukungnya. |
 | **4. Gate Build rilis** | menunggu 1–3 | — | Gabungkan bukti kompilasi release, paket, dan smoke run target. | Artefak Arch terpasang dan berjalan pada cakupan checklist yang dicatat; jangan menyebutnya rilis 1.0 hanya berdasarkan build. |
 
@@ -152,10 +152,11 @@ boleh diklaim tervalidasi.
 sync belum dimulai. Keduanya bukan alasan untuk mengubah scope build ini; tetapi
 keduanya, bersama kriteria lain di bagian 1, tetap dapat menahan klaim selesai
 1.0. Rilis 0.2.0 (11d) juga langkah terpisah setelah gate Build, bukan bagian dari
-pekerjaan build itu sendiri. Stage 11a telah selesai. Persetujuan terbaru untuk
-Stage 11b hanya mencakup persiapan checklist/instruksi; verifikasi runtime tetap
-belum dilakukan dan memerlukan mesin target. Stage 11c tidak diotorisasi. Berhenti
-setelah template ini sampai hasil manual tersedia dan scope berikutnya disetujui.
+pekerjaan build itu sendiri. Stage 11a telah selesai; Stage 11b memiliki preflight
+parsial dari laporan pengguna, tetapi portal/dialog dan pemeriksaan runtime lainnya
+belum dicatat. Persetujuan Stage 11b tetap terbatas pada dokumentasi/checklist;
+Stage 11c tidak diotorisasi. Lanjutkan hanya dengan hasil manual dari mesin target,
+lalu tinjau sebelum menentukan scope berikutnya.
 
 ---
 

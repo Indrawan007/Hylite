@@ -99,7 +99,7 @@ sudo pacman -S --needed xdg-desktop-portal xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk
 ```
 
-Backend Hyprland dan GTK memiliki cakupan portal berbeda; pastikan konfigurasi portal sesi memilih backend yang menyediakan `FileChooser`. Jalankan aplikasi dari sesi desktop dengan D-Bus dan environment Wayland/Hyprland yang benar. Hyprland tidak diwajibkan untuk mengedit dokumen; integrasi compositor bersifat opsional. Langkah verifikasi manual serta lembar hasil Stage 11b ada di [checklist target](docs/testing-stage11b.md); template itu belum merupakan hasil uji runtime.
+Backend Hyprland dan GTK memiliki cakupan portal berbeda; pastikan konfigurasi portal sesi memilih backend yang menyediakan `FileChooser`. Jalankan aplikasi dari sesi desktop dengan D-Bus dan environment Wayland/Hyprland yang benar. Hyprland tidak diwajibkan untuk mengedit dokumen; integrasi compositor bersifat opsional. Langkah verifikasi manual serta lembar hasil Stage 11b ada di [checklist target](docs/testing-stage11b.md); laporan preflight parsial tersedia, tetapi interaksi target belum selesai diuji.
 
 ## Pemeriksaan pengembangan
 

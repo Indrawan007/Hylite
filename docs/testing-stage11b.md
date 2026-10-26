@@ -1,12 +1,14 @@
 # Stage 11b — checklist manual Arch + Hyprland/Wayland
 
-**Status:** template/instruksi saja; belum ada pemeriksaan runtime yang dijalankan
-atau hasil target yang dicatat. Checklist ini harus diisi dari sesi desktop Arch
-+ Hyprland/Wayland milik pengguna. CI X11/Xvfb tidak menggantikannya.
+**Status:** checklist disiapkan dan preflight parsial dicatat dari output yang
+diberikan pengguna. Build debug selesai dan laporan shell memberi petunjuk sesi
+Arch/Wayland/Hyprland, tetapi belum ada hasil interaksi portal, IME, RTL, HiDPI,
+GPU, atau lifecycle. Checklist tetap harus diisi dari sesi target milik pengguna;
+CI X11/Xvfb tidak menggantikannya.
 
-Persetujuan yang ada hanya mencakup persiapan checklist ini. Tidak ada perubahan
-kode produksi, tidak ada verifikasi target yang diklaim, dan Stage 11c (PKGBUILD /
-release build) tetap di luar scope.
+Catatan di bawah hanya merangkum output yang dibagikan dan tidak menyimpan path
+lokal/alamat endpoint. Ini bukan klaim bahwa Stage 11b selesai. Tidak ada perubahan
+kode produksi atau Stage 11c (PKGBUILD/release build).
 
 ## 1. Persiapan aman
 
@@ -48,21 +50,39 @@ release build) tetap di luar scope.
 Isi sebelum menjalankan checklist. Tulis `tidak diketahui` jika tidak dapat
 memastikan suatu nilai; jangan menyimpulkannya dari nama paket atau service.
 
-| Data | Nilai |
+| Data | Nilai yang dilaporkan |
 |---|---|
-| Tanggal/waktu lokal | — |
-| Branch dan commit Hylite | — |
-| Distro/versi, kernel, arsitektur | — |
-| Sesi compositor dan jenis sesi yang dilaporkan | — |
-| GPU dan driver (jika diketahui) | — |
-| Monitor/scale factor yang dilaporkan app | — |
-| Input method aktif (fcitx5, ibus, lain, atau tidak ada) | — |
-| Renderer type compile-time dari Copy env | — |
-| Hasil ringkas status service portal | — |
+| Tanggal laporan diterima | 26 Oktober 2026; waktu uji tidak disertakan |
+| Branch dan commit Hylite yang diuji | tidak disertakan |
+| Distro/versi, kernel, arsitektur | Arch (`ID=arch`; `VERSION_ID` tidak tersedia pada laporan), Linux `7.2.11-arch1-1`, `x86_64` |
+| Sesi compositor dan jenis sesi yang dilaporkan | `XDG_CURRENT_DESKTOP=Hyprland`, `XDG_SESSION_TYPE=wayland` |
+| GPU dan driver (jika diketahui) | belum dilaporkan |
+| Monitor/scale factor yang dilaporkan app | belum dilaporkan; belum ada output tombol **Copy env** |
+| Input method aktif (fcitx5, ibus, lain, atau tidak ada) | belum dilaporkan |
+| Renderer type compile-time dari Copy env | belum dilaporkan; skrip shell tidak dapat membacanya |
+| Locale/fontconfig | `LANG=en_US.UTF-8`; monospace `Noto Sans Mono:style=Regular` |
+| Endpoint display/D-Bus | `WAYLAND_DISPLAY`, `DISPLAY`, dan bus D-Bus set; nilai tetap disamarkan |
+| Toolchain | `rustc 1.99.0`, `cargo 1.99.0` |
+| Status service portal | ketiga unit yang dicetak (portal umum, Hyprland, GTK) dilaporkan `active` |
 
 `Renderer type` pada laporan app adalah informasi compile-time, bukan identifikasi
 GPU/API grafis runtime. Status `active` dari `systemctl` juga bukan bukti bahwa
-file dialog memilih atau berhasil memakai portal tertentu.
+file dialog memilih atau berhasil memakai portal tertentu. Kedua endpoint Wayland
+serta X11 yang `set` tidak mengubah laporan jenis sesi `wayland` menjadi sesi X11;
+nilai socket tetap tidak diketahui karena memang disamarkan.
+
+### Hasil preflight yang dibagikan
+
+- Build profile `dev` selesai dalam **30,80 detik** menurut output pengguna. Ini
+  bukti build debug saja, bukan bukti release build atau perilaku GUI.
+- Saat Hylite membaca konfigurasi lokal, aplikasi menolak key `opacity = 1.0`
+  karena field itu tidak didukung, lalu menggunakan default. Hapus key tersebut
+  dari konfigurasi lokal dan jalankan ulang sebelum menguji font/tema konfigurasi;
+  jika ingin mengatur opacity, proyek mengarahkannya ke Hyprland. Path konfigurasi
+  lokal sengaja tidak disimpan di catatan ini.
+- Output warning menunjukkan konfigurasi ditolak, tetapi tidak secara eksplisit
+  mencatat apakah window tampil atau tidak. Hasil interaksi aplikasi masih perlu
+  dicatat terpisah.
 
 ## 3. Pemeriksaan manual
 
@@ -145,16 +165,17 @@ isi dokumen, alamat D-Bus, token, dan informasi lain yang tidak perlu.
 
 | Area | Status | Pengamatan / versi / scale yang diuji (tanpa data sensitif) |
 |---|---|---|
-| Session Wayland + Hyprland terkonfirmasi | NOT RUN | — |
-| Portal: Open, Cancel, Save As, Cancel | NOT RUN | — |
+| Environment report menunjukkan Wayland + Hyprland | PASS (hint environment saja) | `XDG_SESSION_TYPE=wayland`, `XDG_CURRENT_DESKTOP=Hyprland`; bukan validasi perilaku GUI |
+| `cargo build --locked` pada profile dev | PASS (build saja) | selesai dalam 30,80 detik menurut output yang dibagikan |
+| Portal: Open, Cancel, Save As, Cancel | NOT RUN | service portal `active`, tetapi dialog belum diuji |
 | IME yang tersedia | NOT RUN | — |
 | RTL / teks campuran | NOT RUN | — |
-| HiDPI / scale factor | NOT RUN | — |
-| GPU / render window dan Preview | NOT RUN | — |
+| HiDPI / scale factor | NOT RUN | laporan **Copy env** dari aplikasi belum diterima |
+| GPU / render window dan Preview | NOT RUN | GPU/driver dan hasil visual belum dilaporkan |
 | Tutup bersih dan prompt dirty | NOT RUN | — |
 
-**Kesimpulan target:** belum diisi — tunggu bukti dari mesin Arch + Hyprland/Wayland.
-Tuliskan kegagalan, kondisi yang tidak dapat diuji, dan batas reproduksi apa adanya.
-Tidak ada hasil runtime yang disimpulkan dari template ini. Setelah hasil manual
-tersedia, Stage 11b dapat ditinjau terpisah; Stage 11c tetap menunggu otorisasi
-terpisah.
+**Kesimpulan sementara:** preflight environment dan build debug berhasil menurut
+output pengguna; checklist target belum selesai. Catat kegagalan, kondisi yang tidak
+dapat diuji, dan batas reproduksi apa adanya. Jangan menyimpulkan portal berfungsi
+dari status service. Stage 11b baru dapat ditinjau setelah interaksi manual dicatat;
+Stage 11c tetap menunggu otorisasi terpisah.
