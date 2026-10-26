@@ -5,9 +5,33 @@ use crate::block_edit::BlockStyle;
 use crate::commands::Message;
 use crate::editor::EditMode;
 use crate::text_edit::InlineStyle;
-use crate::ui::chrome::{self, Colors, SurfaceKind};
-use iced::widget::{button, container, row, scrollable, text, tooltip};
+use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
+use crate::ui::icons::Icon;
+use iced::widget::{button, container, row, scrollable, tooltip};
 use iced::{Element, Length};
+
+fn icon_action(
+    icon: Icon,
+    message: Option<Message>,
+    hint: &'static str,
+) -> Element<'static, Message> {
+    let icon_kind = if message.is_some() {
+        ButtonKind::Neutral
+    } else {
+        ButtonKind::Quiet
+    };
+    tooltip(
+        button(crate::ui::icons::view(icon, icon_kind))
+            .on_press_maybe(message)
+            .style(chrome::button_style(ButtonKind::Neutral))
+            .width(34)
+            .height(28)
+            .padding(0),
+        hint,
+        tooltip::Position::Bottom,
+    )
+    .into()
+}
 
 fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     container(content)
@@ -17,8 +41,6 @@ fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Mess
 }
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
-    let theme = app.theme();
-    let colors = Colors::from_theme(&theme);
     let editable = app.source_edit_allowed();
     let history_action = |redo| {
         if app.mode == EditMode::Preview {
@@ -33,88 +55,145 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             (editable && available).then_some(if redo { Message::Redo } else { Message::Undo })
         }
     };
-    let blocks: Element<'_, Message> = if editable {
-        iced::widget::pick_list(BlockStyle::ALL, None::<BlockStyle>, Message::FormatBlock)
-            .placeholder("Blocks…")
-            .into()
-    } else {
-        button("Blocks…").into()
-    };
 
-    // Keep Undo/Redo first in the strip: their default-size hit targets remain
-    // stable for keyboard/mouse smoke coverage as the rest of the toolbar groups.
+    // Keep Undo/Redo first so their hit targets stay predictable for keyboard
+    // and mouse coverage while the rest of the toolbar is icon-only.
     let history = row![
-        button("Undo").on_press_maybe(history_action(false)),
-        button("Redo").on_press_maybe(history_action(true)),
+        icon_action(Icon::Undo, history_action(false), "Undo · Ctrl+Z"),
+        icon_action(
+            Icon::Redo,
+            history_action(true),
+            "Redo · Ctrl+Y or Ctrl+Shift+Z"
+        ),
     ]
     .spacing(8);
     let task_actions = panel_group(
         row![
-            tooltip(
-                button(text("Check tasks").size(14))
-                    .width(112)
-                    .on_press_maybe(app.preview_task_batch_action(true)),
-                "Canonical tasks only · max 1024 · no-op disabled",
-                tooltip::Position::Bottom
+            icon_action(
+                Icon::CheckTasks,
+                app.preview_task_batch_action(true),
+                "Check supported tasks · max 1024 · no-op disabled",
             ),
-            tooltip(
-                button(text("Clear tasks").size(14))
-                    .width(112)
-                    .on_press_maybe(app.preview_task_batch_action(false)),
-                "Canonical tasks only · max 1024 · no-op disabled",
-                tooltip::Position::Bottom
+            icon_action(
+                Icon::ClearTasks,
+                app.preview_task_batch_action(false),
+                "Clear supported task checks · max 1024 · no-op disabled",
             ),
         ]
-        .spacing(8),
+        .spacing(4),
     );
     let navigation_actions = panel_group(
         row![
-            button("Find").on_press(Message::OpenFind(false)),
-            button("Go to Line")
-                .on_press_maybe(app.navigation_allowed().then_some(Message::OpenGoTo)),
-            button("Replace").on_press(Message::OpenFind(true)),
+            icon_action(
+                Icon::Search,
+                Some(Message::OpenFind(false)),
+                "Find · Ctrl+F"
+            ),
+            icon_action(
+                Icon::GoToLine,
+                app.navigation_allowed().then_some(Message::OpenGoTo),
+                "Go to line · Ctrl+G"
+            ),
+            icon_action(
+                Icon::Replace,
+                Some(Message::OpenFind(true)),
+                "Find and replace · Ctrl+H"
+            ),
         ]
-        .spacing(8),
+        .spacing(4),
     );
+    let blocks: Element<'_, Message> = if editable {
+        tooltip(
+            iced::widget::pick_list(BlockStyle::ALL, None::<BlockStyle>, Message::FormatBlock)
+                .placeholder("¶")
+                .width(40),
+            "Choose block style",
+            tooltip::Position::Bottom,
+        )
+        .into()
+    } else {
+        icon_action(
+            Icon::BlockStyle,
+            None,
+            "Block formatting is unavailable in this mode",
+        )
+    };
     let formatting_actions = panel_group(
         row![
-            button("Bold")
-                .on_press_maybe(editable.then_some(Message::FormatInline(InlineStyle::Bold))),
-            button("Italic")
-                .on_press_maybe(editable.then_some(Message::FormatInline(InlineStyle::Italic))),
-            button("Code")
-                .on_press_maybe(editable.then_some(Message::FormatInline(InlineStyle::Code))),
+            icon_action(
+                Icon::Bold,
+                editable.then_some(Message::FormatInline(InlineStyle::Bold)),
+                "Bold · Ctrl+Shift+B",
+            ),
+            icon_action(
+                Icon::Italic,
+                editable.then_some(Message::FormatInline(InlineStyle::Italic)),
+                "Italic · Ctrl+I",
+            ),
+            icon_action(
+                Icon::Code,
+                editable.then_some(Message::FormatInline(InlineStyle::Code)),
+                "Inline code · Ctrl+E",
+            ),
             blocks,
-            button("Link").on_press_maybe(editable.then_some(Message::InsertLink)),
-            button("Code block").on_press_maybe(editable.then_some(Message::InsertCodeBlock)),
+            icon_action(
+                Icon::Link,
+                editable.then_some(Message::InsertLink),
+                "Insert link · Ctrl+K",
+            ),
+            icon_action(
+                Icon::CodeBlock,
+                editable.then_some(Message::InsertCodeBlock),
+                "Insert fenced code block · Ctrl+Shift+C",
+            ),
         ]
-        .spacing(8),
+        .spacing(4),
     );
     let line_actions = panel_group(
         row![
-            button("Indent").on_press_maybe(editable.then_some(Message::Indent(false))),
-            button("Unindent").on_press_maybe(editable.then_some(Message::Indent(true))),
-            button("Duplicate Lines").on_press_maybe(
-                editable.then_some(Message::EditLines(crate::line_edit::Action::Duplicate))
+            icon_action(
+                Icon::Indent,
+                editable.then_some(Message::Indent(false)),
+                "Indent · Tab",
             ),
-            button("Delete Lines").on_press_maybe(
-                editable.then_some(Message::EditLines(crate::line_edit::Action::Delete))
+            icon_action(
+                Icon::Unindent,
+                editable.then_some(Message::Indent(true)),
+                "Unindent · Shift+Tab",
             ),
-            button("Move Up").on_press_maybe(
-                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveUp))
+            icon_action(
+                Icon::Duplicate,
+                editable.then_some(Message::EditLines(crate::line_edit::Action::Duplicate)),
+                "Duplicate lines · Ctrl+Shift+D",
             ),
-            button("Move Down").on_press_maybe(
-                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown))
+            icon_action(
+                Icon::Delete,
+                editable.then_some(Message::EditLines(crate::line_edit::Action::Delete)),
+                "Delete lines · Ctrl+Shift+K",
+            ),
+            icon_action(
+                Icon::MoveUp,
+                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveUp)),
+                "Move lines up · Alt+↑",
+            ),
+            icon_action(
+                Icon::MoveDown,
+                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown)),
+                "Move lines down · Alt+↓",
             ),
         ]
-        .spacing(8),
+        .spacing(4),
     );
     let shortcuts = tooltip(
-        text("Shortcuts").size(11).color(colors.muted),
+        button(crate::ui::icons::view(Icon::Keyboard, ButtonKind::Quiet))
+            .style(chrome::button_style(ButtonKind::Quiet))
+            .width(34)
+            .height(28)
+            .padding(0),
         if app.mode == EditMode::Preview {
             "Preview history: Ctrl+Z undo · Ctrl+Shift+Z or Ctrl+Y redo. Only validated Preview edits are included."
         } else {
-            "Source: Ctrl+Shift+B bold · Ctrl+I italic · Ctrl+E code · Ctrl+B toggles the sidebar · Ctrl+Shift+M cycles modes."
+            "Source: Ctrl+Shift+B bold · Ctrl+I italic · Ctrl+E code · Ctrl+K link · Ctrl+Shift+C code block · Ctrl+Shift+D duplicate lines · Ctrl+Shift+K delete lines · Alt+↑/↓ move lines."
         },
         tooltip::Position::Top,
     );

@@ -2,9 +2,53 @@ use crate::app::Hylite;
 use crate::commands::Message;
 use crate::editor::EditMode;
 use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
+use crate::ui::icons::Icon;
 use crate::ui::layout::{self, COMPACT_BREAKPOINT};
-use iced::widget::{button, column, container, horizontal_space, row, text, tooltip};
+use iced::widget::{button, column, container, horizontal_space, row, tooltip};
 use iced::{Element, Length};
+
+fn icon_control(icon: Icon, message: Message, kind: ButtonKind) -> Element<'static, Message> {
+    button(crate::ui::icons::view(icon, kind))
+        .on_press(message)
+        .style(chrome::button_style(kind))
+        .width(34)
+        .height(28)
+        .padding(0)
+        .into()
+}
+
+fn icon_action(
+    icon: Icon,
+    message: Message,
+    kind: ButtonKind,
+    hint: &'static str,
+) -> Element<'static, Message> {
+    tooltip(
+        icon_control(icon, message, kind),
+        hint,
+        tooltip::Position::Bottom,
+    )
+    .into()
+}
+
+fn mode_action(
+    app: &Hylite,
+    icon: Icon,
+    label: &'static str,
+    mode: EditMode,
+) -> Element<'static, Message> {
+    let kind = if app.mode == mode {
+        ButtonKind::Selected
+    } else {
+        ButtonKind::Neutral
+    };
+    tooltip(
+        icon_control(icon, Message::SwitchMode(mode), kind),
+        format!("{label} mode · Ctrl+Shift+M cycles modes"),
+        tooltip::Position::Bottom,
+    )
+    .into()
+}
 
 fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     container(content)
@@ -14,118 +58,93 @@ fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Mess
 }
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
-    let mode_btn = |label: &'static str, mode: EditMode| {
-        button(text(label).size(12))
-            .on_press(Message::SwitchMode(mode))
-            .style(chrome::button_style(if app.mode == mode {
-                ButtonKind::Selected
-            } else {
-                ButtonKind::Neutral
-            }))
-            .padding([4, 10])
-    };
-
     let save_kind = if app.document.is_dirty() {
         ButtonKind::Primary
     } else {
         ButtonKind::Neutral
     };
-    let sidebar = tooltip(
-        button(text("☰").size(15))
-            .on_press(Message::ToggleSidebar)
-            .style(chrome::button_style(if app.sidebar_open {
-                ButtonKind::Selected
-            } else {
-                ButtonKind::Neutral
-            }))
-            .padding([4, 9]),
-        "Toggle file sidebar · Ctrl+B",
-        tooltip::Position::Bottom,
-    );
-    let new = tooltip(
-        button(text("New").size(12))
-            .on_press(Message::NewFile)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "New document · Ctrl+N",
-        tooltip::Position::Bottom,
-    );
-    let open = tooltip(
-        button(text("Open").size(12))
-            .on_press(Message::OpenFile)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "Open a Markdown file · Ctrl+O",
-        tooltip::Position::Bottom,
-    );
-    let save = tooltip(
-        button(text("Save").size(12))
-            .on_press(Message::SaveFile)
-            .style(chrome::button_style(save_kind))
-            .padding([4, 10]),
-        if app.document.is_dirty() {
-            "Save changes · Ctrl+S"
-        } else {
-            "Save document · Ctrl+S"
-        },
-        tooltip::Position::Bottom,
-    );
-    let save_as = tooltip(
-        button(text("Save As").size(12))
-            .on_press(Message::SaveAs)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "Save a copy · Ctrl+Shift+S",
-        tooltip::Position::Bottom,
-    );
-    let html = tooltip(
-        button(text("HTML").size(12))
-            .on_press(Message::ExportHtml)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "Export HTML · Ctrl+Shift+E",
-        tooltip::Position::Bottom,
-    );
-    let pdf = tooltip(
-        button(text("PDF").size(12))
-            .on_press(Message::ExportPdf)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "Export PDF · Ctrl+Shift+P",
-        tooltip::Position::Bottom,
-    );
-    let zen = tooltip(
-        button(text("🧘 Zen").size(12))
-            .on_press(Message::ToggleZenMode)
-            .style(chrome::button_style(if app.zen_mode {
-                ButtonKind::Selected
-            } else {
-                ButtonKind::Neutral
-            }))
-            .padding([4, 10]),
-        "Toggle distraction-free mode · F11",
-        tooltip::Position::Bottom,
-    );
-    let environment = tooltip(
-        button(text("Copy env").size(12))
-            .on_press(Message::CopyEnvironmentReport)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .padding([4, 10]),
-        "Copy a redacted environment report",
-        tooltip::Position::Bottom,
-    );
+    let save_hint = if app.document.is_dirty() {
+        "Save changes · Ctrl+S"
+    } else {
+        "Save document · Ctrl+S"
+    };
 
-    let file_group = panel_group(row![sidebar, new, open, save, save_as, html, pdf].spacing(4));
+    let file_group = panel_group(
+        row![
+            icon_action(
+                Icon::Menu,
+                Message::ToggleSidebar,
+                if app.sidebar_open {
+                    ButtonKind::Selected
+                } else {
+                    ButtonKind::Neutral
+                },
+                "Toggle file sidebar · Ctrl+B",
+            ),
+            icon_action(
+                Icon::NewFile,
+                Message::NewFile,
+                ButtonKind::Neutral,
+                "New document · Ctrl+N",
+            ),
+            icon_action(
+                Icon::OpenFile,
+                Message::OpenFile,
+                ButtonKind::Neutral,
+                "Open a Markdown file · Ctrl+O",
+            ),
+            icon_action(Icon::Save, Message::SaveFile, save_kind, save_hint),
+            icon_action(
+                Icon::SaveAs,
+                Message::SaveAs,
+                ButtonKind::Neutral,
+                "Save a copy · Ctrl+Shift+S",
+            ),
+            icon_action(
+                Icon::Html,
+                Message::ExportHtml,
+                ButtonKind::Neutral,
+                "Export HTML · Ctrl+Shift+E",
+            ),
+            icon_action(
+                Icon::Pdf,
+                Message::ExportPdf,
+                ButtonKind::Neutral,
+                "Export PDF · Ctrl+Shift+P",
+            ),
+        ]
+        .spacing(4),
+    );
     let tabs = crate::ui::tabs::view(app);
     let mode_group = panel_group(
         row![
-            mode_btn("Source", EditMode::Source),
-            mode_btn("Preview", EditMode::Preview),
-            mode_btn("Split", EditMode::Split),
+            mode_action(app, Icon::Source, "Source", EditMode::Source),
+            mode_action(app, Icon::Preview, "Preview", EditMode::Preview),
+            mode_action(app, Icon::Split, "Split", EditMode::Split),
         ]
         .spacing(2),
     );
-    let utility_group = panel_group(row![zen, environment].spacing(4));
+    let utility_group = panel_group(
+        row![
+            icon_action(
+                Icon::Zen,
+                Message::ToggleZenMode,
+                if app.zen_mode {
+                    ButtonKind::Selected
+                } else {
+                    ButtonKind::Neutral
+                },
+                "Toggle distraction-free mode · F11",
+            ),
+            icon_action(
+                Icon::Copy,
+                Message::CopyEnvironmentReport,
+                ButtonKind::Neutral,
+                "Copy a redacted environment report",
+            ),
+        ]
+        .spacing(4),
+    );
 
     let layout: Element<'_, Message> = if app.viewport_width >= COMPACT_BREAKPOINT {
         row![

@@ -312,8 +312,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
             ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "40", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "95", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "29", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "71", "62", "click", "1"),
         ])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertIn("ctrl+shift+z", keys)
