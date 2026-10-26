@@ -184,21 +184,33 @@ fn paragraph_target(
         return Some((BlockKind::Paragraph, payload, String::new(), String::new()));
     }
 
-    // Nested paragraph event ranges vary with container syntax. Accept one only
-    // when its exact raw slice independently parses to the same one-line
-    // paragraph projection; this keeps list/quote prefixes outside the edit.
+    // Nested paragraph event ranges vary with container syntax and may stop at
+    // the final visible run, before closing inline markers. Preflight through the
+    // physical line end while starting replacement at the parser-owned payload,
+    // so list/quote prefixes and any indentation stay outside the edit.
     if block.source.is_empty() || block.source.len() > MAX_BYTES {
         return None;
     }
-    let raw = source.get(block.source.clone())?;
-    let (payload_len, line_ending) = if raw.ends_with("\r\n") {
-        (raw.len().checked_sub(2)?, "\r\n")
-    } else if raw.ends_with('\n') {
-        (raw.len().checked_sub(1)?, "\n")
+    source.get(block.source.clone())?;
+    let remaining = source.get(block.source.start..)?;
+    let line_end = remaining
+        .find('\n')
+        .map_or(source.len(), |offset| block.source.start + offset);
+    let content_end =
+        if line_end > block.source.start && source.as_bytes().get(line_end - 1) == Some(&b'\r') {
+            line_end - 1
+        } else {
+            line_end
+        };
+    let (replace_end, line_ending) = if line_end < source.len() {
+        (line_end + 1, source.get(content_end..line_end + 1)?)
     } else {
-        (raw.len(), "")
+        (line_end, "")
     };
-    let line = raw.get(..payload_len)?;
+    if block.source.end > replace_end || replace_end - block.source.start > MAX_BYTES {
+        return None;
+    }
+    let line = source.get(block.source.start..content_end)?;
     let content_start = line.len() - line.trim_start_matches([' ', '\t']).len();
     let content = line.get(content_start..)?;
     if content.is_empty() || content.contains('\n') || content.contains('\r') {
@@ -208,10 +220,7 @@ fn paragraph_target(
     let [standalone] = parsed.as_slice() else {
         return None;
     };
-    if standalone.kind != Kind::Paragraph
-        || standalone.source.start != 0
-        || standalone.source.end != content.len()
-    {
+    if standalone.kind != Kind::Paragraph || standalone.source.start != 0 {
         return None;
     }
     let original_projection = Projection::from_block(block, source)?;
@@ -222,7 +231,7 @@ fn paragraph_target(
     let replace_start = block.source.start.checked_add(content_start)?;
     Some((
         BlockKind::Paragraph,
-        replace_start..block.source.end,
+        replace_start..replace_end,
         String::new(),
         line_ending.to_owned(),
     ))

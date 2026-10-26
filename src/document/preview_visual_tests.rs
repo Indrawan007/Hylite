@@ -221,12 +221,12 @@ fn visual_edit_can_format_a_table_cell_while_preserving_the_grid_and_other_cells
 }
 
 #[test]
-fn visual_edit_rejects_stale_forged_invalid_and_non_root_targets_without_mutation() {
+fn visual_edit_rejects_stale_forged_invalid_and_unsupported_targets_without_mutation() {
     let source = "plain **bold**\n\n> nested\n\nTitle\n-----\n";
     let mut document = Document::new(source);
     let (good, original) = target(&document, 0);
     let nested = &document.preview_blocks()[1].children[0];
-    assert!(preview_visual::Target::for_block(nested, source, document.snapshot()).is_none());
+    assert!(preview_visual::Target::for_block(nested, source, document.snapshot()).is_some());
     let setext = &document.preview_blocks()[2];
     assert!(preview_visual::Target::for_block(setext, source, document.snapshot()).is_none());
 
