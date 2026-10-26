@@ -6,7 +6,6 @@
 use crate::document::preview_model::{Block, Kind, Style};
 use crate::document::Snapshot;
 use std::ops::Range;
-use std::sync::Arc;
 
 pub const MAX_BYTES: usize = 16 * 1024;
 
@@ -432,6 +431,7 @@ fn escape_inline(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     fn span(style: Style, text: &str, start: usize) -> Span {
         Span {

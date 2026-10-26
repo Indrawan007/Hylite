@@ -8,7 +8,7 @@ mod state;
 
 pub use preview::{
     render_inline_alt_probe_preview, render_inline_probe_preview, render_inline_spike_preview,
-    render_preview, render_preview_with_inline_text, render_preview_with_visual_edit,
+    render_preview, render_preview_with_visual_edit,
 };
 pub use snapshot::Snapshot;
 pub use state::Document;

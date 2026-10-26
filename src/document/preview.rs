@@ -72,31 +72,6 @@ pub fn render_preview<'a>(
     )
 }
 
-/// Render Preview with an optional single-line plain-text block editor.
-/// Rich inline runs continue to use the explicit raw-Markdown draft panel.
-pub fn render_preview_with_inline_text<'a>(
-    blocks: &'a [Block],
-    theme: &Theme,
-    snapshot: Snapshot,
-    base_dir: Option<&Path>,
-    draft: Option<&'a crate::ui::paragraph_edit::Draft>,
-) -> Element<'a, Message> {
-    render_preview_internal(
-        blocks,
-        theme,
-        snapshot,
-        base_dir,
-        None,
-        None,
-        None,
-        InlineTextEditor {
-            draft,
-            visual_draft: None,
-            enabled: true,
-        },
-    )
-}
-
 /// Render Preview with source-authenticated, in-place visual text editing.
 pub fn render_preview_with_visual_edit<'a>(
     blocks: &'a [Block],

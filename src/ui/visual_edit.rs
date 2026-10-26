@@ -3,7 +3,7 @@ use crate::commands::Message;
 use crate::preview_visual::{self, Span, Target};
 use crate::ui::chrome::{self, ButtonKind};
 use iced::advanced::text::{self, highlighter};
-use iced::widget::{button, column, container, row, text, text_editor};
+use iced::widget::{button, column, container, row, text as label, text_editor};
 use iced::{font, keyboard, Element, Font, Length, Theme};
 use std::collections::VecDeque;
 use std::ops::Range;
@@ -51,6 +51,12 @@ impl Draft {
 
     pub fn spans(&self) -> &[Span] {
         &self.spans
+    }
+
+    pub fn caret(&self) -> Option<usize> {
+        let value = self.value();
+        let (line, column) = self.content.cursor_position();
+        (line == 0 && column <= value.len() && value.is_char_boundary(column)).then_some(column)
     }
 
     pub fn selection_range(&self) -> Option<Range<usize>> {
@@ -358,22 +364,22 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
         .padding([3, 4]);
     let selected = draft.selection_range().is_some();
     let formatting = row![
-        button(text("B").size(12))
+        button(label("B").size(12))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(selected.then_some(Message::FormatPreviewVisual(
                 preview_visual::InlineFormat::Bold,
             ))),
-        button(text("I").size(12))
+        button(label("I").size(12))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(selected.then_some(Message::FormatPreviewVisual(
                 preview_visual::InlineFormat::Italic,
             ))),
-        button(text("S").size(12))
+        button(label("S").size(12))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(selected.then_some(Message::FormatPreviewVisual(
                 preview_visual::InlineFormat::Strike,
             ))),
-        button(text("Code").size(11))
+        button(label("Code").size(11))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(selected.then_some(Message::FormatPreviewVisual(
                 preview_visual::InlineFormat::Code,
@@ -381,16 +387,16 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
     ]
     .spacing(4);
     let history = row![
-        button(text("Undo draft").size(11))
+        button(label("Undo draft").size(11))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(draft.can_undo().then_some(Message::DraftHistory(false))),
-        button(text("Redo draft").size(11))
+        button(label("Redo draft").size(11))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press_maybe(draft.can_redo().then_some(Message::DraftHistory(true))),
     ]
     .spacing(6);
     let commit = row![
-        button(text("Apply").size(11))
+        button(label("Apply").size(11))
             .style(chrome::button_style(ButtonKind::Primary))
             .on_press_maybe(
                 draft
@@ -398,7 +404,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
                     .is_none()
                     .then_some(Message::ApplyPreviewVisualText),
             ),
-        button(text("Cancel (Esc)").size(11))
+        button(label("Cancel (Esc)").size(11))
             .style(chrome::button_style(ButtonKind::Neutral))
             .on_press(Message::CancelPreviewVisualText),
     ]
@@ -414,7 +420,7 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             formatting,
             history,
             commit,
-            text(help).size(11),
+            label(help).size(11),
         ]
         .spacing(4)
         .width(Length::Fill),
