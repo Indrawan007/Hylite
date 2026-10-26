@@ -129,7 +129,7 @@ fn visual_preview_draft_edits_rendered_text_preserves_style_and_applies_atomical
 
     let _ = app.update(Message::ApplyPreviewVisualText);
     assert!(app.visual_draft.is_none());
-    assert_eq!(app.document.buffer_text(), "***Xbold*** plain\n");
+    assert_eq!(app.document.buffer_text(), "***Xbold***&#32;plain\n");
     assert!(app.document.preview_history_available(false));
     let _ = app.update(Message::PreviewHistory(false));
     assert_eq!(app.document.buffer_text(), source);

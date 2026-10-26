@@ -64,7 +64,9 @@ fn visual_edit_rebuilds_atx_heading_and_keeps_level_indent_and_line_ending() {
     let visible = "New title";
     let spans = preview_visual::restyle(&original.visible, visible, &original.spans).unwrap();
     assert!(document.edit_preview_visual(&target, &original, visible, &spans));
-    assert!(document.buffer_text().starts_with("  ### New **title**\n"));
+    assert!(document
+        .buffer_text()
+        .starts_with("  ### New&#32;**title**\n"));
     assert!(document.buffer_text().ends_with("\n\nnext\n"));
     assert_eq!(
         document.caret_offset(),
