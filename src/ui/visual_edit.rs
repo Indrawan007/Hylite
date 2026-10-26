@@ -430,6 +430,8 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             .on_press(Message::CancelPreviewVisualText),
     ]
     .spacing(6);
+    let source_before = draft.source_caret_offset(preview_visual::SourceAffinity::Before);
+    let source_after = draft.source_caret_offset(preview_visual::SourceAffinity::After);
     let help = if let Some(error) = draft.error {
         error.to_owned()
     } else if let Some(range) = draft.source_selection_range() {
@@ -437,7 +439,14 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             "Selection maps to Source bytes {}..{} · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels",
             range.start, range.end
         )
-    } else if let Some(offset) = draft.source_caret_offset(preview_visual::SourceAffinity::After) {
+    } else if let Some((before, after)) = source_before
+        .zip(source_after)
+        .filter(|(before, after)| before != after)
+    {
+        format!(
+            "Caret boundary maps to Source bytes {before} (before) or {after} (after) · select text for formatting · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels"
+        )
+    } else if let Some(offset) = source_after.or(source_before) {
         format!(
             "Caret maps to Source byte {offset} · select text for formatting · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels"
         )
