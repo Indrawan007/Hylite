@@ -78,6 +78,27 @@ impl Draft {
         }
     }
 
+    /// Exact Source range for a selection that still belongs to the original
+    /// projection. Changed drafts use block serialization rather than a stale map.
+    pub fn source_selection_range(&self) -> Option<Range<usize>> {
+        (self.value() == self.original.visible)
+            .then(|| {
+                self.original
+                    .source_range_for_visible(self.selection_range()?)
+            })
+            .flatten()
+    }
+
+    /// Exact Source byte for a caret in the unchanged original projection.
+    pub fn source_caret_offset(&self, affinity: preview_visual::SourceAffinity) -> Option<usize> {
+        (self.value() == self.original.visible)
+            .then(|| {
+                self.original
+                    .source_offset_for_visible(self.caret()?, affinity)
+            })
+            .flatten()
+    }
+
     pub fn format_selection(&mut self, format: preview_visual::InlineFormat) -> bool {
         let Some(range) = self.selection_range() else {
             self.error = Some("Select one unambiguous visible-text range to format.");
@@ -409,11 +430,20 @@ pub fn view(draft: &Draft) -> Element<'_, Message> {
             .on_press(Message::CancelPreviewVisualText),
     ]
     .spacing(6);
-    let help = draft
-        .error
-        .unwrap_or(
-            "Visual draft · select text for formatting · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels",
-        );
+    let help = if let Some(error) = draft.error {
+        error.to_owned()
+    } else if let Some(range) = draft.source_selection_range() {
+        format!(
+            "Selection maps to Source bytes {}..{} · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels",
+            range.start, range.end
+        )
+    } else if let Some(offset) = draft.source_caret_offset(preview_visual::SourceAffinity::After) {
+        format!(
+            "Caret maps to Source byte {offset} · select text for formatting · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels"
+        )
+    } else {
+        "Visual draft · source mapping unavailable for this selection or changed text · Ctrl+B/I/E · Ctrl+Shift+X · Enter applies · Esc cancels".to_owned()
+    };
     container(
         column![
             container(editor).id(input_id()),
@@ -569,6 +599,46 @@ mod tests {
             .spans()
             .iter()
             .any(|span| span.visible == (0..4) && !span.style.strong));
+    }
+
+    #[test]
+    fn unchanged_projection_maps_caret_and_selection_to_source_bytes() {
+        let mut changed = draft();
+        changed.perform(text_editor::Action::Edit(text_editor::Edit::Insert('X')));
+        assert!(changed
+            .source_caret_offset(preview_visual::SourceAffinity::After)
+            .is_none());
+        assert!(changed.source_selection_range().is_none());
+
+        let mut draft = draft();
+        assert_eq!(
+            draft.source_caret_offset(preview_visual::SourceAffinity::After),
+            Some(2)
+        );
+        for _ in 0..4 {
+            draft
+                .content
+                .perform(text_editor::Action::Select(text_editor::Motion::Right));
+        }
+        assert_eq!(draft.selection_range(), Some(0..4));
+        assert_eq!(draft.source_selection_range(), Some(2..6));
+
+        draft.content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentStart,
+        ));
+        for _ in 0..4 {
+            draft
+                .content
+                .perform(text_editor::Action::Move(text_editor::Motion::Right));
+        }
+        assert_eq!(
+            draft.source_caret_offset(preview_visual::SourceAffinity::Before),
+            Some(6)
+        );
+        assert_eq!(
+            draft.source_caret_offset(preview_visual::SourceAffinity::After),
+            Some(8)
+        );
     }
 
     #[test]

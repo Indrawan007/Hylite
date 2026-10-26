@@ -23,6 +23,21 @@ impl Hylite {
                 .is_some_and(|operation| operation.kind == OperationKind::Open)
     }
 
+    fn visual_draft_is_current(&self) -> bool {
+        self.visual_draft.as_ref().is_some_and(|draft| {
+            self.document
+                .preview_visual_projection(&draft.target)
+                .as_ref()
+                == Some(&draft.original)
+        })
+    }
+
+    fn mark_visual_draft_stale(&mut self) {
+        if let Some(draft) = &mut self.visual_draft {
+            draft.error = Some("Target changed; Cancel and reopen this visual draft.");
+        }
+    }
+
     pub(super) fn open_preview_visual_text(&mut self, target: Target) -> Task<Message> {
         if self.visual_draft.is_some() || !self.visual_operation_allowed() {
             return Task::none();
@@ -48,15 +63,8 @@ impl Hylite {
         &mut self,
         action: iced::widget::text_editor::Action,
     ) -> Task<Message> {
-        let current = self.visual_draft.as_ref().is_some_and(|draft| {
-            self.document
-                .preview_visual_projection(&draft.target)
-                .is_some()
-        });
-        if !current {
-            if let Some(draft) = &mut self.visual_draft {
-                draft.error = Some("Target changed; Cancel and reopen this visual draft.");
-            }
+        if !self.visual_draft_is_current() {
+            self.mark_visual_draft_stale();
             return Task::none();
         }
         if let Some(draft) = &mut self.visual_draft {
@@ -72,6 +80,10 @@ impl Hylite {
         if !self.visual_operation_allowed() {
             return Task::none();
         }
+        if !self.visual_draft_is_current() {
+            self.mark_visual_draft_stale();
+            return Task::none();
+        }
         if let Some(draft) = &mut self.visual_draft {
             draft.format_selection(format);
             return crate::source_focus::task_in(crate::ui::visual_edit::input_id());
@@ -81,6 +93,10 @@ impl Hylite {
 
     pub(super) fn apply_preview_visual_text(&mut self) -> Task<Message> {
         if !self.visual_operation_allowed() {
+            return Task::none();
+        }
+        if !self.visual_draft_is_current() {
+            self.mark_visual_draft_stale();
             return Task::none();
         }
         let Some(draft) = &mut self.visual_draft else {
@@ -126,6 +142,10 @@ impl Hylite {
     }
 
     pub(super) fn history_preview_visual_text(&mut self, redo: bool) -> Task<Message> {
+        if !self.visual_draft_is_current() {
+            self.mark_visual_draft_stale();
+            return Task::none();
+        }
         let Some(draft) = &mut self.visual_draft else {
             return Task::none();
         };

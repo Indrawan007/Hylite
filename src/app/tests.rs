@@ -136,6 +136,30 @@ fn visual_preview_draft_edits_rendered_text_preserves_style_and_applies_atomical
 }
 
 #[test]
+fn stale_visual_preview_draft_rejects_edits_and_keeps_apply_disabled() {
+    let source = "plain **bold**\n";
+    let mut app = app();
+    app.document = Document::new(source);
+    app.mode = EditMode::Preview;
+    let block = &app.document.preview_blocks()[0];
+    let target =
+        crate::preview_visual::Target::for_block(block, source, app.document.snapshot()).unwrap();
+    let _ = app.update(Message::OpenPreviewVisualText(target));
+    let unchanged_draft = app.visual_draft.as_ref().unwrap().value();
+
+    app.document = Document::new("replacement document\n");
+    let _ = app.update(Message::EditPreviewVisualDraft(text_editor::Action::Edit(
+        text_editor::Edit::Insert('!'),
+    )));
+    assert_eq!(app.visual_draft.as_ref().unwrap().value(), unchanged_draft);
+    assert!(app.visual_draft.as_ref().unwrap().error.is_some());
+
+    let _ = app.update(Message::ApplyPreviewVisualText);
+    assert!(app.visual_draft.is_some());
+    assert_eq!(app.document.buffer_text(), "replacement document\n");
+}
+
+#[test]
 fn canceling_visual_preview_draft_never_changes_source_or_document_history() {
     let source = "plain **bold**\n";
     let mut app = app();
