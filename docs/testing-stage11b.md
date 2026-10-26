@@ -1,10 +1,10 @@
 # Stage 11b — checklist manual Arch + Hyprland/Wayland
 
 **Status:** checklist disiapkan dan preflight parsial dicatat dari output yang
-diberikan pengguna. Build debug selesai dan laporan shell memberi petunjuk sesi
-Arch/Wayland/Hyprland, tetapi belum ada hasil interaksi portal, IME, RTL, HiDPI,
-GPU, atau lifecycle. Checklist tetap harus diisi dari sesi target milik pengguna;
-CI X11/Xvfb tidak menggantikannya.
+diberikan pengguna. Build debug selesai; perintah aplikasi juga dijalankan dan
+mengeluarkan warning konfigurasi, tetapi visibilitas window belum dikonfirmasi.
+Laporan shell memberi petunjuk sesi Arch/Wayland/Hyprland, tetapi belum ada hasil
+interaksi portal, IME, RTL, HiDPI, GPU, atau lifecycle. CI X11/Xvfb tidak menggantikannya.
 
 Catatan di bawah hanya merangkum output yang dibagikan dan tidak menyimpan path
 lokal/alamat endpoint. Ini bukan klaim bahwa Stage 11b selesai. Tidak ada perubahan
@@ -80,14 +80,16 @@ nilai socket tetap tidak diketahui karena memang disamarkan.
   dari konfigurasi lokal dan jalankan ulang sebelum menguji font/tema konfigurasi;
   jika ingin mengatur opacity, proyek mengarahkannya ke Hyprland. Path konfigurasi
   lokal sengaja tidak disimpan di catatan ini.
-- Output warning menunjukkan konfigurasi ditolak, tetapi tidak secara eksplisit
-  mencatat apakah window tampil atau tidak. Hasil interaksi aplikasi masih perlu
-  dicatat terpisah.
+- Pada tindak lanjut, terminal melaporkan `Running target/debug/hylite` lalu
+  warning konfigurasi yang sama. Ini mencatat bahwa proses dijalankan dan loader
+  memeriksa konfigurasi; tidak ada laporan eksplisit apakah window terlihat atau
+  kontrol aplikasi dapat digunakan. Hasil interaksi tetap perlu dicatat terpisah.
 
 ## 3. Pemeriksaan manual
 
-Untuk setiap item gunakan status **PASS**, **FAIL**, **BLOCKED**, atau **NOT RUN**.
-Sertakan pengamatan ringkas; jangan mengubah `BLOCKED`/`NOT RUN` menjadi `PASS`.
+Untuk setiap item gunakan status **PASS**, **PARTIAL**, **FAIL**, **BLOCKED**, atau
+**NOT RUN**. `PARTIAL` berarti baru sebagian langkah teramati. Sertakan pengamatan
+ringkas; jangan mengubah `BLOCKED`/`NOT RUN` menjadi `PASS`.
 Ulangi alur portal setelah meluncurkan app langsung dari terminal di sesi target.
 
 ### A. Portal dan file dialog
@@ -167,6 +169,7 @@ isi dokumen, alamat D-Bus, token, dan informasi lain yang tidak perlu.
 |---|---|---|
 | Environment report menunjukkan Wayland + Hyprland | PASS (hint environment saja) | `XDG_SESSION_TYPE=wayland`, `XDG_CURRENT_DESKTOP=Hyprland`; bukan validasi perilaku GUI |
 | `cargo build --locked` pada profile dev | PASS (build saja) | selesai dalam 30,80 detik menurut output yang dibagikan |
+| Proses `target/debug/hylite` | PARTIAL | perintah berjalan dan config loader memberi warning; visibilitas window belum dikonfirmasi |
 | Portal: Open, Cancel, Save As, Cancel | NOT RUN | service portal `active`, tetapi dialog belum diuji |
 | IME yang tersedia | NOT RUN | — |
 | RTL / teks campuran | NOT RUN | — |
