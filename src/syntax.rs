@@ -5,7 +5,7 @@ use std::ops::Range;
 /// Long lines remain plain (fence state is still tracked). Inline lookahead has a
 /// shared 4 * line-byte budget, preventing repeated unmatched delimiters from
 /// causing quadratic scans. Neither limit truncates or edits source text.
-pub const MAX_LINE_BYTES: usize = 16 * 1024;
+pub const MAX_LINE_BYTES: usize = crate::limits::LINE_MAX_BYTES;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {

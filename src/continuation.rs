@@ -2,7 +2,7 @@
 //! No AST parsing or sibling renumbering. Ambiguous contexts use native Enter.
 use crate::text_edit::TextChange;
 
-const MAX_LINE_BYTES: usize = 16 * 1024;
+const MAX_LINE_BYTES: usize = crate::limits::LINE_MAX_BYTES;
 
 fn blank(byte: u8) -> bool {
     matches!(byte, b' ' | b'\t')

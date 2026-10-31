@@ -16,6 +16,9 @@ mod text_edit;
 #[path = "../src/inline_edit.rs"]
 mod inline_edit;
 
+#[path = "../src/limits.rs"]
+mod limits;
+
 #[path = "../src/syntax.rs"]
 mod syntax;
 

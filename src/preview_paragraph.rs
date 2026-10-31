@@ -3,7 +3,7 @@ use crate::document::Snapshot;
 use crate::text_edit::TextChange;
 use std::ops::Range;
 
-pub const MAX_BYTES: usize = 16 * 1024;
+pub const MAX_BYTES: usize = crate::limits::DRAFT_MAX_BYTES;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
     pub snapshot: Snapshot,

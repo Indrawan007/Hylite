@@ -3,7 +3,7 @@ use crate::document::Snapshot;
 pub use crate::preview_paragraph::Target;
 use crate::text_edit::TextChange;
 use std::ops::Range;
-pub const MAX_BYTES: usize = 16 * 1024;
+pub const MAX_BYTES: usize = crate::limits::DRAFT_MAX_BYTES;
 pub const MAX_LINES: usize = 128;
 pub fn valid_value(value: &str) -> bool {
     if value.len() > MAX_BYTES || value.chars().any(|c| c.is_control() && c != '\n') {

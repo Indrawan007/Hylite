@@ -18,7 +18,11 @@ pub struct EditorConfig {
     pub font_family: String,
     pub font_size: f32,
     pub tab_size: u8,
-    /// Accepted for compatibility, but true is disabled with a warning for now.
+    /// Reserved: autosave is not implemented. The key is still accepted so an
+    /// existing config keeps loading, `true` is normalized to `false` with a
+    /// warning, and it is never written back, so no sample advertises a knob
+    /// that cannot take effect.
+    #[serde(skip_serializing)]
     pub auto_save: bool,
     pub word_wrap: bool,
     pub syntax_highlighting: bool,
@@ -262,6 +266,9 @@ mod tests {
         assert!(!loaded.config.editor.auto_save);
         assert_eq!(loaded.warnings.len(), 1);
         assert!(loaded.warnings[0].contains("not implemented"));
+        // The reserved key stays readable but is not advertised back.
+        let serialized = toml::to_string(&loaded.config).unwrap();
+        assert!(!serialized.contains("auto_save"));
     }
 
     #[test]

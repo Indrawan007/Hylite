@@ -5,8 +5,8 @@ font_family = "monospace"
 font_size = 16.0
 # Tab inserts spaces up to the next stop; pasted literal tabs are preserved.
 tab_size = 4
-# Not implemented yet: true is disabled with a visible warning.
-auto_save = false
+# `auto_save` is reserved: the key is accepted so old configs still load, but
+# autosave is not implemented and the value is never written back here.
 word_wrap = true
 # Read-only lexical Markdown colors; false restores plain Source text.
 syntax_highlighting = true

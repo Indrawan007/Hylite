@@ -8,7 +8,7 @@ use crate::document::preview_model::{Block, Kind, Style};
 use crate::document::Snapshot;
 use std::ops::Range;
 
-pub const MAX_BYTES: usize = 16 * 1024;
+pub const MAX_BYTES: usize = crate::limits::DRAFT_MAX_BYTES;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockKind {

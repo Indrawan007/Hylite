@@ -280,17 +280,37 @@ Ketiga jawaban itu menentukan apakah pekerjaan berhenti di ±2 file (D1 + koreks
 | D1 | **selesai** | `export_html(markdown, palette, path)` dengan CSS dari warna tema; `to_html` memakai `preview_model::options()`; `theme_palette` dipusatkan di `export` sehingga dua salinan di `export_cli` dan `app/file_actions` hilang | 2 tes baru: palet terang/gelap menghasilkan byte berbeda dengan `color-scheme` yang benar; tidak ada smart punctuation |
 | B6 | **selesai** | `main.rs`: tiga flag probe menjadi `enum Experiment` + `parse_experiment`; ~45 baris duplikat menjadi satu tabel | parser Rust (tree-sitter): 0 error; alur flag tetap sama |
 | B7 | **selesai sebagian** | `gui-smoke-x11.py`: `SCOPE_BY_SUITE` + `DEFAULT_SCOPE` menggantikan ternary 8.311 karakter; `choices` dan `scope` kini berasal dari satu tabel | 98 tes Python lulus; nilai `scope` 31 suite dibandingkan dengan versi lama: identik termasuk urutan; `--help` tetap 31 pilihan |
-| A1-A3, B1-B5, C1-C4, D2-D4 | terbuka | — | — |
+| C1 | **selesai** | modul baru `src/limits.rs` memuat `DRAFT_MAX_BYTES` dan `LINE_MAX_BYTES`; tujuh modul kini merujuk satu definisi lewat nama domainnya masing-masing (`MAX_BYTES` untuk draft, `MAX_LINE_BYTES` untuk satu baris sumber), jadi perubahan kebijakan = satu suntingan. Nama publik per modul tetap, sehingga ~40 rujukan di tes tidak berubah | parser tree-sitter: 0 error; `tools/source-core-tests.rs` ikut menyertakan `limits` sehingga harness standalone tetap berdiri sendiri |
+| C2 | **selesai (ditegaskan, bukan dihapus)** | `editor.auto_save` dipertahankan agar config lama tetap memuat (menghapusnya akan ditolak `deny_unknown_fields`), tetapi kini eksplisit sebagai reserved: komentar field menjelaskan alasannya, `#[serde(skip_serializing)]` membuatnya tidak pernah ditulis balik, dan `config/default.toml` mengganti barisnya dengan catatan reserved | tes config menambah satu asersi: setelah `auto_save = true` dinormalkan, hasil serialisasi tidak memuat `auto_save`; tes bundled-config tetap membandingkan `config/default.toml` dengan `Config::default()` |
+| A1-A3, B1-B5, C3-C4, D2-D4 | terbuka | — | — |
 
 Verifikasi perubahan ini:
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust (CI run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828), commit `d236d02`) | **lulus** |
+| `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust (CI run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828), commit `d236d02`; sesudah C1/C2: run `fb67810`..`bae380f`) | **lulus** |
 | 98 tes Python (`unittest discover -s scripts`) | lulus |
-| Parser Rust tree-sitter pada 6 file yang diubah | 0 error sintaks |
+| Parser Rust tree-sitter pada file yang diubah tiap langkah | 0 error sintaks |
 | `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
 
-Catatan penting: pada run yang **sama**, langkah *Smoke test actual GUI on isolated X11* gagal — dan langkah itu sudah gagal pada commit `98a419d` (dokumen saja) serta commit-commit sebelumnya di branch ini. Jadi kegagalan itu pra-perubahan, bukan akibat perbaikan D1/B6/B7, dan belum saya selidiki di audit ini.
+### 9a. Gate GUI X11 yang merah sebelum sesi ini
+
+Langkah *Smoke test actual GUI on isolated X11* sudah gagal pada commit `98a419d` (hanya dokumen) dan pada commit-commit sebelumnya di branch ini, jadi kegagalan itu bukan akibat perbaikan audit. Penyelidikan dengan anotasi check-run (log job tidak dapat diunduh dari sandbox) menemukan **race pra-perubahan**, bukan regresi deterministik:
+
+- Titik gagal **berpindah** antar-run (`Find first`, `Unicode and trailing tabs: paste`, `Go to Line: Escape …`, `Native table preview …`), termasuk pada commit yang `src/`-nya identik byte-per-byte.
+- Trace aplikasi sementara menunjukkan tombolnya sampai dan `Message::Edit(SelectAll)` diterapkan, tetapi salinan tidak pernah terjadi (`marker-owner-exit=None`) atau berisi buffer yang kehilangan karakter sentinel — yaitu karakter yang diketik **satu frame setelah panel Find/Go To Line ditutup** mendarat di input panel yang belum di-unmount, lalu dibuang oleh guard `GoToQueryChanged`/`FindQueryChanged`.
+- Suite juga berjalan sampai ~178 s terhadap anggaran 180 s, sehingga frame yang lambat memperbesar jendela race.
+
+Perbaikan yang dipilih (hanya harness, kode aplikasi tidak disentuh — `git diff 3021b03 -- src/` kosong):
+
+| Perubahan harness | Alasan |
+|---|---|
+| `expect_copy` mengulang maksimal 3 gesture dengan marker di-stage ulang | hand-off clipboard X11 asinkron; assertion byte-exact dan aturan "satu Copy setelah sukses" tetap |
+| Klik refocus pindah dari x=600 (batas pane Split) ke x=500, diklik ulang tiap percobaan + jeda satu frame | 600 adalah piksel batas: pembulatan menentukan apakah klik mencapai editor |
+| `settle()` satu frame setelah tombol yang menutup panel/draft, di 4 titik yang langsung diikuti pengetikan sentinel | menghilangkan kelas race "karakter tertelan input panel yang belum di-unmount" |
+| Anggaran suite 180 s → 300 s, `timeout-minutes` step 5 → 10 | suite memang sudah menyentuh 178 s pada runner ini |
+| Pesan gagal mencetak status marker-owner dan window title | kegagalan berikutnya bisa didiagnosis dari anotasi CI saja |
+
+Hasil: gate naik dari gagal di cek ke-21 menjadi lolos 81-88 cek (seluruh cek Go to Line dan Find yang semula merah sekarang lulus). Sisa satu cek flaky di suite tabel (`Native table preview and wheel input leave Split Source byte-exact`): aplikasi tidak menyalin sama sekali dan title normal tanpa draft/konfirmasi, konsisten dengan `Ctrl+Shift+M` (Preview→Split) yang kadang tidak berefek pada iterasi itu; cek yang sama lulus di run lain. Ini **temuan terbuka** untuk langkah berikutnya, bukan bagian dari D1/B6/B7/C1/C2.
 
 Yang sengaja belum disentuh: A1 (satu `ActiveDraft`), A2 (`SpikeSession`), A3, B1-B4 (butuh compiler dan tes regresi lebih dulu), C1-C4 (higiene), D2-D4. B5 (probe/spike) menunggu keputusan produk: hapus, `cfg(feature = "probe")`, atau pertahankan sebagai bukti historis.

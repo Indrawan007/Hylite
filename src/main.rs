@@ -14,6 +14,7 @@ mod highlighting;
 mod hyprland;
 mod images;
 mod inline_edit;
+mod limits;
 mod line_edit;
 mod math;
 mod multiline_draft_history;
