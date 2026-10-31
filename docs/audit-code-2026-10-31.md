@@ -288,7 +288,7 @@ Verifikasi perubahan ini:
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust (CI run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828), commit `d236d02`; sesudah C1/C2: run `fb67810`..`bae380f`) | **lulus** |
+| `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust — run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828) (`d236d02`, D1+B6+B7) dan run [41245392225](https://github.com/Indrawan007/Hylite/actions/runs/41245392225) (`c12f09e`, C1+C2) | **lulus** |
 | 98 tes Python (`unittest discover -s scripts`) | lulus |
 | Parser Rust tree-sitter pada file yang diubah tiap langkah | 0 error sintaks |
 | `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
