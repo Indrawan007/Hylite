@@ -182,9 +182,15 @@ class Desktop:
                 timeout = error
         owner = self.owners[-1] if self.owners else None
         owner_exit = None if owner is None else owner.poll()
+        try:
+            # The title carries the mode-independent state that explains a copy
+            # that never happened: open drafts and pending confirmations.
+            title = self.command("xdotool", "getwindowname", self.window).decode("utf-8").strip()
+        except (subprocess.SubprocessError, OSError):
+            title = None
         raise AssertionError(
             f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
-            f" marker-owner-exit={owner_exit!r}"
+            f" marker-owner-exit={owner_exit!r}, window-title={title!r}"
         ) from timeout
 
     def paste_from_clean(self, data):
