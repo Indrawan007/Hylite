@@ -4259,6 +4259,15 @@ def main():
                         desktop.screenshot(artifacts / "failure.png")
                     except (subprocess.SubprocessError, OSError):
                         pass
+                    # TEMPORARY DIAGNOSTIC (drop before merge): show which X11
+                    # window owns the keyboard at the point of failure.
+                    try:
+                        focused = subprocess.run(
+                            ["xdotool", "getwindowfocus", "getwindowname"],
+                            env=env, capture_output=True, text=True, timeout=5)
+                        print(f"Focused window: {focused.stdout.strip()!r}", flush=True)
+                    except (subprocess.SubprocessError, OSError):
+                        pass
                 raise
             finally:
                 signal.alarm(0)
