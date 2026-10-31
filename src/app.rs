@@ -344,9 +344,11 @@ impl Hylite {
                 "smoke-trace: FindNext backwards={backwards} search_open={}",
                 self.search.open
             ),
-            Message::Edit(text_editor::Action::SelectAll) => {
-                eprintln!("smoke-trace: Edit SelectAll");
-            }
+            Message::Edit(action) => eprintln!(
+                "smoke-trace: Edit {action:?} allowed={} sel={:?}",
+                self.source_edit_allowed(),
+                self.document.content().selection().map(|text| text.len()),
+            ),
             _ => {}
         }
 
