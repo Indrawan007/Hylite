@@ -156,7 +156,15 @@ class Desktop:
         try:
             self.wait(description, copied)
         except TimeoutError as error:
-            raise AssertionError(f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r}") from error
+            # TEMPORARY DIAGNOSTIC (drop before merge): a still-owning marker
+            # means the application never stored its copy, while an exited one
+            # means ownership moved but the read still saw the marker.
+            owner = self.owners[-1] if self.owners else None
+            marker_owner = None if owner is None else owner.poll()
+            raise AssertionError(
+                f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
+                f" marker-owner-exit={marker_owner!r}"
+            ) from error
         self.passed_check(description)
 
     def paste_from_clean(self, data):
