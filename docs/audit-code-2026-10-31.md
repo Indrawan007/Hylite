@@ -292,9 +292,12 @@ Verifikasi perubahan ini:
 | Pemeriksaan | Hasil |
 |---|---|
 | `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust — run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828) (`d236d02`, D1+B6+B7) dan run [41245392225](https://github.com/Indrawan007/Hylite/actions/runs/41245392225) (`c12f09e`, C1+C2) | **lulus** |
+| Langkah 3 (A1+A2+A3) — run [41251781097](https://github.com/Indrawan007/Hylite/actions/runs/41251781097) (`e708641`) | **fmt, clippy, build, seluruh tes Rust lulus**; satu-satunya merah adalah flake X11 yang sudah tercatat di [§9a](#9a-gate-gui-x11-yang-merah-sebelum-sesi-ini) (`Native table preview and wheel input leave Split Source byte-exact`) |
 | 98 tes Python (`unittest discover -s scripts`) | lulus |
 | Parser Rust tree-sitter pada file yang diubah tiap langkah | 0 error sintaks |
 | `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
+
+Catatan verifikasi Langkah 3: dua run di antaranya (`41250413374`, `41250584210`) merah di *Check formatting* dan satu (`41251074070`) di *Lint all targets*. Keduanya cacat nyata pada perubahan A2, bukan flake: rustfmt ingin `render_blocks(blocks, colors, snapshot, base_dir, session, &inline_edit)` dalam satu baris setelah argumen `spike`+`mode` menyusut menjadi satu `session`, dan `on_block` memindahkan `block.source` (`Range<usize>` bukan `Copy`) sehingga gagal kompilasi. Log job tidak dapat diunduh dari sandbox, jadi diff-nya dibaca lewat langkah CI sementara yang mencetak output sebagai anotasi; langkah itu sudah dihapus lagi.
 
 ### 9a. Gate GUI X11 yang merah sebelum sesi ini
 
