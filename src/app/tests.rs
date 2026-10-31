@@ -2712,6 +2712,31 @@ fn cell_app() -> Hylite {
     app
 }
 #[test]
+fn one_active_draft_owns_the_keyboard_and_refuses_other_panels() {
+    use crate::commands::DraftHistoryPanel;
+    let mut app = cell_app();
+    // A table for the cell draft and a single-line paragraph for the rival panel.
+    app.document = Document::new("| a | b |\n|-|-|\n| café🙂 | raw |\n\nafter\n");
+    assert!(app.active_draft().is_none());
+    assert!(app.draft_history_panel().is_none());
+
+    let target = cell_target(&app, 1, 0);
+    let _ = app.update(Message::OpenPreviewCell(target));
+    assert_eq!(app.active_draft(), Some(ActiveDraft::Cell));
+    assert_eq!(app.draft_history_panel(), Some(DraftHistoryPanel::Cell));
+
+    // The paragraph panel never checked for a cell draft itself; the shared
+    // guard must keep the keys with the open cell draft.
+    let paragraph = paragraph_target(&app);
+    let _ = app.open_preview_paragraph(paragraph);
+    assert!(app.paragraph_draft.is_none());
+    assert_eq!(app.active_draft(), Some(ActiveDraft::Cell));
+
+    let _ = app.update(Message::ExitZenMode);
+    assert!(app.active_draft().is_none());
+    assert!(app.draft_history_panel().is_none());
+}
+#[test]
 fn cell_draft_typing_and_cancel_never_mutate_document_history_dirty_or_cache() {
     let mut app = cell_app();
     let t = cell_target(&app, 1, 0);

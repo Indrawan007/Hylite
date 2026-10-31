@@ -56,10 +56,10 @@ fn record_of(value: &str) -> crate::multiline_draft_history::Record {
 
 impl Hylite {
     fn paragraph_operation_allowed(&self) -> bool {
-        self.mode != EditMode::Source && self.navigation_allowed() && self.cell_draft.is_none()
+        self.mode != EditMode::Source && self.navigation_allowed()
     }
     pub(super) fn open_preview_paragraph(&mut self, target: Target) -> Task<Message> {
-        if self.paragraph_draft.is_some() || !self.paragraph_operation_allowed() {
+        if self.active_draft().is_some() || !self.paragraph_operation_allowed() {
             return Task::none();
         }
         let Some(draft) = self.paragraph_draft_for(target) else {
@@ -70,7 +70,7 @@ impl Hylite {
         self.restore_input_focus()
     }
     pub(super) fn open_inline_preview_text(&mut self, target: Target) -> Task<Message> {
-        if self.paragraph_draft.is_some() || !self.paragraph_operation_allowed() {
+        if self.active_draft().is_some() || !self.paragraph_operation_allowed() {
             return Task::none();
         }
         let Some(value) = self.document.preview_inline_text(&target) else {

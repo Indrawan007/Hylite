@@ -35,9 +35,7 @@ impl Hylite {
             || self.mode == crate::editor::EditMode::Source
             || !self.navigation_allowed()
             || self.operations.active().is_some()
-            || self.paragraph_draft.is_some()
-            || self.multiline_draft.is_some()
-            || self.cell_draft.is_some()
+            || self.active_draft().is_some()
         {
             self.status_message =
                 "Stage 9a spike is unavailable in the current editor state".into();
@@ -93,9 +91,7 @@ impl Hylite {
             || self.mode == crate::editor::EditMode::Source
             || !self.navigation_allowed()
             || self.operations.active().is_some()
-            || self.paragraph_draft.is_some()
-            || self.multiline_draft.is_some()
-            || self.cell_draft.is_some()
+            || self.active_draft().is_some()
         {
             self.status_message =
                 "Stage 9b probe is unavailable in the current editor state".into();

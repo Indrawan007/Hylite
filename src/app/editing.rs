@@ -16,10 +16,7 @@ impl Hylite {
         self.inline_spike.is_none()
             && self.inline_probe.is_none()
             && self.inline_alt_probe.is_none()
-            && self.cell_draft.is_none()
-            && self.paragraph_draft.is_none()
-            && self.visual_draft.is_none()
-            && self.multiline_draft.is_none()
+            && self.active_draft().is_none()
             && self.pending_action.is_none()
             && self.mode != EditMode::Preview
             && !self
@@ -109,10 +106,7 @@ impl Hylite {
     pub(crate) fn preview_task_batch_action(&self, checked: bool) -> Option<Message> {
         if self.mode == EditMode::Source
             || !self.navigation_allowed()
-            || self.paragraph_draft.is_some()
-            || self.visual_draft.is_some()
-            || self.cell_draft.is_some()
-            || self.multiline_draft.is_some()
+            || self.active_draft().is_some()
         {
             return None;
         }
@@ -274,10 +268,7 @@ impl Hylite {
     pub(crate) fn preview_history_allowed(&self, redo: bool) -> bool {
         self.mode == EditMode::Preview
             && self.navigation_allowed()
-            && self.paragraph_draft.is_none()
-            && self.visual_draft.is_none()
-            && self.cell_draft.is_none()
-            && self.multiline_draft.is_none()
+            && self.active_draft().is_none()
             && !self.search.open
             && !self.go_to.open
             && self.document.preview_history_available(redo)

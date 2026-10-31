@@ -62,9 +62,7 @@ impl Hylite {
     /// the middle of something that belongs to the active buffer: a draft, a
     /// pending confirmation, or an active file operation.
     fn tab_switch_allowed(&self) -> bool {
-        self.multiline_draft.is_none()
-            && self.paragraph_draft.is_none()
-            && self.cell_draft.is_none()
+        self.active_draft().is_none()
             && self.pending_action.is_none()
             && self.operations.active().is_none()
     }

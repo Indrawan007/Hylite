@@ -8,13 +8,10 @@ use crate::ui::multiline_paragraph::Draft;
 use iced::{widget::text_editor, Task};
 impl Hylite {
     fn multiline_operation_allowed(&self) -> bool {
-        self.mode != EditMode::Source
-            && self.navigation_allowed()
-            && self.cell_draft.is_none()
-            && self.paragraph_draft.is_none()
+        self.mode != EditMode::Source && self.navigation_allowed()
     }
     pub(super) fn open_multiline_paragraph(&mut self, target: Target) -> Task<Message> {
-        if self.multiline_draft.is_some() || !self.multiline_operation_allowed() {
+        if self.active_draft().is_some() || !self.multiline_operation_allowed() {
             return Task::none();
         }
         let Some(draft) = self.multiline_draft_for(target) else {

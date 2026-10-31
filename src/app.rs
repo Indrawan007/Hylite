@@ -22,6 +22,16 @@ use iced::keyboard;
 use iced::widget::{column, container, row, text_editor, Space};
 use iced::{event, window, Element, Length, Subscription, Task, Theme};
 
+/// The draft panel that is open, if any. One source of truth for "a draft owns
+/// the keyboard" so the four controller modules cannot disagree about it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ActiveDraft {
+    Paragraph,
+    Multiline,
+    Cell,
+    Visual,
+}
+
 /// ── Main Application State ──────────────────────────────
 pub struct Hylite {
     /// The active buffer. Inactive buffers are parked in `tabs`.
@@ -290,20 +300,35 @@ impl Hylite {
         }
     }
 
+    /// The one draft panel that currently owns the keyboard, if any.
+    ///
+    /// Two drafts never open together: every `*_operation_allowed` predicate and
+    /// the history routing read this value instead of testing the four fields
+    /// separately, so a new message path cannot quietly split the keystrokes
+    /// between two local stacks.
+    pub(crate) fn active_draft(&self) -> Option<ActiveDraft> {
+        if self.paragraph_draft.is_some() {
+            Some(ActiveDraft::Paragraph)
+        } else if self.multiline_draft.is_some() {
+            Some(ActiveDraft::Multiline)
+        } else if self.cell_draft.is_some() {
+            Some(ActiveDraft::Cell)
+        } else if self.visual_draft.is_some() {
+            Some(ActiveDraft::Visual)
+        } else {
+            None
+        }
+    }
+
     /// The single-line draft panel that owns the keyboard history keys, if any.
-    /// Two single-line panels never open together, so a keystroke can never be
-    /// routed to the wrong local stack.
+    /// The multiline panel keeps its own history messages instead.
     fn draft_history_panel(&self) -> Option<crate::commands::DraftHistoryPanel> {
         use crate::commands::DraftHistoryPanel;
-        match (
-            self.paragraph_draft.is_some(),
-            self.cell_draft.is_some(),
-            self.visual_draft.is_some(),
-        ) {
-            (true, false, false) => Some(DraftHistoryPanel::Paragraph),
-            (false, true, false) => Some(DraftHistoryPanel::Cell),
-            (false, false, true) => Some(DraftHistoryPanel::Visual),
-            _ => None,
+        match self.active_draft()? {
+            ActiveDraft::Paragraph => Some(DraftHistoryPanel::Paragraph),
+            ActiveDraft::Cell => Some(DraftHistoryPanel::Cell),
+            ActiveDraft::Visual => Some(DraftHistoryPanel::Visual),
+            ActiveDraft::Multiline => None,
         }
     }
 

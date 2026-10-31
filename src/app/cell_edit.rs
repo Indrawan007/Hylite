@@ -24,7 +24,7 @@ impl Hylite {
                 .is_some_and(|op| op.kind == OperationKind::Open)
     }
     pub(super) fn open_preview_cell(&mut self, target: Target) -> Task<Message> {
-        if self.cell_draft.is_some() || !self.cell_operation_allowed() {
+        if self.active_draft().is_some() || !self.cell_operation_allowed() {
             return Task::none();
         }
         let Some(value) = self.document.preview_cell_payload(&target) else {

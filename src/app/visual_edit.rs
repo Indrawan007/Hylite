@@ -11,9 +11,6 @@ impl Hylite {
     fn visual_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source
             && self.navigation_allowed()
-            && self.paragraph_draft.is_none()
-            && self.multiline_draft.is_none()
-            && self.cell_draft.is_none()
             && self.inline_spike.is_none()
             && self.inline_probe.is_none()
             && self.inline_alt_probe.is_none()
@@ -39,7 +36,7 @@ impl Hylite {
     }
 
     pub(super) fn open_preview_visual_text(&mut self, target: Target) -> Task<Message> {
-        if self.visual_draft.is_some() || !self.visual_operation_allowed() {
+        if self.active_draft().is_some() || !self.visual_operation_allowed() {
             return Task::none();
         }
         let Some(original) = self.document.preview_visual_projection(&target) else {
