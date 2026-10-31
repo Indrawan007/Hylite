@@ -157,10 +157,15 @@ class Desktop:
         # also releases a writer that is still serving, and stops as soon as the
         # clipboard leaves the marker, so the exact-bytes assertion stays intact
         # and no extra Copy is queued after a successful one.
-        for attempt in range(3):
+        for _ in range(3):
             self.put_clipboard(marker)
-            if refocus and attempt == 0:
-                self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
+            if refocus:
+                # Split puts Source in the left half, so 600 is the boundary
+                # pixel: rounding decides whether the click reaches the editor.
+                # Click well inside the pane and let the frame land before the
+                # selection gesture, exactly like `key` does for shortcuts.
+                self.command("xdotool", "mousemove", "--window", self.window, "500", "300", "click", "1")
+                self.settle(0.3)
             self.key("ctrl+a")
             self.key("ctrl+c")
 
