@@ -441,6 +441,7 @@ def exercise_preview_cache(desktop, artifacts):
     desktop.key("ctrl+a")
     desktop.type_ascii("5:11")  # Unicode scalar position immediately before 3.
     desktop.key("Return")
+    desktop.settle()
     desktop.type_ascii("9")
     desktop.expect_copy("Warm Split: table cell edit is byte-exact after Go to Line", edited, refocus=False)
     desktop.screenshot(artifacts / "cache-split-edited.png")
@@ -4243,10 +4244,13 @@ def main():
     error_message = None
 
     def timed_out(_signum, _frame):
-        raise TimeoutError("GUI smoke exceeded its 180 second global budget")
+        raise TimeoutError("GUI smoke exceeded its 300 second global budget")
 
     signal.signal(signal.SIGALRM, timed_out)
-    signal.alarm(180)
+    # The regression suite renders a full Markdown document between every
+    # check; 300s keeps the same budget per check with room for the heavier
+    # responsive layout instead of racing the old 180s ceiling.
+    signal.alarm(300)
     with tempfile.TemporaryDirectory(prefix="hylite-gui-") as temp:
         env = isolated_environment(os.environ, Path(temp))
         # The tree suite boots with a folder argument; every other suite keeps

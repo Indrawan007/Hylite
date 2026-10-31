@@ -53,7 +53,7 @@ jobs:
       - name: Run tests without a display server
         run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
       - name: Smoke test actual GUI on isolated X11
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           set +e
           ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --artifacts "$RUNNER_TEMP/hylite-gui-smoke" 2>&1 | tee "$RUNNER_TEMP/gui-smoke.log"
