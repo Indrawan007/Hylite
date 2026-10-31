@@ -128,6 +128,49 @@ pub struct Hylite {
     file_error: Option<String>,
 }
 
+/// An empty buffer with the default configuration, no drafts and no pending
+/// confirmation. Tests and tools build on this instead of repeating every field,
+/// so a new field only has to be defaulted here.
+impl Default for Hylite {
+    fn default() -> Self {
+        Self {
+            document: Document::new(""),
+            tabs: vec![tabs::Tab::active()],
+            active_tab: 0,
+            workspace: None,
+            workspace_seq: 0,
+            search: crate::search::Search::default(),
+            go_to: crate::navigation::GoTo::default(),
+            multiline_draft: None,
+            paragraph_draft: None,
+            visual_draft: None,
+            cell_draft: None,
+            inline_spike_enabled: false,
+            inline_spike_pending: false,
+            inline_spike: None,
+            inline_probe_enabled: false,
+            inline_probe_pending: false,
+            inline_probe: None,
+            inline_alt_probe_enabled: false,
+            inline_alt_probe_pending: false,
+            inline_alt_probe: None,
+            mode: EditMode::Source,
+            sidebar_open: true,
+            zen_mode: false,
+            status_message: String::new(),
+            config: Config::default(),
+            viewport_width: 1200.0,
+            scale_factor: None,
+            hyprland: HyprlandIntegration::default(),
+            operations: Operations::default(),
+            editor_font: iced::Font::MONOSPACE,
+            config_warning: None,
+            pending_action: None,
+            file_error: None,
+        }
+    }
+}
+
 /// ── Implementation ──────────────────────────────────────
 impl Hylite {
     /// `launch` is the optional command-line path: a folder opens a workspace,
