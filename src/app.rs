@@ -22,6 +22,18 @@ use iced::keyboard;
 use iced::widget::{column, container, row, text_editor, Space};
 use iced::{event, window, Element, Length, Subscription, Task, Theme};
 
+/// TEMPORARY DIAGNOSTIC (drop before merge): the isolated X11 smoke job needs
+/// to show whether the focused widget captured a Ctrl chord.
+fn trace_ctrl_key(event: &event::Event, status: event::Status) {
+    let event::Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = event
+    else {
+        return;
+    };
+    if modifiers.control() || modifiers.logo() {
+        eprintln!("smoke-trace: key {key:?} status={status:?}");
+    }
+}
+
 /// ── Main Application State ──────────────────────────────
 pub struct Hylite {
     /// The active buffer. Inactive buffers are parked in `tabs`.
@@ -332,23 +344,29 @@ impl Hylite {
         // fails after the Find panel closes, so trace the keys it sends.
         match &message {
             Message::OpenFind(replace) => eprintln!("smoke-trace: OpenFind replace={replace}"),
-            Message::ExitZenMode => eprintln!(
-                "smoke-trace: Escape search_open={} go_to_open={} zen={} pending={}",
-                self.search.open,
-                self.go_to.open,
-                self.zen_mode,
-                self.pending_action.is_some(),
-            ),
+            Message::ExitZenMode => {
+                eprintln!(
+                    "smoke-trace: Escape search_open={} go_to_open={} zen={} pending={}",
+                    self.search.open,
+                    self.go_to.open,
+                    self.zen_mode,
+                    self.pending_action.is_some(),
+                );
+            }
             Message::CloseFind => eprintln!("smoke-trace: CloseFind"),
-            Message::FindNext(backwards) => eprintln!(
-                "smoke-trace: FindNext backwards={backwards} search_open={}",
-                self.search.open
-            ),
-            Message::Edit(action) => eprintln!(
-                "smoke-trace: Edit {action:?} allowed={} sel={:?}",
-                self.source_edit_allowed(),
-                self.document.content().selection().map(|text| text.len()),
-            ),
+            Message::FindNext(backwards) => {
+                eprintln!(
+                    "smoke-trace: FindNext backwards={backwards} search_open={}",
+                    self.search.open,
+                );
+            }
+            Message::Edit(action) => {
+                eprintln!(
+                    "smoke-trace: Edit {action:?} allowed={} sel={:?}",
+                    self.source_edit_allowed(),
+                    self.document.content().selection().map(|text| text.len()),
+                );
+            }
             _ => {}
         }
 
@@ -1028,14 +1046,7 @@ impl Hylite {
         let editing_events = event::listen_with(|event, status, _window| {
             // TEMPORARY DIAGNOSTIC (drop before merge): show whether the focused
             // widget captured a Ctrl chord before the X11 smoke job gives up.
-            if let event::Event::Keyboard(keyboard::Event::KeyPressed {
-                key, modifiers, ..
-            }) = &event
-            {
-                if modifiers.control() || modifiers.logo() {
-                    eprintln!("smoke-trace: key {key:?} status={status:?}");
-                }
-            }
+            trace_ctrl_key(&event, status);
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
