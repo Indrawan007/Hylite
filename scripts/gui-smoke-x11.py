@@ -90,6 +90,16 @@ class Desktop:
         # still require a fresh clipboard response and exact expected bytes.
         time.sleep(0.25)
 
+    def settle(self, seconds=1.0):
+        # Closing Find/Go to Line sets `open = false`, but the panel's input is
+        # only unmounted by the next frame. A key that lands in between is
+        # delivered to that stale input and swallowed by the Message guards
+        # (`GoToQueryChanged` is ignored once the panel is closed, and
+        # `FindQueryChanged` only rewrites the query), so typing right after a
+        # panel-closing key can silently lose the character. Wait for the frame
+        # instead of racing it.
+        time.sleep(seconds)
+
     def type_ascii(self, text):
         if not text.isascii():
             raise ValueError("Use clipboard Paste for UTF-8 fixtures, not xdotool type")
@@ -293,6 +303,7 @@ def exercise_navigation(desktop, artifacts):
     desktop.type_ascii("2:6")
     desktop.expect_copy("Go to Line: address field edited", b"2:6", refocus=False)
     desktop.key("Return")
+    desktop.settle()
     desktop.type_ascii("X")
     positioned = "head\ncafé🙂X世界\nsame needle\nother needle\n".encode("utf-8")
     desktop.expect_copy("Go to Line: Unicode scalar caret and automatic Source focus", positioned, refocus=False)
@@ -306,6 +317,7 @@ def exercise_navigation(desktop, artifacts):
     desktop.key("Return")
     desktop.expect_copy("Go to Line: invalid submit keeps query focus", b"999:1", refocus=False)
     desktop.key("Escape")
+    desktop.settle()
     desktop.type_ascii("Z")
     desktop.expect_copy("Go to Line: Escape returns focus and invalid address preserves caret", b"Z" + source, refocus=False)
     desktop.key("ctrl+z")
@@ -330,6 +342,7 @@ def exercise_navigation(desktop, artifacts):
         for key in keys:
             desktop.key(key)
         desktop.key("Escape")
+        desktop.settle()
         desktop.type_ascii("Q")
         desktop.expect_copy(f"Find {name}: match caret and automatic Source focus", expected.encode("utf-8"), refocus=False)
         desktop.key("ctrl+z")
