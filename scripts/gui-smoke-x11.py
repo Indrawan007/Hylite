@@ -182,10 +182,13 @@ class Desktop:
                 timeout = error
         owner = self.owners[-1] if self.owners else None
         owner_exit = None if owner is None else owner.poll()
+        title = None
         try:
             # The title carries the mode-independent state that explains a copy
             # that never happened: open drafts and pending confirmations.
-            title = self.command("xdotool", "getwindowname", self.window).decode("utf-8").strip()
+            raw_title = self.command("xdotool", "getwindowname", self.window)
+            if isinstance(raw_title, bytes):
+                title = raw_title.decode("utf-8").strip()
         except (subprocess.SubprocessError, OSError):
             title = None
         raise AssertionError(
