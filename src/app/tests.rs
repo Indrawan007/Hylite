@@ -845,13 +845,24 @@ fn starting_save_directly_seals_the_checkpoint_without_relying_on_ui_dispatch() 
     let mut app = app();
     app.replace_document(None, "");
     edit(&mut app);
-    let token = app.start_operation(OperationKind::Save);
+    let start = app.start_operation(OperationKind::Save);
+    let token = token(&app);
+    assert_eq!(start, Some(token));
     edit(&mut app);
     let _ = app.update(Message::FileSaved(token, Ok(Some("saved.md".into()))));
     let _ = app.update(Message::Undo);
     assert_eq!(app.document.buffer_text(), "x");
     assert!(!app.document.is_dirty());
     assert_eq!(app.document.path(), Some(Path::new("saved.md")));
+}
+
+#[test]
+fn starting_a_second_operation_is_a_no_op_with_a_status_message() {
+    let mut app = app();
+    app.replace_document(None, "");
+    assert!(app.start_operation(OperationKind::Save).is_some());
+    assert!(app.start_operation(OperationKind::Open).is_none());
+    assert!(app.status_message.contains("Wait for the current file"));
 }
 
 #[test]

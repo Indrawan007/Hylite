@@ -22,7 +22,13 @@ impl Hylite {
         }
     }
 
-    pub(super) fn start_operation(&mut self, kind: OperationKind) -> OperationToken {
+    /// Starts a file operation unless one is still running. Returning `None`
+    /// instead of panicking keeps a caller that forgot the availability check a
+    /// no-op with a status message, never a crash on the I/O path.
+    pub(super) fn start_operation(&mut self, kind: OperationKind) -> Option<OperationToken> {
+        if !self.file_operation_available() {
+            return None;
+        }
         self.file_error = None;
         let snapshot = if kind == OperationKind::Save {
             self.document.save_snapshot()
@@ -30,9 +36,7 @@ impl Hylite {
             self.document.break_undo_group();
             self.document.snapshot()
         };
-        self.operations
-            .start(kind, snapshot)
-            .expect("file operations must be checked before starting another")
+        self.operations.start(kind, snapshot)
     }
 
     pub(super) fn finish_operation(&mut self, token: OperationToken, kind: OperationKind) -> bool {
@@ -72,17 +76,18 @@ impl Hylite {
                 self.restore_input_focus()
             }
             PendingAction::Open => {
-                let token = self.start_operation(OperationKind::Open);
+                let Some(token) = self.start_operation(OperationKind::Open) else {
+                    return Task::none();
+                };
                 self.status_message = "Opening file…".into();
                 Task::perform(file_io::open(), move |result| {
                     Message::FileOpened(token, result)
                 })
             }
             PendingAction::OpenAt(path) => {
-                if !self.file_operation_available() {
+                let Some(token) = self.start_operation(OperationKind::Open) else {
                     return Task::none();
-                }
-                let token = self.start_operation(OperationKind::Open);
+                };
                 self.status_message = format!("Opening {}…", path.display());
                 Task::perform(file_io::open_path(path), move |result| {
                     Message::FileOpened(token, result)
@@ -93,10 +98,9 @@ impl Hylite {
     }
 
     pub(super) fn begin_save(&mut self, save_as: bool) -> Task<Message> {
-        if !self.file_operation_available() {
+        let Some(token) = self.start_operation(OperationKind::Save) else {
             return Task::none();
-        }
-        let token = self.start_operation(OperationKind::Save);
+        };
         self.status_message = "Saving document…".into();
         let work = file_io::save(
             self.document.path().map(PathBuf::from),
@@ -177,10 +181,12 @@ impl Hylite {
     }
 
     pub(super) fn begin_export(&mut self) -> Task<Message> {
-        if self.pending_action.is_some() || !self.file_operation_available() {
+        if self.pending_action.is_some() {
             return Task::none();
         }
-        let token = self.start_operation(OperationKind::Export);
+        let Some(token) = self.start_operation(OperationKind::Export) else {
+            return Task::none();
+        };
         let work = file_io::export_html(
             self.document.text(),
             self.theme_palette(),
@@ -196,10 +202,12 @@ impl Hylite {
     }
 
     pub(super) fn begin_export_pdf(&mut self) -> Task<Message> {
-        if self.pending_action.is_some() || !self.file_operation_available() {
+        if self.pending_action.is_some() {
             return Task::none();
         }
-        let token = self.start_operation(OperationKind::Export);
+        let Some(token) = self.start_operation(OperationKind::Export) else {
+            return Task::none();
+        };
         self.status_message = "Exporting PDF…".into();
         let work = file_io::export_pdf(
             self.document.text(),
