@@ -39,6 +39,57 @@ mod text_edit;
 mod ui;
 mod workspace;
 
+/// Opt-in experimental harnesses. None of them changes the default Preview.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Experiment {
+    Stage9a,
+    Stage9b,
+    AltWidget,
+}
+
+impl Experiment {
+    fn from_flag(flag: Option<&str>) -> Option<Self> {
+        match flag {
+            Some("--inline-edit-spike") => Some(Self::Stage9a),
+            Some("--inline-feasibility-probe") => Some(Self::Stage9b),
+            Some("--inline-alt-widget-probe") => Some(Self::AltWidget),
+            _ => None,
+        }
+    }
+
+    fn usage(self) -> &'static str {
+        match self {
+            Self::Stage9a => "usage: hylite --inline-edit-spike <file>",
+            Self::Stage9b => "usage: hylite --inline-feasibility-probe <file>",
+            Self::AltWidget => "usage: hylite --inline-alt-widget-probe <file>",
+        }
+    }
+
+    fn missing_file(self) -> &'static str {
+        match self {
+            Self::Stage9a => "--inline-edit-spike requires one existing document file",
+            Self::Stage9b => "--inline-feasibility-probe requires one existing document file",
+            Self::AltWidget => "--inline-alt-widget-probe requires one existing document file",
+        }
+    }
+}
+
+/// `Ok(None)` means no experiment: the first argument keeps its normal
+/// file-or-folder meaning. Any other outcome is a usage error message.
+fn parse_experiment(args: &[std::ffi::OsString]) -> Result<Option<Experiment>, &'static str> {
+    let flag = args.first().and_then(|argument| argument.to_str());
+    let Some(experiment) = Experiment::from_flag(flag) else {
+        return Ok(None);
+    };
+    if args.len() != 2 {
+        return Err(experiment.usage());
+    }
+    if !std::path::Path::new(&args[1]).is_file() {
+        return Err(experiment.missing_file());
+    }
+    Ok(Some(experiment))
+}
+
 fn main() -> iced::Result {
     // `hylite export-pdf <input.md> <output.pdf>` renders without a window, so
     // a script (and the X11 gate) can produce a PDF headlessly.
@@ -46,44 +97,26 @@ fn main() -> iced::Result {
     let arguments: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     if export_cli::is_export_pdf(arguments.first()) {
         let theme = config::Config::load().config.appearance.theme.iced();
-        let palette = export_cli::theme_palette(&theme);
+        let palette = export::theme_palette(&theme);
         std::process::exit(export_cli::run(arguments, palette));
     }
     // `hylite <folder>` opens a workspace, `hylite <file.md>` opens that file.
-    // Explicit experimental flags never alter the default Preview. Stage 9b
-    // and the alternative custom-widget probe are separate read-only harnesses.
-    let inline_spike =
-        arguments.first().and_then(|argument| argument.to_str()) == Some("--inline-edit-spike");
-    let inline_probe = arguments.first().and_then(|argument| argument.to_str())
-        == Some("--inline-feasibility-probe");
-    let inline_alt_probe = arguments.first().and_then(|argument| argument.to_str())
-        == Some("--inline-alt-widget-probe");
-    let inline_experiment = inline_spike || inline_probe || inline_alt_probe;
-    if inline_experiment && arguments.len() != 2 {
-        if inline_probe {
-            eprintln!("usage: hylite --inline-feasibility-probe <file>");
-        } else if inline_alt_probe {
-            eprintln!("usage: hylite --inline-alt-widget-probe <file>");
-        } else {
-            eprintln!("usage: hylite --inline-edit-spike <file>");
+    // An explicit experimental flag replaces that argument with one file.
+    let experiment = match parse_experiment(&arguments) {
+        Ok(experiment) => experiment,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(2);
         }
-        std::process::exit(2);
-    }
-    let launch = if inline_experiment {
+    };
+    let launch = if experiment.is_some() {
         Some(std::path::PathBuf::from(&arguments[1]))
     } else {
         arguments.first().map(std::path::PathBuf::from)
     };
-    if inline_experiment && !launch.as_ref().is_some_and(|path| path.is_file()) {
-        if inline_probe {
-            eprintln!("--inline-feasibility-probe requires one existing document file");
-        } else if inline_alt_probe {
-            eprintln!("--inline-alt-widget-probe requires one existing document file");
-        } else {
-            eprintln!("--inline-edit-spike requires one existing document file");
-        }
-        std::process::exit(2);
-    }
+    let inline_spike = experiment == Some(Experiment::Stage9a);
+    let inline_probe = experiment == Some(Experiment::Stage9b);
+    let inline_alt_probe = experiment == Some(Experiment::AltWidget);
     iced::application(app::Hylite::title, app::Hylite::update, app::Hylite::view)
         .theme(app::Hylite::theme)
         .subscription(app::Hylite::subscription)

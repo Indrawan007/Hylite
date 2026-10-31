@@ -17,20 +17,6 @@ pub fn is_export_pdf(command: Option<&OsString>) -> bool {
     command.and_then(|command| command.to_str()) == Some("export-pdf")
 }
 
-/// The palette the GUI would use for the saved theme, shared with the CLI.
-pub fn theme_palette(theme: &iced::Theme) -> pdf::Palette {
-    let palette = theme.palette();
-    pdf::Palette::from_colors(
-        [
-            palette.background.r,
-            palette.background.g,
-            palette.background.b,
-        ],
-        [palette.text.r, palette.text.g, palette.text.b],
-        [palette.primary.r, palette.primary.g, palette.primary.b],
-    )
-}
-
 pub fn run(args: Vec<OsString>, palette: pdf::Palette) -> i32 {
     match export(&args, palette) {
         Ok(()) => 0,

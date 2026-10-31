@@ -100,7 +100,11 @@ pub async fn save(
     .map(Some)
 }
 
-pub async fn export_html(markdown: String, source: Option<PathBuf>) -> FileResult<PathBuf> {
+pub async fn export_html(
+    markdown: String,
+    palette: crate::export::pdf::Palette,
+    source: Option<PathBuf>,
+) -> FileResult<PathBuf> {
     let stem = source
         .as_ref()
         .and_then(|path| path.file_stem())
@@ -120,7 +124,7 @@ pub async fn export_html(markdown: String, source: Option<PathBuf>) -> FileResul
         if let Some(source) = source {
             files::ensure_distinct_destination(&source, &path)?;
         }
-        export::export_html(&markdown, &path)
+        export::export_html(&markdown, palette, &path)
             .with_context(|| format!("Cannot export {}", path.display()))?;
         Ok(path)
     })

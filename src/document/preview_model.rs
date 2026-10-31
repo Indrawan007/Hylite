@@ -80,16 +80,19 @@ impl Block {
     }
 }
 
-pub fn parse(source: &str) -> Vec<Block> {
-    // Explicit extensions: do not silently enable new syntax when the parser's
-    // Options::all grows. Export remains independent and is not changed here.
-    let options = Options::ENABLE_STRIKETHROUGH
+/// The extension set Preview renders. Export reuses it so HTML never enables
+/// syntax that the Preview ignores, and never silently grows with `Options::all`.
+pub fn options() -> Options {
+    Options::ENABLE_STRIKETHROUGH
         | Options::ENABLE_TABLES
         | Options::ENABLE_TASKLISTS
         | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_MATH;
+        | Options::ENABLE_MATH
+}
+
+pub fn parse(source: &str) -> Vec<Block> {
     blocks(
-        &mut Parser::new_ext(source, options).into_offset_iter(),
+        &mut Parser::new_ext(source, options()).into_offset_iter(),
         source,
         None,
         0,

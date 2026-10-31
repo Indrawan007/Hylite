@@ -183,25 +183,16 @@ impl Hylite {
         let token = self.start_operation(OperationKind::Export);
         let work = file_io::export_html(
             self.document.text(),
+            self.theme_palette(),
             self.document.path().map(PathBuf::from),
         );
         Task::perform(work, move |result| Message::HtmlExported(token, result))
     }
 
-    /// Theme palette for the PDF, taken from the same iced theme the editor
-    /// draws with so "export with the active theme" is literal.
-    pub(super) fn pdf_palette(&self) -> crate::export::pdf::Palette {
-        let theme = self.theme();
-        let palette = theme.palette();
-        crate::export::pdf::Palette::from_colors(
-            [
-                palette.background.r,
-                palette.background.g,
-                palette.background.b,
-            ],
-            [palette.text.r, palette.text.g, palette.text.b],
-            [palette.primary.r, palette.primary.g, palette.primary.b],
-        )
+    /// Theme palette for PDF and HTML, taken from the same iced theme the
+    /// editor draws with so "export with the active theme" is literal.
+    pub(super) fn theme_palette(&self) -> crate::export::pdf::Palette {
+        crate::export::theme_palette(&self.theme())
     }
 
     pub(super) fn begin_export_pdf(&mut self) -> Task<Message> {
@@ -212,7 +203,7 @@ impl Hylite {
         self.status_message = "Exporting PDF…".into();
         let work = file_io::export_pdf(
             self.document.text(),
-            self.pdf_palette(),
+            self.theme_palette(),
             self.document.path().map(PathBuf::from),
         );
         Task::perform(work, move |result| Message::PdfExported(token, result))

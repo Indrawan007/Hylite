@@ -1,18 +1,44 @@
 pub mod pdf;
 mod pdf_build;
 
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, Parser};
 
-/// Convert markdown → HTML body
+/// The palette the editor theme exports with. Shared by the GUI and the
+/// `export-pdf` CLI so both produce the same page for the same configuration.
+pub fn theme_palette(theme: &iced::Theme) -> pdf::Palette {
+    let palette = theme.palette();
+    pdf::Palette::from_colors(
+        [palette.background.r, palette.background.g, palette.background.b],
+        [palette.text.r, palette.text.g, palette.text.b],
+        [palette.primary.r, palette.primary.g, palette.primary.b],
+    )
+}
+
+/// Convert markdown → HTML body with exactly the Preview extension set.
 pub fn to_html(markdown: &str) -> String {
-    let parser = Parser::new_ext(markdown, Options::all());
+    let parser = Parser::new_ext(markdown, crate::document::preview_model::options());
     let mut out = String::new();
     html::push_html(&mut out, parser);
     out
 }
 
-/// Export markdown → file HTML lengkap (Catppuccin styled)
-pub fn export_html(markdown: &str, path: &std::path::Path) -> anyhow::Result<()> {
+/// Export markdown → complete HTML file with the active theme's colours.
+pub fn export_html(
+    markdown: &str,
+    palette: pdf::Palette,
+    path: &std::path::Path,
+) -> anyhow::Result<()> {
+    let background = css_hex(palette.background);
+    let text = css_hex(palette.text);
+    let accent = css_hex(palette.accent);
+    let surface = css_hex(palette.surface);
+    let border = css_hex(mix(palette.surface, palette.text, 0.25));
+    let scheme = if luminance(palette.background) > 0.5 {
+        "light"
+    } else {
+        "dark"
+    };
+    let body = to_html(markdown);
     let page = format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -21,43 +47,60 @@ pub fn export_html(markdown: &str, path: &std::path::Path) -> anyhow::Result<()>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hylite Export</title>
 <style>
-  :root {{ color-scheme: dark; }}
+  :root {{ color-scheme: {scheme}; }}
   body {{
     font-family: "Inter", -apple-system, system-ui, sans-serif;
     max-width: 820px; margin: 48px auto; padding: 0 24px;
-    line-height: 1.7; background: #1e1e2e; color: #cdd6f4;
+    line-height: 1.7; background: {background}; color: {text};
   }}
-  h1,h2,h3,h4 {{ color: #b4befe; line-height: 1.3; margin-top: 1.6em; }}
-  a {{ color: #89b4fa; }}
+  h1,h2,h3,h4 {{ color: {accent}; line-height: 1.3; margin-top: 1.6em; }}
+  a {{ color: {accent}; }}
   code {{
-    background: #313244; padding: 2px 6px; border-radius: 4px;
+    background: {surface}; padding: 2px 6px; border-radius: 4px;
     font-family: "JetBrains Mono", monospace; font-size: 0.9em;
   }}
   pre {{
-    background: #313244; padding: 16px; border-radius: 8px;
-    overflow-x: auto; border: 1px solid #45475a;
+    background: {surface}; padding: 16px; border-radius: 8px;
+    overflow-x: auto; border: 1px solid {border};
   }}
   pre code {{ background: none; padding: 0; }}
   blockquote {{
-    border-left: 4px solid #89b4fa; margin: 0;
-    padding: 4px 16px; color: #a6adc8; background: #272738;
+    border-left: 4px solid {accent}; margin: 0;
+    padding: 4px 16px; color: {text}; background: {surface};
   }}
   table {{ border-collapse: collapse; width: 100%; }}
-  th, td {{ border: 1px solid #45475a; padding: 8px 12px; text-align: left; }}
-  th {{ background: #313244; }}
-  hr {{ border: none; border-top: 1px solid #45475a; margin: 2em 0; }}
+  th, td {{ border: 1px solid {border}; padding: 8px 12px; text-align: left; }}
+  th {{ background: {surface}; }}
+  hr {{ border: none; border-top: 1px solid {border}; margin: 2em 0; }}
   img {{ max-width: 100%; border-radius: 8px; }}
 </style>
 </head>
 <body>
-{}
+{body}
 </body>
-</html>"#,
-        to_html(markdown)
+</html>"#
     );
 
     crate::files::atomic_write(path, page.as_bytes())?;
     Ok(())
+}
+
+/// `#rrggbb` for a theme colour, clamped exactly like the PDF writer.
+fn css_hex(rgb: [f32; 3]) -> String {
+    let [red, green, blue] = pdf::clamp_rgb(rgb);
+    let channel = |value: f32| (value * 255.0).round() as u8;
+    format!("#{:02x}{:02x}{:02x}", channel(red), channel(green), channel(blue))
+}
+
+fn mix(from: [f32; 3], towards: [f32; 3], amount: f32) -> [f32; 3] {
+    let blend = |a: f32, b: f32| a * (1.0 - amount) + b * amount;
+    [blend(from[0], towards[0]), blend(from[1], towards[1]), blend(from[2], towards[2])]
+}
+
+/// Perceived brightness; only used to pick the CSS `color-scheme`.
+fn luminance(rgb: [f32; 3]) -> f32 {
+    let [red, green, blue] = pdf::clamp_rgb(rgb);
+    red * 0.299 + green * 0.587 + blue * 0.114
 }
 
 /// Export markdown → PDF with the active theme's colours.
@@ -136,7 +179,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("catatan.html");
 
-        export_html("# Catatan\n\nIsi dokumen.\n", &path).unwrap();
+        export_html("# Catatan\n\nIsi dokumen.\n", pdf::Palette::default(), &path).unwrap();
         let page = std::fs::read_to_string(path).unwrap();
 
         assert!(page.starts_with("<!DOCTYPE html>"));
@@ -148,11 +191,43 @@ mod tests {
     }
 
     #[test]
+    fn html_uses_the_preview_extension_set_not_every_option() {
+        let html = to_html("\"kutip\" -- ...\n");
+
+        assert!(!html.contains('“'));
+        assert!(!html.contains('”'));
+        assert!(!html.contains('–'));
+        assert!(!html.contains('…'));
+    }
+
+    #[test]
+    fn html_export_uses_the_active_palette() {
+        let directory = tempfile::tempdir().unwrap();
+        let dark_path = directory.path().join("dark.html");
+        let light_path = directory.path().join("light.html");
+        let dark = pdf::Palette::from_colors([0.1, 0.1, 0.15], [0.9, 0.9, 0.9], [0.6, 0.7, 1.0]);
+        let light = pdf::Palette::from_colors([1.0, 1.0, 1.0], [0.1, 0.1, 0.1], [0.1, 0.2, 0.6]);
+
+        export_html("# Tema\n", dark, &dark_path).unwrap();
+        export_html("# Tema\n", light, &light_path).unwrap();
+
+        let dark_page = std::fs::read_to_string(dark_path).unwrap();
+        let light_page = std::fs::read_to_string(light_path).unwrap();
+
+        assert_ne!(dark_page, light_page);
+        assert!(dark_page.contains("color-scheme: dark;"));
+        assert!(dark_page.contains("background: #1a1a26;"));
+        assert!(light_page.contains("color-scheme: light;"));
+        assert!(light_page.contains("background: #ffffff;"));
+        assert!(light_page.contains("color: #1a1a1a;"));
+    }
+
+    #[test]
     fn propagates_write_errors() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("missing").join("catatan.html");
 
-        assert!(export_html("# Catatan", &path).is_err());
+        assert!(export_html("# Catatan", pdf::Palette::default(), &path).is_err());
     }
 
     #[test]

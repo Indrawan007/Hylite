@@ -33,7 +33,7 @@ Keterbatasan pembacaan: semua file diinventaris dan diukur; modul inti (`app.rs`
 
 Severity yang dipakai: **P0** = kontradiksi dengan klaim/dokumen atau risiko salah perilaku; **P1** = biaya pemeliharaan nyata, aman diperbaiki bertahap; **P2** = kebersihan/higiene.
 
-Tidak ada kode yang saya ubah pada audit ini (sesuai `AGENT.md` §3: sentuh hanya yang diminta).
+Audit ini awalnya tidak mengubah kode (sesuai `AGENT.md` §3: sentuh hanya yang diminta). Perbaikan D1, B6, dan B7 menyusul dan dicatat di [§9](#9-status-perbaikan-31-okt-2026).
 
 ---
 
@@ -270,3 +270,18 @@ Ketiga jawaban itu menentukan apakah pekerjaan berhenti di ±2 file (D1 + koreks
 | D4 | 4 | P2 | `.github/workflows/ci.yml` | Tidak ada bukti Wayland/Arch (sudah diakui dokumen) |
 
 **Total:** 1× P0, 8× P1, 9× P2.
+
+---
+
+## 9. Status perbaikan (31 Okt 2026)
+
+| ID | Status | Perubahan | Verifikasi |
+|---|---|---|---|
+| D1 | **selesai** | `export_html(markdown, palette, path)` dengan CSS dari warna tema; `to_html` memakai `preview_model::options()`; `theme_palette` dipusatkan di `export` sehingga dua salinan di `export_cli` dan `app/file_actions` hilang | 2 tes baru: palet terang/gelap menghasilkan byte berbeda dengan `color-scheme` yang benar; tidak ada smart punctuation |
+| B6 | **selesai** | `main.rs`: tiga flag probe menjadi `enum Experiment` + `parse_experiment`; ~45 baris duplikat menjadi satu tabel | parser Rust (tree-sitter): 0 error; alur flag tetap sama |
+| B7 | **selesai sebagian** | `gui-smoke-x11.py`: `SCOPE_BY_SUITE` + `DEFAULT_SCOPE` menggantikan ternary 8.311 karakter; `choices` dan `scope` kini berasal dari satu tabel | 98 tes Python lulus; nilai `scope` 31 suite dibandingkan dengan versi lama: identik termasuk urutan; `--help` tetap 31 pilihan |
+| A1-A3, B1-B5, C1-C4, D2-D4 | terbuka | — | — |
+
+Batas verifikasi perubahan ini: `cargo fmt/clippy/build/test` tetap tidak dapat dijalankan (tanpa `rustc`). Yang dijalankan: tree-sitter pada 6 file Rust yang diubah (0 error sintaks) dan 98 tes Python. `B7` diverifikasi dengan membandingkan hasil evaluasi tabel baru terhadap ekspresi lama untuk seluruh 31 suite.
+
+Yang sengaja belum disentuh: A1 (satu `ActiveDraft`), A2 (`SpikeSession`), A3, B1-B4 (butuh compiler dan tes regresi lebih dulu), C1-C4 (higiene), D2-D4. B5 (probe/spike) menunggu keputusan produk: hapus, `cfg(feature = "probe")`, atau pertahankan sebagai bukti historis.
