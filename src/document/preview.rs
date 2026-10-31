@@ -217,14 +217,7 @@ fn render_preview_internal<'a>(
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(
-            blocks,
-            colors,
-            snapshot,
-            base_dir,
-            session,
-            &inline_edit,
-        )
+        render_blocks(blocks, colors, snapshot, base_dir, session, &inline_edit)
     };
     let instructions = match session.map(|session| session.mode) {
         Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
