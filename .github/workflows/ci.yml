@@ -44,6 +44,15 @@ jobs:
         run: |
           cargo fmt --all -- --check
           rustfmt --edition 2021 --check tools/source-core-tests.rs
+      - name: Formatting diagnostics
+        if: always()
+        run: |
+          set +e
+          cargo fmt --all -- --check > "$RUNNER_TEMP/fmt.txt" 2>&1
+          if [ $? -ne 0 ]; then
+            body=$(head -c 60000 "$RUNNER_TEMP/fmt.txt" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=rustfmt-diff::$body"
+          fi
       - name: Test and lint independent Source core
         run: ./scripts/ci-cargo.sh env RUSTC="$(rustup which clippy-driver)" ./scripts/test-source-core.sh
       - name: Lint all targets
