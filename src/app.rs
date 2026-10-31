@@ -1025,7 +1025,17 @@ impl Hylite {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let editing_events = event::listen_with(|event, _status, _window| {
+        let editing_events = event::listen_with(|event, status, _window| {
+            // TEMPORARY DIAGNOSTIC (drop before merge): show whether the focused
+            // widget captured a Ctrl chord before the X11 smoke job gives up.
+            if let event::Event::Keyboard(keyboard::Event::KeyPressed {
+                key, modifiers, ..
+            }) = &event
+            {
+                if modifiers.control() || modifiers.logo() {
+                    eprintln!("smoke-trace: key {key:?} status={status:?}");
+                }
+            }
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
