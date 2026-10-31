@@ -282,6 +282,15 @@ Ketiga jawaban itu menentukan apakah pekerjaan berhenti di ±2 file (D1 + koreks
 | B7 | **selesai sebagian** | `gui-smoke-x11.py`: `SCOPE_BY_SUITE` + `DEFAULT_SCOPE` menggantikan ternary 8.311 karakter; `choices` dan `scope` kini berasal dari satu tabel | 98 tes Python lulus; nilai `scope` 31 suite dibandingkan dengan versi lama: identik termasuk urutan; `--help` tetap 31 pilihan |
 | A1-A3, B1-B5, C1-C4, D2-D4 | terbuka | — | — |
 
-Batas verifikasi perubahan ini: `cargo fmt/clippy/build/test` tetap tidak dapat dijalankan (tanpa `rustc`). Yang dijalankan: tree-sitter pada 6 file Rust yang diubah (0 error sintaks) dan 98 tes Python. `B7` diverifikasi dengan membandingkan hasil evaluasi tabel baru terhadap ekspresi lama untuk seluruh 31 suite.
+Verifikasi perubahan ini:
+
+| Pemeriksaan | Hasil |
+|---|---|
+| `cargo fmt --all -- --check`, `clippy --all-targets -D warnings`, build, seluruh tes Rust (CI run [41203900828](https://github.com/Indrawan007/Hylite/actions/runs/41203900828), commit `d236d02`) | **lulus** |
+| 98 tes Python (`unittest discover -s scripts`) | lulus |
+| Parser Rust tree-sitter pada 6 file yang diubah | 0 error sintaks |
+| `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
+
+Catatan penting: pada run yang **sama**, langkah *Smoke test actual GUI on isolated X11* gagal — dan langkah itu sudah gagal pada commit `98a419d` (dokumen saja) serta commit-commit sebelumnya di branch ini. Jadi kegagalan itu pra-perubahan, bukan akibat perbaikan D1/B6/B7, dan belum saya selidiki di audit ini.
 
 Yang sengaja belum disentuh: A1 (satu `ActiveDraft`), A2 (`SpikeSession`), A3, B1-B4 (butuh compiler dan tes regresi lebih dulu), C1-C4 (higiene), D2-D4. B5 (probe/spike) menunggu keputusan produk: hapus, `cfg(feature = "probe")`, atau pertahankan sebagai bukti historis.
