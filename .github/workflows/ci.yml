@@ -44,6 +44,13 @@ jobs:
         run: |
           cargo fmt --all -- --check
           rustfmt --edition 2021 --check tools/source-core-tests.rs
+      # TEMPORARY DIAGNOSTIC (drop before merge): job logs are unreadable from
+      # the sandbox, so surface the rustfmt diff as an annotation.
+      - name: Report formatting diff
+        if: failure()
+        run: |
+          diff="$(cargo fmt --all -- --check 2>&1 | head -80)"
+          printf '::error title=Rustfmt diff::%s\n' "${diff//$'\n'/%0A}"
       - name: Test and lint independent Source core
         run: ./scripts/ci-cargo.sh env RUSTC="$(rustup which clippy-driver)" ./scripts/test-source-core.sh
       - name: Lint all targets
