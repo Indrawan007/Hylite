@@ -8,7 +8,11 @@ use pulldown_cmark::{html, Parser};
 pub fn theme_palette(theme: &iced::Theme) -> pdf::Palette {
     let palette = theme.palette();
     pdf::Palette::from_colors(
-        [palette.background.r, palette.background.g, palette.background.b],
+        [
+            palette.background.r,
+            palette.background.g,
+            palette.background.b,
+        ],
         [palette.text.r, palette.text.g, palette.text.b],
         [palette.primary.r, palette.primary.g, palette.primary.b],
     )
@@ -89,12 +93,21 @@ pub fn export_html(
 fn css_hex(rgb: [f32; 3]) -> String {
     let [red, green, blue] = pdf::clamp_rgb(rgb);
     let channel = |value: f32| (value * 255.0).round() as u8;
-    format!("#{:02x}{:02x}{:02x}", channel(red), channel(green), channel(blue))
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        channel(red),
+        channel(green),
+        channel(blue)
+    )
 }
 
 fn mix(from: [f32; 3], towards: [f32; 3], amount: f32) -> [f32; 3] {
     let blend = |a: f32, b: f32| a * (1.0 - amount) + b * amount;
-    [blend(from[0], towards[0]), blend(from[1], towards[1]), blend(from[2], towards[2])]
+    [
+        blend(from[0], towards[0]),
+        blend(from[1], towards[1]),
+        blend(from[2], towards[2]),
+    ]
 }
 
 /// Perceived brightness; only used to pick the CSS `color-scheme`.
@@ -122,6 +135,10 @@ pub fn export_pdf(
 #[cfg(test)]
 mod tests {
     use super::{export_html, export_pdf, pdf, to_html};
+
+    fn palette(background: [f32; 3], text: [f32; 3]) -> pdf::Palette {
+        pdf::Palette::from_colors(background, text, [0.5, 0.5, 0.5])
+    }
 
     #[test]
     fn empty_markdown_produces_empty_body() {
@@ -178,8 +195,9 @@ mod tests {
     fn writes_a_complete_html_document() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("catatan.html");
+        let palette = pdf::Palette::default();
 
-        export_html("# Catatan\n\nIsi dokumen.\n", pdf::Palette::default(), &path).unwrap();
+        export_html("# Catatan\n\nIsi dokumen.\n", palette, &path).unwrap();
         let page = std::fs::read_to_string(path).unwrap();
 
         assert!(page.starts_with("<!DOCTYPE html>"));
@@ -205,8 +223,8 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let dark_path = directory.path().join("dark.html");
         let light_path = directory.path().join("light.html");
-        let dark = pdf::Palette::from_colors([0.1, 0.1, 0.15], [0.9, 0.9, 0.9], [0.6, 0.7, 1.0]);
-        let light = pdf::Palette::from_colors([1.0, 1.0, 1.0], [0.1, 0.1, 0.1], [0.1, 0.2, 0.6]);
+        let dark = palette([0.1, 0.1, 0.15], [0.9, 0.9, 0.9]);
+        let light = palette([1.0, 1.0, 1.0], [0.1, 0.1, 0.1]);
 
         export_html("# Tema\n", dark, &dark_path).unwrap();
         export_html("# Tema\n", light, &light_path).unwrap();
@@ -226,8 +244,9 @@ mod tests {
     fn propagates_write_errors() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("missing").join("catatan.html");
+        let palette = pdf::Palette::default();
 
-        assert!(export_html("# Catatan", pdf::Palette::default(), &path).is_err());
+        assert!(export_html("# Catatan", palette, &path).is_err());
     }
 
     #[test]
