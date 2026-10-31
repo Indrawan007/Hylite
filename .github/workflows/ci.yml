@@ -47,15 +47,7 @@ jobs:
       - name: Test and lint independent Source core
         run: ./scripts/ci-cargo.sh env RUSTC="$(rustup which clippy-driver)" ./scripts/test-source-core.sh
       - name: Lint all targets
-        run: |
-          set +e
-          ./scripts/ci-cargo.sh cargo clippy --locked --all-targets --all-features -- -D warnings > "$RUNNER_TEMP/clippy.txt" 2>&1
-          status=$?
-          if [ $status -ne 0 ]; then
-            body=$(tail -c 60000 "$RUNNER_TEMP/clippy.txt" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=clippy::$body"
-          fi
-          exit $status
+        run: ./scripts/ci-cargo.sh cargo clippy --locked --all-targets --all-features -- -D warnings
       - name: Build application
         run: ./scripts/ci-cargo.sh cargo build --locked --all-targets --all-features
       - name: Run tests without a display server

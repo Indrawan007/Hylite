@@ -56,8 +56,8 @@ impl<'a> SpikeSession<'a> {
         }
     }
 
-    fn on_block(self, block: std::ops::Range<usize>) -> bool {
-        self.draft.target.block == block
+    fn on_block(&self, block: &std::ops::Range<usize>) -> bool {
+        self.draft.target.block == *block
     }
 }
 
@@ -384,7 +384,7 @@ fn render_block<'a>(
                     crate::ui::visual_edit::view(draft)
                 } else if let Some(draft) = inline_draft {
                     crate::ui::paragraph_edit::inline_preview_view(draft)
-                } else if let Some(session) = session.filter(|s| s.on_block(block.source)) {
+                } else if let Some(session) = session.filter(|s| s.on_block(&block.source)) {
                     crate::ui::inline_spike::editor(session.draft, session.mode)
                 } else {
                     let heading = matches!(block.kind, Kind::Heading(_));
@@ -507,7 +507,7 @@ fn render_block<'a>(
             ),
             Kind::Rule => horizontal_rule(1).into(),
         };
-    let session_target = session.filter(|s| s.on_block(block.source));
+    let session_target = session.filter(|s| s.on_block(&block.source));
     let inline_session =
         inline_edit.draft.is_some_and(|draft| draft.inline_preview) || visual_draft.is_some();
     let element = if inline_session {
