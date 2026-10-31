@@ -32,6 +32,35 @@ struct InlineTextEditor<'a> {
     enabled: bool,
 }
 
+/// One active inline experiment session. The draft and the mode it belongs to
+/// travel together, so the render path can never be handed half a session and
+/// no `expect` is needed to reunite them.
+#[derive(Clone, Copy)]
+struct SpikeSession<'a> {
+    draft: &'a crate::ui::inline_spike::Draft,
+    mode: crate::ui::inline_spike::InputMode,
+}
+
+impl<'a> SpikeSession<'a> {
+    fn stage9a(draft: &'a crate::ui::inline_spike::Draft) -> Self {
+        Self {
+            draft,
+            mode: crate::ui::inline_spike::InputMode::Stage9a,
+        }
+    }
+
+    fn stage9b(probe: &'a crate::ui::inline_spike::Probe) -> Self {
+        Self {
+            draft: &probe.draft,
+            mode: crate::ui::inline_spike::InputMode::Stage9b,
+        }
+    }
+
+    fn on_block(self, block: std::ops::Range<usize>) -> bool {
+        self.draft.target.block == block
+    }
+}
+
 impl Colors {
     fn new(theme: &Theme) -> Self {
         let palette = theme.palette();
@@ -62,7 +91,6 @@ pub fn render_preview<'a>(
         snapshot,
         base_dir,
         None,
-        None,
         InlineTextEditor {
             draft: None,
             visual_draft: None,
@@ -88,7 +116,6 @@ pub fn render_preview_with_visual_edit<'a>(
         snapshot,
         base_dir,
         None,
-        None,
         InlineTextEditor {
             draft,
             visual_draft,
@@ -112,8 +139,7 @@ pub fn render_inline_spike_preview<'a>(
         theme,
         snapshot,
         base_dir,
-        spike,
-        Some(crate::ui::inline_spike::InputMode::Stage9a),
+        spike.map(SpikeSession::stage9a),
         InlineTextEditor {
             draft: None,
             visual_draft: None,
@@ -137,8 +163,7 @@ pub fn render_inline_probe_preview<'a>(
         theme,
         snapshot,
         base_dir,
-        probe.map(|probe| &probe.draft),
-        Some(crate::ui::inline_spike::InputMode::Stage9b),
+        probe.map(SpikeSession::stage9b),
         InlineTextEditor {
             draft: None,
             visual_draft: None,
@@ -185,8 +210,7 @@ fn render_preview_internal<'a>(
     theme: &Theme,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    spike: Option<&'a crate::ui::inline_spike::Draft>,
-    mode: Option<crate::ui::inline_spike::InputMode>,
+    session: Option<SpikeSession<'a>>,
     inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let colors = Colors::new(theme);
@@ -198,12 +222,11 @@ fn render_preview_internal<'a>(
             colors,
             snapshot,
             base_dir,
-            spike,
-            mode,
+            session,
             &inline_edit,
         )
     };
-    let instructions = match mode {
+    let instructions = match session.map(|session| session.mode) {
         Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
             "Stage 9a inline spike · one ASCII root line · caret only · Esc finishes; Source updates live",
         )
@@ -280,14 +303,13 @@ fn render_blocks<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    spike: Option<&'a crate::ui::inline_spike::Draft>,
-    mode: Option<crate::ui::inline_spike::InputMode>,
+    session: Option<SpikeSession<'a>>,
     inline_edit: &InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir, spike, mode, inline_edit)),
+            .map(|block| render_block(block, colors, snapshot, base_dir, session, inline_edit)),
     )
     .spacing(10)
     .width(Length::Fill)
@@ -331,8 +353,7 @@ fn render_block<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    spike: Option<&'a crate::ui::inline_spike::Draft>,
-    mode: Option<crate::ui::inline_spike::InputMode>,
+    session: Option<SpikeSession<'a>>,
     inline_edit: &InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let origin = format!(
@@ -370,12 +391,8 @@ fn render_block<'a>(
                     crate::ui::visual_edit::view(draft)
                 } else if let Some(draft) = inline_draft {
                     crate::ui::paragraph_edit::inline_preview_view(draft)
-                } else if let Some(spike) = spike.filter(|spike| spike.target.block == block.source)
-                {
-                    crate::ui::inline_spike::editor(
-                        spike,
-                        mode.expect("interactive inline editor requires an experiment mode"),
-                    )
+                } else if let Some(session) = session.filter(|s| s.on_block(block.source)) {
+                    crate::ui::inline_spike::editor(session.draft, session.mode)
                 } else {
                     let heading = matches!(block.kind, Kind::Heading(_));
                     let size = match block.kind {
@@ -399,8 +416,7 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
-                spike,
-                mode,
+                session,
                 inline_edit,
             ))
             .padding([8, 16])
@@ -440,8 +456,7 @@ fn render_block<'a>(
                                         colors,
                                         snapshot,
                                         base_dir,
-                                        spike,
-                                        mode,
+                                        session,
                                         inline_edit,
                                     )
                                 ]
@@ -455,8 +470,7 @@ fn render_block<'a>(
                                     colors,
                                     snapshot,
                                     base_dir,
-                                    spike,
-                                    mode,
+                                    session,
                                     inline_edit,
                                 )
                             ]
@@ -472,8 +486,7 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
-                spike,
-                mode,
+                session,
                 inline_edit,
             ),
             Kind::Code {
@@ -501,13 +514,13 @@ fn render_block<'a>(
             ),
             Kind::Rule => horizontal_rule(1).into(),
         };
-    let spike_target = spike.is_some_and(|spike| spike.target.block == block.source);
+    let session_target = session.filter(|s| s.on_block(block.source));
     let inline_session =
         inline_edit.draft.is_some_and(|draft| draft.inline_preview) || visual_draft.is_some();
     let element = if inline_session {
         element
-    } else if spike_target {
-        let (label, finish) = match mode.expect("active inline editor has a mode") {
+    } else if let Some(session) = session_target {
+        let (label, finish) = match session.mode {
             crate::ui::inline_spike::InputMode::Stage9a => {
                 ("Finish inline spike (Esc)", Message::FinishInlineSpike)
             }
