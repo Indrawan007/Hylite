@@ -331,24 +331,22 @@ impl Hylite {
         // TEMPORARY DIAGNOSTIC (drop before merge): the isolated X11 smoke job
         // fails after the Find panel closes, so trace the keys it sends.
         match &message {
+            Message::OpenFind(replace) => eprintln!("smoke-trace: OpenFind replace={replace}"),
             Message::ExitZenMode => eprintln!(
-                "smoke-trace: Escape search_open={} go_to_open={} zen={} pending={} mode={:?} visual_draft={}",
+                "smoke-trace: Escape search_open={} go_to_open={} zen={} pending={}",
                 self.search.open,
                 self.go_to.open,
                 self.zen_mode,
                 self.pending_action.is_some(),
-                self.mode,
-                self.visual_draft.is_some(),
             ),
             Message::CloseFind => eprintln!("smoke-trace: CloseFind"),
-            Message::FindNext(backwards) => {
-                eprintln!("smoke-trace: FindNext backwards={backwards}");
+            Message::FindNext(backwards) => eprintln!(
+                "smoke-trace: FindNext backwards={backwards} search_open={}",
+                self.search.open
+            ),
+            Message::Edit(text_editor::Action::SelectAll) => {
+                eprintln!("smoke-trace: Edit SelectAll");
             }
-            Message::Edit(action) => match action {
-                text_editor::Action::Copy => eprintln!("smoke-trace: Edit Copy"),
-                text_editor::Action::SelectAll => eprintln!("smoke-trace: Edit SelectAll"),
-                _ => {}
-            },
             _ => {}
         }
 
