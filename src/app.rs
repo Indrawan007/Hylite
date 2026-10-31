@@ -32,6 +32,59 @@ pub(crate) enum ActiveDraft {
     Visual,
 }
 
+impl ActiveDraft {
+    /// The status-message label used when a draft refuses a gesture.
+    fn label(self) -> &'static str {
+        match self {
+            Self::Paragraph => "A paragraph draft",
+            Self::Multiline => "A multiline paragraph draft",
+            Self::Cell => "A cell draft",
+            Self::Visual => "A visual text draft",
+        }
+    }
+
+    /// Messages a draft panel accepts while it owns the keyboard. Everything
+    /// else is refused, so a stray keystroke can never reach the document
+    /// behind the open panel.
+    fn accepts(self, message: &Message) -> bool {
+        match message {
+            Message::EndTypingGroup
+            | Message::FileOpened(..)
+            | Message::FileSaved(..)
+            | Message::HtmlExported(..) => true,
+            // The three single-line panels share the keyboard history keys;
+            // the multiline panel keeps its own history messages.
+            Message::DraftHistory(_) => self != Self::Multiline,
+            Message::EditPreviewVisualDraft(_)
+            | Message::FormatPreviewVisual(_)
+            | Message::ApplyPreviewVisualText
+            | Message::CancelPreviewVisualText => self == Self::Visual,
+            Message::EditMultilineParagraphDraft(_)
+            | Message::MultilineDraftHistory(_)
+            | Message::MoveMultilineParagraph(_)
+            | Message::ApplyMultilineParagraph
+            | Message::ApplyMultilineParagraphNext
+            | Message::ApplyMultilineParagraphPrevious
+            | Message::CancelMultilineParagraph => self == Self::Multiline,
+            Message::PreviewParagraphChanged(_)
+            | Message::ApplyPreviewParagraph
+            | Message::ApplyPreviewParagraphNext
+            | Message::ApplyPreviewParagraphPrevious
+            | Message::MovePreviewParagraph(_)
+            | Message::ParagraphDraftHistory(_)
+            | Message::CancelPreviewParagraph => self == Self::Paragraph,
+            Message::PreviewCellChanged(_)
+            | Message::ApplyPreviewCell
+            | Message::ApplyPreviewCellNext
+            | Message::ApplyPreviewCellPrevious
+            | Message::MovePreviewCell(_)
+            | Message::CellDraftHistory(_)
+            | Message::CancelPreviewCell => self == Self::Cell,
+            _ => false,
+        }
+    }
+}
+
 /// ── Main Application State ──────────────────────────────
 pub struct Hylite {
     /// The active buffer. Inactive buffers are parked in `tabs`.
@@ -406,91 +459,17 @@ impl Hylite {
                 }
             }
         }
-        if self.visual_draft.is_some() {
+        if let Some(active) = self.active_draft() {
             if matches!(&message, Message::ExitZenMode) {
-                return self.cancel_preview_visual_text();
+                return match active {
+                    ActiveDraft::Visual => self.cancel_preview_visual_text(),
+                    ActiveDraft::Multiline => self.cancel_multiline_paragraph(),
+                    ActiveDraft::Paragraph => self.cancel_preview_paragraph(),
+                    ActiveDraft::Cell => self.cancel_preview_cell(),
+                };
             }
-            if !matches!(
-                &message,
-                Message::EditPreviewVisualDraft(_)
-                    | Message::FormatPreviewVisual(_)
-                    | Message::ApplyPreviewVisualText
-                    | Message::CancelPreviewVisualText
-                    | Message::DraftHistory(_)
-                    | Message::EndTypingGroup
-                    | Message::FileOpened(..)
-                    | Message::FileSaved(..)
-                    | Message::HtmlExported(..)
-            ) {
-                self.report_blocked_draft_action(&message, "A visual text draft");
-                return Task::none();
-            }
-        }
-        if self.multiline_draft.is_some() {
-            if matches!(&message, Message::ExitZenMode) {
-                return self.cancel_multiline_paragraph();
-            }
-            if !matches!(
-                &message,
-                Message::EditMultilineParagraphDraft(_)
-                    | Message::MultilineDraftHistory(_)
-                    | Message::MoveMultilineParagraph(_)
-                    | Message::ApplyMultilineParagraph
-                    | Message::ApplyMultilineParagraphNext
-                    | Message::ApplyMultilineParagraphPrevious
-                    | Message::CancelMultilineParagraph
-                    | Message::EndTypingGroup
-                    | Message::FileOpened(..)
-                    | Message::FileSaved(..)
-                    | Message::HtmlExported(..)
-            ) {
-                self.report_blocked_draft_action(&message, "A multiline paragraph draft");
-                return Task::none();
-            }
-        }
-        if self.paragraph_draft.is_some() {
-            if matches!(&message, Message::ExitZenMode) {
-                return self.cancel_preview_paragraph();
-            }
-            if !matches!(
-                &message,
-                Message::PreviewParagraphChanged(_)
-                    | Message::ApplyPreviewParagraph
-                    | Message::ApplyPreviewParagraphNext
-                    | Message::ApplyPreviewParagraphPrevious
-                    | Message::MovePreviewParagraph(_)
-                    | Message::ParagraphDraftHistory(_)
-                    | Message::DraftHistory(_)
-                    | Message::CancelPreviewParagraph
-                    | Message::EndTypingGroup
-                    | Message::FileOpened(..)
-                    | Message::FileSaved(..)
-                    | Message::HtmlExported(..)
-            ) {
-                self.report_blocked_draft_action(&message, "A paragraph draft");
-                return Task::none();
-            }
-        }
-        if self.cell_draft.is_some() {
-            if matches!(&message, Message::ExitZenMode) {
-                return self.cancel_preview_cell();
-            }
-            if !matches!(
-                &message,
-                Message::PreviewCellChanged(_)
-                    | Message::ApplyPreviewCell
-                    | Message::ApplyPreviewCellNext
-                    | Message::ApplyPreviewCellPrevious
-                    | Message::MovePreviewCell(_)
-                    | Message::CellDraftHistory(_)
-                    | Message::DraftHistory(_)
-                    | Message::CancelPreviewCell
-                    | Message::EndTypingGroup
-                    | Message::FileOpened(..)
-                    | Message::FileSaved(..)
-                    | Message::HtmlExported(..)
-            ) {
-                self.report_blocked_draft_action(&message, "A cell draft");
+            if !active.accepts(&message) {
+                self.report_blocked_draft_action(&message, active.label());
                 return Task::none();
             }
         }
