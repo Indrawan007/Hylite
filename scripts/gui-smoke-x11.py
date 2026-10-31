@@ -138,34 +138,39 @@ class Desktop:
         # Changing ownership BEFORE Ctrl+C prevents a false pass from simply
         # reading the bytes we staged for Ctrl+V. Never strip whitespace or LF.
         marker = f"hylite-copy-not-acknowledged-{uuid.uuid4()}".encode("ascii")
-        self.put_clipboard(marker)
-        # Dispatch Copy ONCE, then only observe. Repeated Copy in the poll
-        # could leave another asynchronous clipboard write queued after success,
-        # stealing ownership from the next Paste fixture.
-        if refocus:
-            self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
-        self.key("ctrl+a")
-        self.key("ctrl+c")
         actual = None
+        timeout = None
+        # The X11 hand-off is asynchronous: iced serves the selection from a
+        # helper thread, so a gesture sent while the previous hand-off settles
+        # can copy an older buffer or be applied before the highlighted buffer
+        # reaches the widget. Each bounded attempt re-stages the marker, which
+        # also releases a writer that is still serving, and stops as soon as the
+        # clipboard leaves the marker, so the exact-bytes assertion stays intact
+        # and no extra Copy is queued after a successful one.
+        for attempt in range(3):
+            self.put_clipboard(marker)
+            if refocus and attempt == 0:
+                self.command("xdotool", "mousemove", "--window", self.window, "600", "300", "click", "1")
+            self.key("ctrl+a")
+            self.key("ctrl+c")
 
-        def copied():
-            nonlocal actual
-            actual = self.clipboard()
-            return actual == expected
+            def copied():
+                nonlocal actual
+                actual = self.clipboard()
+                return actual == expected
 
-        try:
-            self.wait(description, copied)
-        except TimeoutError as error:
-            # TEMPORARY DIAGNOSTIC (drop before merge): a still-owning marker
-            # means the application never stored its copy, while an exited one
-            # means ownership moved but the read still saw the marker.
-            owner = self.owners[-1] if self.owners else None
-            marker_owner = None if owner is None else owner.poll()
-            raise AssertionError(
-                f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
-                f" marker-owner-exit={marker_owner!r}"
-            ) from error
-        self.passed_check(description)
+            try:
+                self.wait(description, copied)
+                self.passed_check(description)
+                return
+            except TimeoutError as error:
+                timeout = error
+        owner = self.owners[-1] if self.owners else None
+        owner_exit = None if owner is None else owner.poll()
+        raise AssertionError(
+            f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
+            f" marker-owner-exit={owner_exit!r}"
+        ) from timeout
 
     def paste_from_clean(self, data):
         self.title_is_dirty(False)

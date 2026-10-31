@@ -81,10 +81,6 @@ impl Hylite {
         }
         let before = self.document.snapshot();
         self.document.apply(action);
-        eprintln!(
-            "smoke-trace: edit_native sel_after={:?}",
-            self.edit_selection_len()
-        );
         if before != self.document.snapshot() {
             self.edited();
         }
