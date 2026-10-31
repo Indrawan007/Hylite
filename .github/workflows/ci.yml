@@ -54,7 +54,18 @@ jobs:
         run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
       - name: Smoke test actual GUI on isolated X11
         timeout-minutes: 5
-        run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --artifacts "$RUNNER_TEMP/hylite-gui-smoke"
+        run: |
+          set +e
+          ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --artifacts "$RUNNER_TEMP/hylite-gui-smoke" 2>&1 | tee "$RUNNER_TEMP/gui-smoke.log"
+          exit "${PIPESTATUS[0]}"
+      - name: Report GUI smoke diagnostics
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/gui-smoke.log" ]; then
+            body=$(tail -n 40 "$RUNNER_TEMP/gui-smoke.log" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=GUI smoke tail::$body"
+            ls -la "$RUNNER_TEMP/hylite-gui-smoke" || true
+          fi
       - name: Smoke test task batches on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite task-batch --artifacts "$RUNNER_TEMP/hylite-gui-smoke/task-batch"
