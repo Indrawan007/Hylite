@@ -5,6 +5,23 @@ use crate::ui::icons::Icon;
 use iced::widget::{button, container, row, scrollable, text, tooltip};
 use iced::{Element, Length};
 
+/// One icon control of the strip, sized like the toolbar buttons so the two
+/// rows keep the same rhythm.
+fn icon_button(
+    icon: Icon,
+    message: Message,
+    kind: ButtonKind,
+    width: f32,
+) -> Element<'static, Message> {
+    button(crate::ui::icons::view(icon, kind))
+        .on_press(message)
+        .style(chrome::button_style(kind))
+        .width(width)
+        .height(28)
+        .padding(0)
+        .into()
+}
+
 fn short_title(title: &str, index: usize) -> String {
     let (name, dirty) = title
         .strip_suffix(" •")
@@ -41,35 +58,30 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         ));
         if active && app.tab_count() > 1 {
             strip = strip.push(tooltip(
-                button(crate::ui::icons::view(Icon::Close, ButtonKind::Quiet))
-                    .on_press(Message::CloseTab(index))
-                    .style(chrome::button_style(ButtonKind::Quiet))
-                    .width(22)
-                    .height(28)
-                    .padding(0),
+                icon_button(
+                    Icon::Close,
+                    Message::CloseTab(index),
+                    ButtonKind::Quiet,
+                    22.0,
+                ),
                 "Close active tab · Ctrl+W",
                 tooltip::Position::Bottom,
             ));
         }
     }
     strip = strip.push(tooltip(
-        button(crate::ui::icons::view(Icon::Plus, ButtonKind::Neutral))
-            .on_press(Message::NewTab)
-            .style(chrome::button_style(ButtonKind::Neutral))
-            .width(26)
-            .height(28)
-            .padding(0),
+        icon_button(Icon::Plus, Message::NewTab, ButtonKind::Neutral, 26.0),
         "New tab · Ctrl+T",
         tooltip::Position::Bottom,
     ));
     if app.tab_count() > 1 {
         strip = strip.push(tooltip(
-            button(crate::ui::icons::view(Icon::ChevronRight, ButtonKind::Quiet))
-                .on_press(Message::CycleTab(false))
-                .style(chrome::button_style(ButtonKind::Quiet))
-                .width(24)
-                .height(28)
-                .padding(0),
+            icon_button(
+                Icon::ChevronRight,
+                Message::CycleTab(false),
+                ButtonKind::Quiet,
+                24.0,
+            ),
             "Next tab",
             tooltip::Position::Bottom,
         ));
