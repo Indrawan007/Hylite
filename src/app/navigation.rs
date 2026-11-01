@@ -40,7 +40,13 @@ impl Hylite {
         };
         self.status_message =
             format!("Source {origin} at byte {offset} (provenance start, not glyph mapping)");
-        self.restore_input_focus()
+        // Split is built by the frame after this message, so the focus operation
+        // below still targets the Preview tree, which has no editor to focus.
+        // Re-assert it once the editor exists; the second assert is idempotent.
+        Task::batch([
+            self.restore_input_focus(),
+            Task::done(Message::RestoreInputFocus),
+        ])
     }
 
     pub(super) fn open_go_to(&mut self) -> Task<Message> {
