@@ -581,6 +581,24 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Source -> Preview.
     desktop.screenshot(artifacts / "reveal-preview.png")
     desktop.settle()  # Hit-test against the frame that already shows Preview.
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        # TEMPORARY DIAGNOSTIC (drop before merge): where is the Show block
+        # source bar? Each reveal is undone by the mode cycle (Split -> Source ->
+        # Preview) and verified, so a trial cannot measure the previous one.
+        found = []
+        for x in (200, 350, 500, 650, 800, 950, 1100, 1250):
+            desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                            str(x), "151", "click", "1")
+            desktop.settle()
+            revealed = desktop.mode_is_editable()
+            found.append((x, revealed))
+            if revealed:
+                desktop.key("ctrl+shift+m")
+                desktop.key("ctrl+shift+m")
+                desktop.settle()
+                if desktop.mode_is_editable():
+                    raise AssertionError(f"reveal-bar cancel failed after x={x}")
+        raise AssertionError(f"reveal-bar {found!r}")
     # Intentional click on the first block's explicit Show block source bar,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "600", "151", "click", "1")
