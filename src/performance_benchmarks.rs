@@ -11,13 +11,27 @@ const DATASETS: [(&str, usize); 3] = [("100KB", 100_000), ("1MB", 1_000_000), ("
 const SAMPLE_COUNT: usize = 3;
 const WALL_BUDGET_SECONDS: u64 = 180;
 
+/// Coarse per-operation ceilings: five times the worst median recorded in
+/// `docs/performance.md`, in milliseconds for the 100 KB, 1 MB and 5 MB
+/// datasets. They exist to fail a run that loses an order of magnitude or
+/// stalls, not to state a latency target; they are not portable between
+/// machines, and the harness stays opt-in.
+const CEILINGS_MS: [(&str, [f64; 3]); 6] = [
+    ("open", [0.4, 12.0, 175.0]),
+    ("typing", [0.3, 4.0, 33.0]),
+    ("parse", [26.0, 255.0, 1290.0]),
+    ("render_tree", [1.05, 11.5, 56.0]),
+    ("incremental_preview", [8.0, 80.0, 400.0]),
+    ("fallback_preview", [35.0, 350.0, 1790.0]),
+];
+
 #[test]
 #[ignore = "explicit opt-in Stage 10b benchmark; run with --ignored"]
 fn stage10b_baseline() {
     let suite_started = Instant::now();
     let directory = tempfile::tempdir().expect("create temporary benchmark directory");
 
-    for (label, target_bytes) in DATASETS {
+    for (dataset, (label, target_bytes)) in DATASETS.into_iter().enumerate() {
         let source = synthetic_markdown(target_bytes);
         assert_eq!(source.len(), target_bytes, "fixture size for {label}");
         let path = directory.path().join(format!("stage10b-{label}.md"));
@@ -89,6 +103,28 @@ fn stage10b_baseline() {
             elapsed
         });
 
+        for (metric, samples) in [
+            ("open", &open),
+            ("typing", &typing),
+            ("parse", &parsing),
+            ("render_tree", &rendering),
+            ("incremental_preview", &incremental),
+            ("fallback_preview", &fallback),
+        ] {
+            assert_within_ceiling(metric, dataset, label, samples);
+        }
+        // Structural guarantees: the incremental cache must stay cheaper than
+        // falling back to the full parser, and building the element tree must
+        // stay cheaper than parsing the document. Ratios survive slow runners.
+        assert!(
+            median_of(&incremental) < median_of(&fallback),
+            "Stage 10b {label}: incremental preview must stay cheaper than the full-parser fallback"
+        );
+        assert!(
+            median_of(&rendering) < median_of(&parsing),
+            "Stage 10b {label}: building the Preview tree must stay cheaper than parsing"
+        );
+
         println!(
             "STAGE10B dataset={label} bytes={target_bytes} samples={SAMPLE_COUNT} warmups=1 open_ms[min/median/max]={} typing_ms[min/median/max]={} parse_ms[min/median/max]={} render_tree_ms[min/median/max]={} incremental_preview_ms[min/median/max]={} fallback_preview_ms[min/median/max]={}",
             describe(&open),
@@ -122,10 +158,29 @@ fn ensure_within_budget(started: &Instant) {
     );
 }
 
+fn median_of(samples: &[Duration]) -> Duration {
+    let mut ordered = samples.to_vec();
+    ordered.sort_unstable();
+    ordered[ordered.len() / 2]
+}
+
+/// Fails the run when a metric's median crosses its coarse ceiling.
+fn assert_within_ceiling(metric: &str, dataset: usize, label: &str, samples: &[Duration]) {
+    let ceiling = CEILINGS_MS
+        .iter()
+        .find_map(|(name, ceilings)| (*name == metric).then_some(ceilings[dataset]))
+        .expect("ceiling table covers every metric");
+    let median = milliseconds(median_of(samples));
+    assert!(
+        median <= ceiling,
+        "Stage 10b {label} {metric}: median {median:.3} ms exceeds its {ceiling:.3} ms ceiling"
+    );
+}
+
 fn describe(samples: &[Duration]) -> String {
     let mut ordered = samples.to_vec();
     ordered.sort_unstable();
-    let median = ordered[ordered.len() / 2];
+    let median = median_of(samples);
     let maximum = *ordered.last().expect("at least one measured sample");
     format!(
         "{:.3}/{:.3}/{:.3}",

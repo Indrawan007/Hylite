@@ -41,11 +41,17 @@ benchmark test completed in 3.17 s including fixture creation and all samples.
 | `render_tree` | 0.192 / 0.197 / 0.205 | 1.920 / 1.968 / 1.980 | 9.566 / 9.586 / 9.711 |
 
 These are observations from one runner and one run, not portable guarantees,
-comparative results, regression thresholds per operation, or evidence of actual
-window rendering. The CI guard is a 180-second whole-suite assertion plus a
-5-minute step timeout; it is a coarse fail-safe against stalls or extreme
-regressions, not a latency target. The benchmark test is `#[ignore]` in the
-ordinary Cargo suite and CI invokes it explicitly.
+comparative results, or evidence of actual window rendering. The CI guard is a
+180-second whole-suite assertion, a 5-minute step timeout, **and** per-operation
+ceilings: each metric's median is compared with five times the worst median
+recorded above (`CEILINGS_MS` in `src/performance_benchmarks.rs`). The ceilings
+are a coarse fail-safe against stalls and order-of-magnitude regressions on a
+runner of the same class — not a latency target, not a claim about other
+machines, and not a substitute for a real benchmark. Two structural assertions
+back them up: `incremental_preview` must stay cheaper than `fallback_preview`
+(so losing the incremental cache fails the run) and `render_tree` must stay
+cheaper than `parse`. The benchmark test is `#[ignore]` in the ordinary Cargo
+suite and CI invokes it explicitly.
 
 ## Post-Stage 10a raw runner observation
 
