@@ -266,12 +266,20 @@ class Desktop:
             self.put_clipboard(marker)
             self.key("ctrl+a")
             self.key("ctrl+c")
-            self.settle(0.3)
+            # The app serves the selection asynchronously, so poll instead of
+            # reading once: a single early read still sees our marker and would
+            # report an editable document as read-only.
+            deadline = time.monotonic() + 1.5
+            while time.monotonic() < deadline:
+                got = self.clipboard()
+                if got is not None and got != marker:
+                    return True
+                time.sleep(0.05)
             got = self.clipboard()
+            if got == marker:
+                return False
             # A failed read is not an answer; ask again rather than claim the
             # document is editable because xclip hiccuped.
-            if got is not None:
-                return got != marker
         raise AssertionError("Mode probe got no clipboard answer")
 
     def cycle_to(self, editable, attempts=4):
