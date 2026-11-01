@@ -57,6 +57,17 @@ fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Mess
         .into()
 }
 
+fn divider<'a>() -> Element<'a, Message> {
+    container(iced::widget::Space::new(
+        Length::Fixed(1.0),
+        Length::Fixed(18.0),
+    ))
+    .style(chrome::divider_style())
+    .width(Length::Fixed(1.0))
+    .height(Length::Fixed(18.0))
+    .into()
+}
+
 pub fn view(app: &Hylite) -> Element<'_, Message> {
     let save_kind = if app.document.is_dirty() {
         ButtonKind::Primary
@@ -149,9 +160,11 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let layout: Element<'_, Message> = match layout::toolbar_density(app.viewport_width) {
         ToolbarDensity::Wide => row![
             file_group,
+            divider(),
             tabs,
             horizontal_space(),
             mode_group,
+            divider(),
             utility_group,
         ]
         .spacing(8)
@@ -160,7 +173,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         .into(),
         ToolbarDensity::Compact => {
             let file_row = row![file_group].align_y(iced::Alignment::Center);
-            let navigation_row = row![tabs, mode_group, utility_group]
+            let navigation_row = row![tabs, mode_group, divider(), utility_group]
                 .spacing(6)
                 .align_y(iced::Alignment::Center);
             column![file_row, navigation_row]
@@ -171,7 +184,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         ToolbarDensity::Narrow => {
             let file_row = row![file_group].align_y(iced::Alignment::Center);
             let tabs_row = row![tabs].align_y(iced::Alignment::Center);
-            let mode_utility_row = row![mode_group, utility_group]
+            let mode_utility_row = row![mode_group, divider(), utility_group]
                 .spacing(6)
                 .align_y(iced::Alignment::Center);
             column![file_row, tabs_row, mode_utility_row]
@@ -191,7 +204,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 350.0,
             );
             let mode_utility_row = layout::horizontal_overflow_below(
-                row![mode_group, utility_group]
+                row![mode_group, divider(), utility_group]
                     .spacing(6)
                     .align_y(iced::Alignment::Center)
                     .into(),

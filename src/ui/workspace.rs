@@ -61,8 +61,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
 fn empty() -> Element<'static, Message> {
     column![
         text("No folder open").size(13),
-        text("Ctrl+Shift+O folder").size(11),
-        text("F5 re-scans · no watcher").size(11),
+        text("Ctrl+Shift+O folder · F5 re-scans").size(11),
     ]
     .spacing(6)
     .into()

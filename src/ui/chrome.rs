@@ -123,6 +123,18 @@ pub fn button_style(kind: ButtonKind) -> impl Fn(&Theme, button::Status) -> butt
     }
 }
 
+/// A one-pixel rule between toolbar groups: the icon rows are wide, and the
+/// group panels alone read as one continuous strip of buttons.
+pub fn divider_style() -> impl Fn(&Theme) -> container::Style {
+    |theme| {
+        let colors = Colors::from_theme(theme);
+        container::Style {
+            background: Some(colors.border.into()),
+            ..Default::default()
+        }
+    }
+}
+
 pub fn surface_style(kind: SurfaceKind) -> impl Fn(&Theme) -> container::Style {
     move |theme| {
         let colors = Colors::from_theme(theme);

@@ -15,6 +15,15 @@ fn compact_label(value: &str, max_chars: usize) -> String {
     }
 }
 
+/// A hairline between sidebar sections.
+fn rule() -> Element<'static, Message> {
+    container(iced::widget::Space::new(Length::Fill, Length::Fixed(1.0)))
+        .style(chrome::divider_style())
+        .width(Length::Fill)
+        .height(Length::Fixed(1.0))
+        .into()
+}
+
 pub fn effective_width(app: &Hylite) -> f32 {
     layout::sidebar_width(app.config.appearance.sidebar_width, app.viewport_width)
 }
@@ -24,8 +33,11 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let colors = Colors::from_theme(&theme);
     let width = effective_width(app);
     let folder_label = if width < 180.0 { "+" } else { "Folder" };
-    let header = row![
-        text("FILES").size(12).color(colors.muted),
+    let header = text("DOKUMEN").size(11).color(colors.muted);
+    // The folder action belongs to the workspace section it opens, not to the
+    // document list above it.
+    let workspace_header = row![
+        text("WORKSPACE").size(11).color(colors.muted),
         iced::widget::horizontal_space(),
         tooltip(
             button(text(folder_label).size(11))
@@ -67,9 +79,16 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         colors.muted
     };
 
-    let body = column![
+    let document = column![
         current_label,
         text(document_state).size(11).color(document_state_color),
+    ]
+    .spacing(3);
+
+    let body = column![
+        document,
+        rule(),
+        workspace_header,
         crate::ui::workspace::view(app),
     ]
     .spacing(10)
@@ -87,7 +106,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     ]
     .spacing(4);
 
-    container(column![header, body, hints].spacing(12).padding(14))
+    container(column![header, body, hints].spacing(10).padding(14))
         .style(chrome::surface_style(SurfaceKind::Sidebar))
         .width(width)
         .height(Length::Fill)
