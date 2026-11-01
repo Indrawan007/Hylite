@@ -316,6 +316,10 @@ class Desktop:
                 self.type_ascii("X")
                 copied = self.copy_probe()
                 if copied == expected:
+                    # The probe selected everything; undo the trial sentinel so
+                    # the caret is back on the block start for the check itself.
+                    self.key("ctrl+z")
+                    self.settle()
                     return
                 if copied != PROBE_MARKER:
                     seen.append(((x, y), copied.index(sentinel)
