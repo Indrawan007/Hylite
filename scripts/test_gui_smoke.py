@@ -186,8 +186,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 4)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "490", "316", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "490", "316", "click", "3"),
+            ("xdotool", "mousemove", "--window", "42", "490", "269", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "490", "269", "click", "3"),
         ])
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["LEAK", "X"])
         self.assertEqual(desktop.screenshot.call_count, 2)
@@ -207,8 +207,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 8)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "762", "153", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "272", "106", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "762", "106", "click", "1"),
         ])
         self.assertEqual(desktop.screenshot.call_count, 2)
 
@@ -225,7 +225,7 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 7)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "272", "106", "click", "1"),
         ])
         # The Obsidian shell draws no Undo/Redo buttons, so this suite must not
         # press one: the guard is pinned by the shortcuts asserted below.

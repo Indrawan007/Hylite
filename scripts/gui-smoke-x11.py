@@ -805,12 +805,14 @@ def exercise_cell_reveal(desktop, artifacts):
     desktop.key("ctrl+shift+m")
     desktop.screenshot(artifacts / "cell-preview.png")
     desktop.settle()  # Hit-test against the frame that already shows Preview.
-    # Default 1200x800 client: first body row, second column. Left click must
-    # remain read-only; only the deliberate right click should navigate.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "316", "click", "1")
+    # Default 1200x800 client: first body row, second column. The Obsidian shell
+    # starts the editor 47 px higher than the two toolbar rows did, so the row is
+    # at y=269. Left click must remain read-only; only the deliberate right click
+    # should navigate.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "269", "click", "1")
     time.sleep(0.25)
     desktop.type_ascii("LEAK")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "316", "click", "3")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "269", "click", "3")
     time.sleep(0.25)
     desktop.type_ascii("X")
     desktop.expect_copy("Right-click cell opens Split at raw cell start, not styled 3 or a byte/scalar mixup", edited, refocus=False)
@@ -832,7 +834,7 @@ def exercise_task_toggle(desktop, artifacts):
     desktop.expect_copy("Task fixture: UTF-8, uppercase X, fenced literal and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")  # Source -> Preview.
     desktop.settle()  # Hit-test against the frame that already shows Preview.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "153", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "106", "click", "1")
     time.sleep(0.25)
     desktop.screenshot(artifacts / "task-preview.png")
     desktop.key("ctrl+shift+m")  # Preview -> Split; Source must receive focus.
@@ -842,7 +844,7 @@ def exercise_task_toggle(desktop, artifacts):
     desktop.key("ctrl+shift+z")
     desktop.expect_copy("Redo restores checked task and preserves other raw markers", checked, refocus=False)
     # Click the same actual checkbox in the right-hand Split preview, not Source.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "762", "153", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "762", "106", "click", "1")
     time.sleep(0.25)
     desktop.expect_copy("Split checkbox unchecks and restores Source keyboard focus", source, refocus=False)
     desktop.screenshot(artifacts / "task-split.png")
@@ -871,7 +873,7 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.expect_copy("Preview history fixture: exact raw Source before task edit", source, refocus=False)
     desktop.key("ctrl+shift+m")
     desktop.key("ctrl+z")  # Source paste is not eligible for Preview history.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "153", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "106", "click", "1")
     time.sleep(0.25)
     desktop.key("ctrl+z")
     inspect("Preview Ctrl+Z undoes only the checkbox transaction", source)
