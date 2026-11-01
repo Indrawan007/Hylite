@@ -162,7 +162,7 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 4)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args[0] for call in desktop.reveal_from_preview.call_args_list],
-                         [[(800, 284), (800, 290), (800, 296), (800, 302), (800, 278), (800, 308)]])
+                         [[(800, y) for y in range(104, 380, 6)]])
         self.assertEqual(desktop.reveal_from_preview.call_args.args[1], source)
         self.assertEqual(desktop.reveal_from_preview.call_args.args[2], 28)
         desktop.command.assert_not_called()  # No Source click/windowfocus workaround.

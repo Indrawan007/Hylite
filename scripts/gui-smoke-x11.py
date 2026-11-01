@@ -743,10 +743,15 @@ def exercise_preview_reveal(desktop, artifacts):
     # The bars are drawn per rendered block, so sweep the editor column instead
     # of hard-coding the row the toolbar height happens to produce: the document
     # still decides (byte `block_start`), and a miss costs no undo step.
+    # Sweep the clean column once: every press above is followed by a full
+    # recovery, so each row is read against the same document and the same
+    # frame geometry, and the reported offsets are a usable row map when it
+    # fails.
     desktop.reveal_from_preview(
-        [(800, 284), (800, 290), (800, 296), (800, 302), (800, 278), (800, 308)],
+        [(800, y) for y in range(104, 380, 6)],
         source,
         block_start,
+        attempts=1,
     )
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret",
