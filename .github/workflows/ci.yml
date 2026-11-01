@@ -51,7 +51,15 @@ jobs:
       - name: Build application
         run: ./scripts/ci-cargo.sh cargo build --locked --all-targets --all-features
       - name: Run tests without a display server
-        run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
+        run: |
+          set +e
+          ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features > "$RUNNER_TEMP/test.txt" 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            body=$(sed -n '/^failures:$/,$p' "$RUNNER_TEMP/test.txt" | head -c 30000 | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=tests::$body"
+          fi
+          exit $status
       - name: Smoke test actual GUI on isolated X11
         timeout-minutes: 10
         run: |
