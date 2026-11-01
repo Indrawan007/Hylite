@@ -581,25 +581,10 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Source -> Preview.
     desktop.screenshot(artifacts / "reveal-preview.png")
     desktop.settle()  # Hit-test against the frame that already shows Preview.
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        # TEMPORARY DIAGNOSTIC (drop before merge): where is the Show block
-        # source bar? The cancel is itself verified, so a trial cannot measure
-        # the previous one.
-        targets = [(200, 151), (350, 151), (500, 151), (650, 151), (800, 151),
-                   (950, 151), (1100, 151), (1250, 151), (600, 139), (600, 147),
-                   (600, 157), (600, 165)]
-        found = []
-        for x, y in targets:
-            desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                            str(x), str(y), "click", "1")
-            desktop.settle()
-            found.append(((x, y), desktop.mode_is_editable()))
-            desktop.cycle_to(editable=False)
-        raise AssertionError(f"reveal-bar {found!r}")
     # Intentional click on the first block's explicit Show block source bar,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "600", "151", "click", "1")
-    time.sleep(0.25)  # Let the navigation message and scoped focus task run.
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "350", "151", "click", "1")
+    desktop.settle()  # Let the navigation message and scoped focus task run.
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
     desktop.screenshot(artifacts / "reveal-split.png")
