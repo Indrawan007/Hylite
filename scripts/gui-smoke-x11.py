@@ -296,28 +296,32 @@ class Desktop:
         raise AssertionError("Mode probe got no clipboard answer")
 
     def reveal_from_preview(self, points, source, attempts=2):
-        """Click a Preview affordance until the document itself answers.
+        """Click a Preview affordance until the caret lands on a block start.
 
         The block actions only exist once the preview has rendered the current
         revision, and a press that misses can open an editable draft instead,
-        so an editable widget is no proof of navigation: the copy has to be the
-        untouched document, which is what the reveal promises (the caret lands
-        on the block start, not on a selection). A draft that answers is
-        cancelled and the next point tried.
+        so "something editable answered" proves nothing: the sentinel has to
+        arrive in front of the untouched document. Each trial undoes its own
+        sentinel and cancels a draft before the next point is tried.
         """
+        sentinel = b"X"
         for _ in range(attempts):
             for x, y in points:
                 self.command("xdotool", "mousemove", "--window", self.window,
                              str(x), str(y), "click", "1")
                 self.settle()
-                copied = self.copy_probe()
-                if copied == source:
+                self.type_ascii("X")
+                if self.copy_probe() == sentinel + source:
                     return
-                if copied != PROBE_MARKER:  # a draft answered instead.
-                    self.key("Escape")
-                    self.settle()
-                    self.cycle_to(editable=False)
-        raise AssertionError(f"Preview block action at {points!r} never revealed Source")
+                # Wrong target: a draft keeps the sentinel and swallows Ctrl+Z,
+                # so cancel it first and let the mode cycle verify Preview.
+                self.key("Escape")
+                self.settle()
+                self.key("ctrl+z")
+                self.cycle_to(editable=False)
+        raise AssertionError(
+            f"Preview block action at {points!r} never put the caret on a block start"
+        )
 
     def cycle_to(self, editable, attempts=4):
         """Cycle modes until the document confirms the wanted editability.
