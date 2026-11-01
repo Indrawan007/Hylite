@@ -114,6 +114,24 @@ class Desktop:
         self.wait(f"Window title ends with {suffix!r}", matches, seconds=seconds)
         self.passed_check(f"Window title: {suffix.strip()!r}")
 
+    def title_clean(self):
+        """True when the window title reports an unmodified document."""
+        title = self.window_title() or ""
+        return title.endswith("— Hylite") and " •" not in title
+
+    def undo_until_clean(self, attempts=4):
+        """Press Ctrl+Z until the document reports itself clean.
+
+        A single undo can be dropped before the Source widget owns the keyboard
+        again, so the title decides instead of the key count.
+        """
+        for _ in range(attempts):
+            if self.title_clean():
+                return
+            self.key("ctrl+z")
+            self.settle(0.3)
+        raise AssertionError("Ctrl+Z never restored the clean title")
+
     def title_is_dirty(self, expected):
         def matches():
             title = self.command("xdotool", "getwindowname", self.window).decode("utf-8")
@@ -498,8 +516,7 @@ def exercise_tables(desktop, artifacts):
     desktop.key("ctrl+shift+m")
     desktop.cycle_to(editable=True)  # The cycle landed on an editable widget.
     desktop.expect_copy("Table mode cycle preserves all source including excess cells and terminal tab", source)
-    desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Table rendering adds no undo entries or document edits", welcome, refocus=False)
 
 
