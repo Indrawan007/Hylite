@@ -368,7 +368,7 @@ Sesi lanjutan mengejar flake §9a sampai akar penyebabnya, bukan hanya titik gag
 | `settle()` sebelum klik tombol action bar Preview (heading, setext, reveal, cell, task) | klik yang dikirim satu frame setelah pergantian mode di-hit-test pada frame lama dan mendarat di teks blok, membuka draft |
 | Go To Line di suite cache: `settle()` lalu `Ctrl+A` sebelum mengetik alamat | input panel baru ter-mount satu frame kemudian; karakter pertama tertelan sehingga alamat ditambahkan, bukan menggantikan seed |
 
-**Status gate.** Step 12 kini melewati seluruh suite `exercise_preview`, `exercise_tables`, dan `exercise_preview_cache` (cek "Warm Split: table cell edit is byte-exact after Go to Line" kini lulus). Titik gagal berpindah ke `exercise_preview_reveal` (`Preview source action opens Split and focuses exact block-start caret`): klik `(600,151)` pada bilah "Show block source" tidak memicu reveal, jadi aplikasi tetap di Preview dan tidak ada salinan sama sekali. Suite-suite ini tidak pernah berjalan sejak gate mulai merah di suite tabel, sehingga koordinat piksel dan asumsi jumlah tombolnya belum pernah diverifikasi pada build sekarang.
+**Status gate.** Step 12 kini melewati seluruh suite `exercise_preview`, `exercise_tables`, `exercise_preview_cache`, dan `exercise_preview_reveal`. Titik gagal terakhir yang tersisa ada di suite tabel/riwayat dan bersifat intermiten (satu gestur hilang); rinciannya di §9d.
 
 **Temuan terbuka.**
 1. `Ctrl+Shift+M` yang dikirim saat Source tidak fokus (Preview) masih kadang hilang; perbaikannya saat ini hanya pemulihan di harness (`cycle_to`), bukan alasan yang terbukti di aplikasi.
@@ -376,3 +376,26 @@ Sesi lanjutan mengejar flake §9a sampai akar penyebabnya, bukan hanya titik gag
 3. Kelas "satu keystroke tertelan" (§9a) belum diperbaiki di aplikasi; harness hanya mengulang gestur.
 
 Seluruh langkah §6 (1–7) sudah dijalankan dan tercatat di §9. Satu-satunya temuan yang sengaja ditutup tanpa perubahan kode adalah C3 (konvensi tes diseragamkan lewat dokumentasi, bukan migrasi massal) dan D4 (pernyataan batas, bukan cacat).
+
+### 9d. Lanjutan 1 Nov 2026: reveal membangun editor yang ia fokuskan
+
+**Temuan produk (terukur).** Klik bilah "Show block source" pada Preview memang berpindah ke Split, tetapi editor yang baru dibangun **tidak menerima fokus**: operasi fokus dijalankan pada frame yang masih menampilkan Preview, yang tidak punya widget editor. Terlihat sebagai `TimeoutError` pada cek `Preview source action opens Split and focuses exact block-start caret` — tidak ada widget yang bisa menyalin sama sekali, bukan salinan yang salah.
+
+**Perbaikan (`6ef3f4f`, `7e1489b`).** `app::navigation::reveal_preview` mengembalikan `Task::batch([restore_input_focus(), Task::done(Message::RestoreInputFocus)])`; `Message::RestoreInputFocus` adalah pesan fokus idempoten yang diproses paling awal di `update` (di luar guard draft, karena ia tidak menyentuh dokumen). Percobaan yang sama pada `SwitchMode`/`CycleMode` sudah dicoba lalu **dibatalkan**: jalur itu sudah diverifikasi harness lewat `cycle_to`, dan fokus yang datang terlambat justru memperlebar jendela saat draft dibuka.
+
+**Geometri bilah (terukur, bukan asumsi).** Dengan probe yang hasilnya tidak bisa tertukar antar-percobaan, klik pada kolom x=800 di y=151 me-reveal blok dengan awal provenance **byte 26** (paragraf `body **bold**`, bukan heading byte 0), sedangkan y=139/147/157/165 tidak me-reveal apa pun pada kolom itu. Jadi bilah tiap blok berada tepat di atas isi blok itu, dan `(600,151)` yang dipakai sebelumnya bukan bilah blok mana pun.
+
+**Pengerasan harness tambahan.**
+
+| Perubahan | Alasan terukur |
+|---|---|
+| `copy_probe()` mem-poll clipboard (1,5 dtk) dan melempar bila tidak ada jawaban | aplikasi menyajikan seleksi secara asinkron; satu pembacaan langsung masih melihat marker sendiri, dan `None` dari xclip sempat dibaca sebagai "dokumen editable" |
+| `reveal_from_preview(points, source, offset)` | klik yang meleset bisa membuka draft (widget editable), jadi "ada yang editable" bukan bukti; sentinel harus mendarat di `offset` di depan dokumen utuh. Setiap offset yang teramati dilaporkan, draft dibatalkan, sentinel di-undo |
+| `toolbar_history(point, label, expected)` | klik toolbar yang dikirim sebelum frame toolbar digambar sama dengan meleset; tombol ditekan ulang hanya selama dokumen belum menjawab |
+| `settle()` setelah `cycle_to(editable=True)` pada suite tabel | widget difokuskan oleh frame sesudah siklus mode, bukan oleh siklus itu sendiri |
+
+**Temuan terbuka (setelah sesi ini).**
+1. Kelas "satu gestur hilang" (§9a) tetap belum diperbaiki di aplikasi: `Ctrl+Shift+M` dan `Ctrl+A`/`Ctrl+C` masih kadang tidak sampai. Harness mengulang gestur dan memverifikasi lewat dokumen.
+2. Suite tabel/riwayat masih intermiten pada cek `Table mode cycle preserves all source…` dan `Preview toolbar Undo…`; keduanya kini memakai gestur terverifikasi, tetapi gate belum pernah hijau penuh dalam satu run.
+3. Artefak screenshot tidak bisa diunduh dari sandbox ini, sehingga pemetaan koordinat produk hanya bisa lewat anotasi (satu run per pertanyaan).
+
