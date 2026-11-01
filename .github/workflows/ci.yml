@@ -62,7 +62,9 @@ jobs:
         if: failure()
         run: |
           if [ -f "$RUNNER_TEMP/gui-smoke.log" ]; then
-            body=$(tail -n 40 "$RUNNER_TEMP/gui-smoke.log" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+            # Only the harness's own lines: the shared log also carries cargo
+            # noise, and the tail of that is never the interesting part.
+            body=$(grep -E '^(STEP:|PASS:|Focused window:|Traceback|[A-Za-z]*Error)' "$RUNNER_TEMP/gui-smoke.log" | tail -n 25 | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=GUI smoke tail::$body"
             ls -la "$RUNNER_TEMP/hylite-gui-smoke" || true
           fi

@@ -3426,6 +3426,9 @@ def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=Non
     if entry is None:
         raise ValueError(f"Unknown GUI suite: {suite}")
     for step in entry.steps:
+        # Print the step that is about to run: a run that hangs reports where it
+        # hangs instead of only where the last check passed.
+        print(f"STEP: {step.function} [{time.monotonic() - STARTED:6.1f}s]", flush=True)
         extras = launch_extras(step.needs, binary, workspace, document)
         globals()[step.function](desktop, artifacts, *extras)
 
