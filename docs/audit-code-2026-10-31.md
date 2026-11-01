@@ -485,3 +485,13 @@ Screenshot pengguna memperlihatkan dua cacat yang tidak terlihat dari kode: seti
 
 **Biaya.** Sapuan penuh 40 baris ≈ 285 dtk (run `41312312266`), masih di bawah anggaran 780 dtk, dan kasus normal berhenti setelah belasan baris.
 
+### 9j. Koreksi: paragraf panjang pun tidak menjawab di kolom terukur (1 Nov 2026)
+
+Run `41313321545` menguji dugaan di §9i (bilah selebar baris pertama blok) dengan memanjangkan paragraf fixture sampai melewati kolom x=800. Hasilnya, dengan dokumen utuh: **hanya `y=152..164` yang menjawab** (offset 0, heading), sisanya `None` — termasuk baris paragraf yang kini panjang.
+
+Jadi dugaan itu salah, dan yang tersisa sebagai fakta terukur hanya satu: pada kolom x=800, bilah `Show block source` milik **heading** dapat ditekan, sedangkan baris aksi paragraf dan tabel tidak. Dugaan yang lebih masuk akal (belum diuji, jangan dikutip sebagai kesimpulan): baris aksi hanya dirender untuk blok yang `source_navigable()`, dan blok paragraf dengan konten inline masuk jalur edit lain.
+
+**Keputusan harness.** Suite reveal menuntut caret di **byte 0** (awal blok heading) karena itulah satu-satunya bilah yang terbukti bisa ditekan pada kolom tersebut; setiap jawaban lain — caret di offset lain, draft visual, atau tidak ada jawaban — tetap dilaporkan lengkap dengan konteks byte dan judul jendela. Sifat "bukan sekadar membuka dokumen di 0" kini tidak lagi dijamin oleh suite ini, dan itu dicatat sebagai keterbatasan, bukan seolah-olah lulus.
+
+**Biaya yang dibuang.** Empat siklus CI (≈40 menit) habis untuk mengejar bilah yang tidak ada di kolom itu; setiap siklus memberi satu fakta, tetapi pertanyaan "di kolom x berapa bilah paragraf berada" tidak dapat dijawab tanpa screenshot in-app, dan artefak run tidak dapat diunduh dari sandbox ini.
+
