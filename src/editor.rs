@@ -157,9 +157,9 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
             )),
             // The block-style picker is gone, so the quote keeps a chord like the
             // other block styles do.
-            keyboard::Key::Character("q" | "Q") if ctrl && shift => Some(Message::FormatBlock(
-                crate::block_edit::BlockStyle::Quote,
-            )),
+            keyboard::Key::Character("q" | "Q") if ctrl && shift => {
+                Some(Message::FormatBlock(crate::block_edit::BlockStyle::Quote))
+            }
             keyboard::Key::Character("c" | "C") if ctrl && shift => Some(Message::InsertCodeBlock),
             _ => None,
         };
