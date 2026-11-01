@@ -421,3 +421,19 @@ Seluruh langkah §6 (1–7) sudah dijalankan dan tercatat di §9. Satu-satunya t
 
 **Status gate.** Run `41295689067` (sha `4c0a65e`): langkah 6–11 hijau (1090 + 338 tes, clippy, fmt) dan langkah 12 masih merah pada sebab (2). Perbaikan (2) diuji oleh run `7f0b172`.
 
+### 9f. Peta baris bilah Preview yang terukur (1 Nov 2026)
+
+Penyapuan kolom x=800 pada run `41297006756` (sha `ccc83e0`) memberi peta yang tidak lagi ambigu, karena setiap jawaban kini mencatat byte di sekitar caret dan judul jendela:
+
+| y (x=800) | jawaban | konteks | judul | arti |
+|---|---|---|---|---|
+| 146, 152, 158, 164 | 0 | `X# café` | `Untitled • — Hylite` | bilah **source** blok heading (awal blok = 0, benar) |
+| 230, 242 | 9 | `ody boldX` | `Untitled • [visual text draft] — Hylite` | bilah **draft visual** paragraf (teks draft `body bold`, caret di ujung) |
+| 284–302 | 28 | `bold**\n\nX\| Name` | `Untitled • — Hylite` | bilah **source** blok tabel (awal blok = 28, benar) |
+
+Jadi pada kolom x=800 yang terjangkau hanya bilah source **heading** dan **tabel**; paragraf `body **bold**` menampilkan bilah draft visual saja, tidak bilah source-nya.
+
+**Koreksi assertion (harness).** Anggapan lama bahwa paragraf itu mulai di byte 26 salah: heading `# café🙂` hanya 11 byte UTF-8, jadi paragraf mulai di byte 13 dan byte 26 berada di dalam baris kosong sebelum tabel — offset yang tidak mungkin dihasilkan implementasi yang benar. Suite reveal kini menekan bilah source **tabel** dan menuntut caret tepat di byte 28 (`source.index(b"| Name")`), dengan pindaian `y=104..334` di x=800; jawaban 0 dari heading dan 9 dari draft tetap dilaporkan sebagai bukti, bukan diterima.
+
+**Biaya.** Satu jawaban salah = Escape + undo sentinel + `cycle_to(editable=False)` (±5–10 dtk); suite berjalan ±105 dtk pada run `41297006756`, masih jauh di bawah anggaran 780 dtk.
+

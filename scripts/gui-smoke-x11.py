@@ -726,11 +726,12 @@ def exercise_preview_reveal(desktop, artifacts):
               "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
               "```rs\n\tcode  \n```\n\t").encode("utf-8")
     # The reveal promises the caret of the block whose bar was pressed, not the
-    # top of the document: the paragraph after the heading starts at byte 13
-    # (the heading line is "# café🙂", 11 UTF-8 bytes plus the blank line), so a
-    # caret at 0 is the wrong block and every other answer is reported.
-    block_start = source.index(b"body")
-    assert block_start == 13
+    # top of the document. The table is the block whose source bar the measured
+    # column reaches at x=800 (the paragraph above it answers only with its
+    # visual draft), so byte 0 from the heading bar is the wrong block here and
+    # every observed answer is reported with its context.
+    block_start = source.index(b"| Name")
+    assert block_start == 28
     desktop.paste_from_clean(source)
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
     # Any editable mode pastes; the preview is then reached through the probe
@@ -744,7 +745,7 @@ def exercise_preview_reveal(desktop, artifacts):
     # of hard-coding the row the toolbar height happens to produce: the document
     # still decides (byte `block_start`), and a miss costs no undo step.
     desktop.reveal_from_preview(
-        [(800, y) for y in range(104, 320, 6)],
+        [(800, y) for y in range(104, 340, 6)],
         source,
         block_start,
     )
