@@ -332,6 +332,30 @@ class Desktop:
                 self.cycle_to(editable=False)
         raise AssertionError(f"Preview block action revealed {seen!r}, not byte {offset}")
 
+    def toolbar_history(self, point, label, expected, retries=2):
+        """Click a toolbar history button until the document answers.
+
+        A press that lands before the toolbar frame is drawn is
+        indistinguishable from a miss, so the press is repeated; the document
+        decides, and a wrong result is still reported on the last attempt.
+        """
+        for attempt in range(retries):
+            self.command("xdotool", "mousemove", "--window", self.window,
+                         str(point[0]), str(point[1]), "click", "1")
+            self.settle()
+            self.key("ctrl+shift+m")  # Preview -> Split to read the document.
+            try:
+                self.expect_copy(label, expected, refocus=False)
+            except (AssertionError, TimeoutError):
+                if attempt + 1 == retries:
+                    raise
+                self.key("ctrl+shift+m")  # Split -> Source.
+                self.key("ctrl+shift+m")  # Source -> Preview.
+                self.settle()
+            else:
+                return
+        raise AssertionError(f"Toolbar history action at {point!r} never applied")
+
     def cycle_to(self, editable, attempts=4):
         """Cycle modes until the document confirms the wanted editability.
 
@@ -741,13 +765,9 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+y")
     inspect("Preview Ctrl+Y redoes the task transition", checked)
     back_to_preview()
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "29", "62", "click", "1")
-    time.sleep(0.25)
-    inspect("Preview toolbar Undo follows task-only history guard", source)
+    desktop.toolbar_history((29, 62), "Preview toolbar Undo follows task-only history guard", source)
     back_to_preview()
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "71", "62", "click", "1")
-    time.sleep(0.25)
-    inspect("Preview toolbar Redo follows the same task-only guard", checked)
+    desktop.toolbar_history((71, 62), "Preview toolbar Redo follows the same task-only guard", checked)
     back_to_preview()
     desktop.screenshot(artifacts / "task-history-preview.png")
     desktop.key("ctrl+z")

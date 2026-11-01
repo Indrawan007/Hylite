@@ -218,9 +218,12 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
             ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "29", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "71", "62", "click", "1"),
         ])
+        # The toolbar buttons are pressed through the verified helper, which
+        # presses again only when the document does not answer.
+        self.assertEqual([call.args[:2] for call in desktop.toolbar_history.call_args_list],
+                         [((29, 62), "Preview toolbar Undo follows task-only history guard"),
+                          ((71, 62), "Preview toolbar Redo follows the same task-only guard")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertIn("ctrl+shift+z", keys)
         self.assertIn("ctrl+y", keys)
