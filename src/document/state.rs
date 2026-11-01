@@ -41,23 +41,26 @@ pub struct Document {
     previous_preview: RefCell<Option<PreviewCache>>,
 }
 
-/// Opaque two-phase transition. Candidate buffers/provenance are private; callers
-/// can verify the moved native draft before any Source/history mutation.
-pub(crate) struct MultilineMovePlan {
+/// Opaque two-phase transition for a root paragraph move. Candidate buffers and
+/// provenance stay private; callers verify the moved native draft before any
+/// Source/history mutation. The single-line and multiline editors differ only in
+/// which payload they own, so they share one plan.
+pub(crate) struct ParagraphMovePlan {
     anchor: crate::preview_paragraph::Target,
     original: String,
     source_before: String,
     moved: crate::preview_paragraph::Target,
     value: String,
+    line: Option<usize>,
     neighbors: [bool; 2],
-    edit: Option<PreparedMultilineEdit>,
+    edit: Option<PreparedParagraphEdit>,
 }
-struct PreparedMultilineEdit {
+struct PreparedParagraphEdit {
     content: text_editor::Content,
     text: String,
     blocks: Vec<Block>,
 }
-impl MultilineMovePlan {
+impl ParagraphMovePlan {
     /// Provisional ranges in candidate text, not an authenticated live target.
     pub(crate) fn move_target(&self) -> crate::preview_paragraph::Target {
         self.moved.clone()
@@ -65,41 +68,68 @@ impl MultilineMovePlan {
     pub(crate) fn move_value(&self) -> &str {
         &self.value
     }
+    /// One-based Source line of the provisional neighbour. Only the single-line
+    /// editor tracks it; a single-line replacement never moves a neighbour.
+    pub(crate) fn move_line(&self) -> Option<usize> {
+        self.line
+    }
     pub(crate) fn neighbors(&self) -> [bool; 2] {
         self.neighbors
     }
 }
 
-/// Opaque two-phase plan for single-line root paragraph navigation.
-pub(crate) struct SingleMovePlan {
-    anchor: crate::preview_paragraph::Target,
-    original: String,
-    source_before: String,
-    moved: crate::preview_paragraph::Target,
-    value: String,
-    line: usize,
-    neighbors: [bool; 2],
-    edit: Option<PreparedSingleEdit>,
+/// Which root payload a move belongs to. The two editors validate the payload
+/// and recognise their own root blocks differently; everything else about a
+/// move is shared.
+#[derive(Clone, Copy)]
+enum ParagraphRoot {
+    Single,
+    Multiline,
 }
-struct PreparedSingleEdit {
-    content: text_editor::Content,
-    text: String,
-    blocks: Vec<Block>,
-}
-impl SingleMovePlan {
-    pub(crate) fn move_target(&self) -> crate::preview_paragraph::Target {
-        self.moved.clone()
+
+impl ParagraphRoot {
+    fn valid(self, value: &str) -> bool {
+        match self {
+            Self::Single => crate::preview_paragraph::valid_value(value),
+            Self::Multiline => crate::preview_paragraph_multiline::valid_value(value),
+        }
     }
-    pub(crate) fn move_value(&self) -> &str {
-        &self.value
+
+    fn plan(
+        self,
+        source: &str,
+        snapshot: Snapshot,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> Option<TextChange> {
+        match self {
+            Self::Single => crate::preview_paragraph::plan(source, snapshot, target, value),
+            Self::Multiline => {
+                crate::preview_paragraph_multiline::plan(source, snapshot, target, value)
+            }
+        }
     }
-    /// One-based Source line of the provisional neighbour; a single-line
-    /// replacement never moves any neighbour's line.
-    pub(crate) fn move_line(&self) -> usize {
-        self.line
+
+    /// Whether this editor owns the block's payload. The single-line editor
+    /// never claims a multiline root.
+    fn owns(self, block: &Block) -> bool {
+        match self {
+            Self::Single => {
+                block.paragraph_payload.is_some() && block.multiline_paragraph_payload.is_none()
+            }
+            Self::Multiline => block.multiline_paragraph_payload.is_some(),
+        }
     }
-    pub(crate) fn neighbors(&self) -> [bool; 2] {
-        self.neighbors
+
+    fn is_root(self, block: &Block) -> bool {
+        block.kind == preview_model::Kind::Paragraph && self.owns(block)
+    }
+
+    fn payload_matches(self, block: &Block, payload: &Range<usize>) -> bool {
+        match self {
+            Self::Single => block.paragraph_payload.as_ref() == Some(payload),
+            Self::Multiline => block.multiline_paragraph_payload.as_ref() == Some(payload),
+        }
     }
 }
 
@@ -604,41 +634,102 @@ impl Document {
         &self,
         target: &crate::preview_paragraph::Target,
         value: &str,
-    ) -> Option<SingleMovePlan> {
-        self.prepare_single_paragraph_move(target, value, crate::document::ParagraphDirection::Next)
+    ) -> Option<ParagraphMovePlan> {
+        self.prepare_paragraph_move(
+            ParagraphRoot::Single,
+            target,
+            value,
+            crate::document::ParagraphDirection::Next,
+        )
     }
 
     pub(crate) fn prepare_single_paragraph_previous(
         &self,
         target: &crate::preview_paragraph::Target,
         value: &str,
-    ) -> Option<SingleMovePlan> {
-        self.prepare_single_paragraph_move(
+    ) -> Option<ParagraphMovePlan> {
+        self.prepare_paragraph_move(
+            ParagraphRoot::Single,
             target,
             value,
             crate::document::ParagraphDirection::Previous,
         )
     }
 
-    fn prepare_single_paragraph_move(
+    pub(crate) fn prepare_multiline_paragraph_next(
         &self,
         target: &crate::preview_paragraph::Target,
         value: &str,
+    ) -> Option<ParagraphMovePlan> {
+        self.prepare_paragraph_move(
+            ParagraphRoot::Multiline,
+            target,
+            value,
+            crate::document::ParagraphDirection::Next,
+        )
+    }
+
+    pub(crate) fn prepare_multiline_paragraph_previous(
+        &self,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+    ) -> Option<ParagraphMovePlan> {
+        self.prepare_paragraph_move(
+            ParagraphRoot::Multiline,
+            target,
+            value,
+            crate::document::ParagraphDirection::Previous,
+        )
+    }
+
+    fn paragraph_root_payload(
+        &self,
+        root: ParagraphRoot,
+        target: &crate::preview_paragraph::Target,
+    ) -> Option<String> {
+        match root {
+            ParagraphRoot::Single => self.preview_paragraph_payload(target),
+            ParagraphRoot::Multiline => self.multiline_paragraph_payload(target),
+        }
+    }
+
+    fn adjacent_paragraph_root(
+        &self,
+        root: ParagraphRoot,
+        target: &crate::preview_paragraph::Target,
         direction: crate::document::ParagraphDirection,
-    ) -> Option<SingleMovePlan> {
+    ) -> Option<crate::preview_paragraph::Target> {
+        match root {
+            ParagraphRoot::Single => self.adjacent_single_paragraph(target, direction),
+            ParagraphRoot::Multiline => self.adjacent_multiline_paragraph(target, direction),
+        }
+    }
+
+    /// Two-phase plan for either direction: the moved root keeps its exact raw
+    /// payload; only a Next root shifts by the UTF-8 byte delta of the edit.
+    fn prepare_paragraph_move(
+        &self,
+        root: ParagraphRoot,
+        target: &crate::preview_paragraph::Target,
+        value: &str,
+        direction: crate::document::ParagraphDirection,
+    ) -> Option<ParagraphMovePlan> {
         use crate::document::ParagraphDirection::{Next, Previous};
-        let original = self.preview_paragraph_payload(target)?;
-        if !crate::preview_paragraph::valid_value(value) {
+        let original = self.paragraph_root_payload(root, target)?;
+        if !root.valid(value) {
             return None;
         }
-        let old_next = self.adjacent_single_paragraph(target, direction)?;
-        let next_value = self.preview_paragraph_payload(&old_next)?;
+        let old_next = self.adjacent_paragraph_root(root, target, direction)?;
+        let next_value = self.paragraph_root_payload(root, &old_next)?;
         // A single-line replacement never changes the line of any neighbour, so
         // the pre-edit provenance stays exact for the freshly opened draft.
-        let line = self.paragraph_line(&old_next)?;
+        let line = match root {
+            ParagraphRoot::Single => Some(self.paragraph_line(&old_next)?),
+            ParagraphRoot::Multiline => None,
+        };
         let source_before = self.buffer_text();
         if original == value {
-            return Some(SingleMovePlan {
+            return Some(ParagraphMovePlan {
                 anchor: target.clone(),
                 original,
                 source_before,
@@ -646,14 +737,15 @@ impl Document {
                 value: next_value,
                 line,
                 neighbors: [
-                    self.adjacent_single_paragraph(&old_next, Previous)
+                    self.adjacent_paragraph_root(root, &old_next, Previous)
                         .is_some(),
-                    self.adjacent_single_paragraph(&old_next, Next).is_some(),
+                    self.adjacent_paragraph_root(root, &old_next, Next)
+                        .is_some(),
                 ],
                 edit: None,
             });
         }
-        let change = crate::preview_paragraph::plan(&source_before, self.snapshot, target, value)?;
+        let change = root.plan(&source_before, self.snapshot, target, value)?;
         let mut candidate = source_before.clone();
         candidate.replace_range(change.range, &change.replacement);
         let blocks = preview_model::parse(&candidate);
@@ -665,12 +757,14 @@ impl Document {
         if !blocks.iter().any(|b| {
             b.kind == preview_model::Kind::Paragraph
                 && b.source == (target.block.start..end)
-                && b.paragraph_payload.as_ref() == Some(&(target.block.start..end - 1))
-                && b.multiline_paragraph_payload.is_none()
+                && root.is_root(b)
+                && root.payload_matches(b, &(target.block.start..end - 1))
         }) {
             return None;
         }
         let shift = |n: usize| n.checked_sub(original.len())?.checked_add(value.len());
+        // A Previous root precedes the edited payload and therefore keeps its
+        // original byte offsets; a Next root moves by the exact UTF-8 delta.
         let (block, payload) = match direction {
             Next => (
                 shift(old_next.block.start)?..shift(old_next.block.end)?,
@@ -681,27 +775,21 @@ impl Document {
         blocks.iter().find(|b| {
             b.kind == preview_model::Kind::Paragraph
                 && b.source == block
-                && b.paragraph_payload.as_ref() == Some(&payload)
+                && root.payload_matches(b, &payload)
         })?;
         if candidate.get(payload.clone())? != next_value {
             return None;
         }
         let neighbors = [
-            blocks.iter().any(|b| {
-                b.kind == preview_model::Kind::Paragraph
-                    && b.paragraph_payload.is_some()
-                    && b.multiline_paragraph_payload.is_none()
-                    && b.source.start < block.start
-            }),
-            blocks.iter().any(|b| {
-                b.kind == preview_model::Kind::Paragraph
-                    && b.paragraph_payload.is_some()
-                    && b.multiline_paragraph_payload.is_none()
-                    && b.source.start > block.start
-            }),
+            blocks
+                .iter()
+                .any(|b| root.is_root(b) && b.source.start < block.start),
+            blocks
+                .iter()
+                .any(|b| root.is_root(b) && b.source.start > block.start),
         ];
         let content = content_at(&candidate, target.payload.start.checked_add(value.len())?)?;
-        Some(SingleMovePlan {
+        Some(ParagraphMovePlan {
             anchor: target.clone(),
             original,
             source_before,
@@ -713,7 +801,7 @@ impl Document {
             value: next_value,
             line,
             neighbors,
-            edit: Some(PreparedSingleEdit {
+            edit: Some(PreparedParagraphEdit {
                 content,
                 text: candidate,
                 blocks,
@@ -723,15 +811,34 @@ impl Document {
 
     pub(crate) fn commit_single_paragraph_move(
         &mut self,
-        plan: SingleMovePlan,
+        plan: ParagraphMovePlan,
     ) -> Option<(crate::preview_paragraph::Target, bool)> {
-        if self.preview_paragraph_payload(&plan.anchor)? != plan.original
+        self.commit_paragraph_move(ParagraphRoot::Single, plan)
+    }
+
+    pub(crate) fn commit_multiline_paragraph_move(
+        &mut self,
+        plan: ParagraphMovePlan,
+    ) -> Option<(crate::preview_paragraph::Target, bool)> {
+        self.commit_paragraph_move(ParagraphRoot::Multiline, plan)
+    }
+
+    /// The Source only changes if the move carried an edit; either way the plan
+    /// is re-authenticated against the live buffer before anything is replaced.
+    fn commit_paragraph_move(
+        &mut self,
+        root: ParagraphRoot,
+        plan: ParagraphMovePlan,
+    ) -> Option<(crate::preview_paragraph::Target, bool)> {
+        if self.paragraph_root_payload(root, &plan.anchor)? != plan.original
             || self.buffer_text() != plan.source_before
         {
             return None;
         }
         let changed = plan.edit.is_some();
         if let Some(edit) = plan.edit {
+            // All parsing, Source reconstruction and caller's native draft
+            // construction precede mutation. Reuse atomic history identity/caps.
             self.break_undo_group();
             let before = self.record();
             self.replace_content(edit.content);
@@ -811,153 +918,6 @@ impl Document {
             return None;
         }
         Some(text[..start].bytes().filter(|byte| *byte == b'\n').count() + 1)
-    }
-
-    pub(crate) fn prepare_multiline_paragraph_next(
-        &self,
-        target: &crate::preview_paragraph::Target,
-        value: &str,
-    ) -> Option<MultilineMovePlan> {
-        self.prepare_multiline_paragraph_move(
-            target,
-            value,
-            crate::document::ParagraphDirection::Next,
-        )
-    }
-
-    pub(crate) fn prepare_multiline_paragraph_previous(
-        &self,
-        target: &crate::preview_paragraph::Target,
-        value: &str,
-    ) -> Option<MultilineMovePlan> {
-        self.prepare_multiline_paragraph_move(
-            target,
-            value,
-            crate::document::ParagraphDirection::Previous,
-        )
-    }
-
-    /// Two-phase plan for either direction: the moved root keeps its exact raw
-    /// payload; only a Next root shifts by the UTF-8 byte delta of the edit.
-    fn prepare_multiline_paragraph_move(
-        &self,
-        target: &crate::preview_paragraph::Target,
-        value: &str,
-        direction: crate::document::ParagraphDirection,
-    ) -> Option<MultilineMovePlan> {
-        use crate::document::ParagraphDirection::{Next, Previous};
-        let original = self.multiline_paragraph_payload(target)?;
-        if !crate::preview_paragraph_multiline::valid_value(value) {
-            return None;
-        }
-        let old_next = self.adjacent_multiline_paragraph(target, direction)?;
-        let next_value = self.multiline_paragraph_payload(&old_next)?;
-        let source_before = self.buffer_text();
-        if original == value {
-            return Some(MultilineMovePlan {
-                anchor: target.clone(),
-                original,
-                source_before,
-                moved: old_next.clone(),
-                value: next_value,
-                neighbors: [
-                    self.adjacent_multiline_paragraph(&old_next, Previous)
-                        .is_some(),
-                    self.adjacent_multiline_paragraph(&old_next, Next).is_some(),
-                ],
-                edit: None,
-            });
-        }
-        let mut candidate = self.buffer_text();
-        let change =
-            crate::preview_paragraph_multiline::plan(&candidate, self.snapshot, target, value)?;
-        candidate.replace_range(change.range, &change.replacement);
-        let blocks = preview_model::parse(&candidate);
-        let end = target
-            .block
-            .start
-            .checked_add(value.len())?
-            .checked_add(1)?;
-        if !blocks.iter().any(|b| {
-            b.kind == preview_model::Kind::Paragraph
-                && b.source == (target.block.start..end)
-                && b.multiline_paragraph_payload.as_ref() == Some(&(target.block.start..end - 1))
-        }) {
-            return None;
-        }
-        let shift = |n: usize| n.checked_sub(original.len())?.checked_add(value.len());
-        // A Previous root precedes the edited payload and therefore keeps its
-        // original byte offsets; a Next root moves by the exact UTF-8 delta.
-        let (block, payload) = match direction {
-            Next => (
-                shift(old_next.block.start)?..shift(old_next.block.end)?,
-                shift(old_next.payload.start)?..shift(old_next.payload.end)?,
-            ),
-            Previous => (old_next.block.clone(), old_next.payload.clone()),
-        };
-        let next = blocks.iter().find(|b| {
-            b.kind == preview_model::Kind::Paragraph
-                && b.source == block
-                && b.multiline_paragraph_payload.as_ref() == Some(&payload)
-        })?;
-        if candidate.get(payload.clone())? != next_value {
-            return None;
-        }
-        let neighbors = [
-            blocks.iter().any(|b| {
-                b.multiline_paragraph_payload.is_some() && b.source.start < next.source.start
-            }),
-            blocks.iter().any(|b| {
-                b.multiline_paragraph_payload.is_some() && b.source.start > next.source.start
-            }),
-        ];
-        let content = content_at(&candidate, target.payload.start.checked_add(value.len())?)?;
-        Some(MultilineMovePlan {
-            anchor: target.clone(),
-            original,
-            source_before,
-            moved: crate::preview_paragraph::Target {
-                snapshot: self.snapshot,
-                block,
-                payload,
-            },
-            value: next_value,
-            neighbors,
-            edit: Some(PreparedMultilineEdit {
-                content,
-                text: candidate,
-                blocks,
-            }),
-        })
-    }
-
-    pub(crate) fn commit_multiline_paragraph_move(
-        &mut self,
-        plan: MultilineMovePlan,
-    ) -> Option<(crate::preview_paragraph::Target, bool)> {
-        if self.multiline_paragraph_payload(&plan.anchor)? != plan.original
-            || self.buffer_text() != plan.source_before
-        {
-            return None;
-        }
-        let changed = plan.edit.is_some();
-        if let Some(edit) = plan.edit {
-            // All parsing, Source reconstruction and caller's native draft
-            // construction precede mutation. Reuse atomic history identity/caps.
-            self.break_undo_group();
-            let before = self.record();
-            self.replace_content(edit.content);
-            self.record_edit(
-                before,
-                &edit.text,
-                EditKind::PreviewParagraph,
-                Instant::now(),
-            );
-            self.install_preview(edit.text, edit.blocks);
-        }
-        let mut next = plan.moved;
-        next.snapshot = self.snapshot;
-        Some((next, changed))
     }
 
     pub(crate) fn edit_multiline_paragraph(

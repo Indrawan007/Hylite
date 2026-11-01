@@ -215,3 +215,26 @@ fn multiline_neighbor_navigation_preserves_redo_and_delayed_save_checkpoint() {
     assert!(doc.redo());
     assert!(doc.is_dirty());
 }
+
+#[test]
+fn multiline_plans_never_claim_single_line_roots_and_track_no_source_line() {
+    let doc = Document::new(&source());
+    let t = targets(&doc);
+    let plan = doc.prepare_multiline_paragraph_next(&t[0], FIRST).unwrap();
+    assert_eq!(plan.move_value(), SECOND);
+    assert_eq!(plan.move_line(), None);
+    // A single-line root is not a multiline target, even before the edit.
+    let single = doc
+        .preview_blocks()
+        .iter()
+        .find(|b| b.paragraph_payload.is_some() && b.multiline_paragraph_payload.is_none())
+        .unwrap();
+    let target = Target {
+        snapshot: doc.snapshot(),
+        block: single.source.clone(),
+        payload: single.paragraph_payload.clone().unwrap(),
+    };
+    assert!(doc
+        .prepare_multiline_paragraph_next(&target, FIRST)
+        .is_none());
+}

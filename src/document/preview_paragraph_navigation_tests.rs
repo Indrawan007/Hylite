@@ -287,3 +287,24 @@ fn sequential_apply_next_has_one_edge_each_and_typing_is_a_barrier() {
     assert!(doc.redo());
     assert_eq!(doc.buffer_text(), after_first);
 }
+
+#[test]
+fn single_line_plans_carry_the_neighbour_line_and_never_claim_multiline_roots() {
+    let doc = Document::new(SOURCE);
+    let t = singles(&doc);
+    let plan = doc.prepare_single_paragraph_next(&t[0], FIRST).unwrap();
+    assert_eq!(plan.move_value(), SECOND);
+    assert!(plan.move_line().is_some());
+    // A multiline root is not a single-line target, even before the edit.
+    let multi = doc
+        .preview_blocks()
+        .iter()
+        .find(|b| b.multiline_paragraph_payload.is_some())
+        .unwrap();
+    let target = Target {
+        snapshot: doc.snapshot(),
+        block: multi.source.clone(),
+        payload: multi.multiline_paragraph_payload.clone().unwrap(),
+    };
+    assert!(doc.prepare_single_paragraph_next(&target, SECOND).is_none());
+}

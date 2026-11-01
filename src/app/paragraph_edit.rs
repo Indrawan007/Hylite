@@ -31,7 +31,7 @@ impl AdjacentRefusal {
 enum AdjacentDecision {
     Refused(AdjacentRefusal),
     Proceed {
-        plan: Box<crate::document::SingleMovePlan>,
+        plan: Box<crate::document::ParagraphMovePlan>,
         moved: Box<Draft>,
     },
 }
@@ -288,7 +288,7 @@ impl Hylite {
             target: plan.move_target(),
             value: plan.move_value().to_owned(),
             error: None,
-            line: Some(plan.move_line()),
+            line: plan.move_line(),
             navigation_notice: None,
             neighbors: plan.neighbors(),
             inline_preview: false,

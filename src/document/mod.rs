@@ -13,7 +13,7 @@ pub use preview::{
 pub use snapshot::Snapshot;
 pub use state::Document;
 
-pub(crate) use state::{buffer_text, content_at, paste_exact, SingleMovePlan};
+pub(crate) use state::{buffer_text, content_at, paste_exact, ParagraphMovePlan};
 
 /// Source-order navigation between authenticated eligible multiline roots.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
