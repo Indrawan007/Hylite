@@ -885,9 +885,12 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+y")
     inspect("Preview Ctrl+Y redoes the task transition", checked)
     back_to_preview()
-    desktop.press_until_document((29, 62), "Preview toolbar Undo follows task-only history guard", source)
+    # Editing row: 28 px buttons, 2 px apart, 12 px padding, so Undo is centred
+    # at 26 and Redo at 56; the old 34 px buttons put them at 29 and 71, and the
+    # Redo press landed one pixel past the button.
+    desktop.press_until_document((26, 62), "Preview toolbar Undo follows task-only history guard", source)
     back_to_preview()
-    desktop.press_until_document((71, 62), "Preview toolbar Redo follows the same task-only guard", checked)
+    desktop.press_until_document((56, 62), "Preview toolbar Redo follows the same task-only guard", checked)
     back_to_preview()
     desktop.screenshot(artifacts / "task-history-preview.png")
     desktop.key("ctrl+z")
