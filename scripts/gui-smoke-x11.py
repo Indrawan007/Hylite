@@ -237,6 +237,33 @@ class Desktop:
             f" attempts={attempts!r}"
         ) from timeout
 
+    def mode_is_editable(self):
+        """True when an editable Source widget owns the keyboard.
+
+        A read-only Preview has no editable widget, so Ctrl+A/Ctrl+C leave the
+        staged marker in place; Source and Split answer with the document.
+        """
+        marker = b"hylite-mode-probe-not-acknowledged"
+        self.put_clipboard(marker)
+        self.key("ctrl+a")
+        self.key("ctrl+c")
+        self.settle(0.3)
+        return self.clipboard() != marker
+
+    def cycle_to_editable(self, attempts=4):
+        """Cycle modes until the document confirms an editable Source widget.
+
+        Ctrl+Shift+M is delivered through the window subscription while the
+        app renders a native table, so a single press can be dropped; the mode
+        is therefore verified through the document instead of assumed.
+        """
+        for _ in range(attempts):
+            if self.mode_is_editable():
+                return
+            self.key("ctrl+shift+m")
+            self.settle(0.4)
+        raise AssertionError("Ctrl+Shift+M never reached an editable mode")
+
     def paste_from_clean(self, data):
         self.title_is_dirty(False)
         self.put_clipboard(data)
@@ -463,6 +490,7 @@ def exercise_tables(desktop, artifacts):
     desktop.screenshot(artifacts / "tables-horizontal.png")
     desktop.type_ascii("LEAK")
     desktop.key("ctrl+shift+m")
+    desktop.cycle_to_editable()
     desktop.screenshot(artifacts / "tables-split.png")
     desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
     desktop.key("ctrl+shift+m")
@@ -642,21 +670,6 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
-def diag_mode(desktop):
-    """TEMPORARY DIAGNOSTIC (drop before merge): editable or read-only?"""
-    marker = b"diag-mode-probe"
-    desktop.put_clipboard(marker)
-    desktop.key("ctrl+a")
-    desktop.key("ctrl+c")
-    desktop.settle(0.4)
-    got = desktop.clipboard()
-    if got is None:
-        return "no-clipboard"
-    if got == marker:
-        return "read-only"
-    return f"editable:{got[:30]!r}"
-
-
 def exercise_preview_heading(desktop, artifacts):
     welcome = (ROOT / "src" / "welcome.md").read_bytes()
     source = ("##\tcafé🙂 **raw** &amp; ##  \n\n"
@@ -676,18 +689,9 @@ def exercise_preview_heading(desktop, artifacts):
 
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
-    diag = []
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        diag.append(("title after cycle", desktop.window_title()))
-        diag.append(("mode after cycle", diag_mode(desktop)))
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
     time.sleep(0.25)
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        diag.append(("title after click", desktop.window_title()))
-    try:
-        inspect("Preview H+ changes exactly one opening hash", demoted)
-    except AssertionError as error:
-        raise AssertionError(f"{error}\ndiag={diag!r}") from None
+    inspect("Preview H+ changes exactly one opening hash", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Undo restores raw heading without normalizing its body", source)
