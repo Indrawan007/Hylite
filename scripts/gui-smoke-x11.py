@@ -295,16 +295,19 @@ class Desktop:
                 continue
         raise AssertionError("Mode probe got no clipboard answer")
 
-    def reveal_from_preview(self, points, source, attempts=2):
+    def reveal_from_preview(self, points, source, offset, attempts=2):
         """Click a Preview affordance until the caret lands on a block start.
 
         The block actions only exist once the preview has rendered the current
         revision, and a press that misses can open an editable draft instead,
         so "something editable answered" proves nothing: the sentinel has to
-        arrive in front of the untouched document. Each trial undoes its own
-        sentinel and cancels a draft before the next point is tried.
+        arrive at `offset` in front of the untouched document. A trial that
+        navigates but lands elsewhere is a behaviour under test, not a missed
+        press, so every observed offset is collected and reported.
         """
         sentinel = b"X"
+        expected = source[:offset] + sentinel + source[offset:]
+        seen = []
         for _ in range(attempts):
             for x, y in points:
                 self.command("xdotool", "mousemove", "--window", self.window,
@@ -312,24 +315,18 @@ class Desktop:
                 self.settle()
                 self.type_ascii("X")
                 copied = self.copy_probe()
-                if copied == sentinel + source:
+                if copied == expected:
                     return
-                if copied != PROBE_MARKER and copied.replace(sentinel, b"", 1) == source:
-                    # The app navigated but put the caret somewhere else; that is
-                    # the behaviour under test, not a missed press.
-                    raise AssertionError(
-                        f"Preview block action at {(x, y)} put the caret at byte "
-                        f"{copied.index(sentinel)} of {len(source)}"
-                    )
-                # Wrong target: a draft keeps the sentinel and swallows Ctrl+Z,
-                # so cancel it first and let the mode cycle verify Preview.
+                if copied != PROBE_MARKER:
+                    seen.append(((x, y), copied.index(sentinel)
+                                 if sentinel in copied else None))
+                # A draft keeps the sentinel and swallows Ctrl+Z, so cancel it
+                # first and let the mode cycle verify Preview again.
                 self.key("Escape")
                 self.settle()
                 self.key("ctrl+z")
                 self.cycle_to(editable=False)
-        raise AssertionError(
-            f"Preview block action at {points!r} never put the caret on a block start"
-        )
+        raise AssertionError(f"Preview block action revealed {seen!r}, not byte {offset}")
 
     def cycle_to(self, editable, attempts=4):
         """Cycle modes until the document confirms the wanted editability.
