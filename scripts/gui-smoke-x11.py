@@ -430,11 +430,23 @@ class Desktop:
     def paste_from_clean(self, data):
         self.title_is_dirty(False)
         self.put_clipboard(data)
-        self.key("ctrl+a")
-        self.key("ctrl+v")
-        # A new dirty title acknowledges that Paste has CONSUMED the clipboard.
-        # Only then may expect_copy replace the external clipboard owner.
-        self.title_is_dirty(True)
+        for attempt in range(2):
+            # Keys are dropped, not queued, while the window is unfocused, and
+            # a dropped Paste leaves the title clean and says nothing about the
+            # product: re-assert X input focus and retry once before failing.
+            self.command("xdotool", "windowfocus", "--sync", self.window)
+            self.key("ctrl+a")
+            self.key("ctrl+v")
+            # A new dirty title acknowledges that Paste has CONSUMED the
+            # clipboard. Only then may expect_copy replace the external owner.
+            try:
+                self.title_is_dirty(True)
+            except TimeoutError:
+                if attempt:
+                    raise
+                self.settle()
+            else:
+                return
 
     def confirmation(self, action):
         def matches():
@@ -712,7 +724,9 @@ def exercise_preview_reveal(desktop, artifacts):
     block_start = 26
     desktop.paste_from_clean(source)
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
-    desktop.key("ctrl+shift+m")  # Source -> Preview.
+    # Any editable mode pastes; the preview is then reached through the probe
+    # instead of assuming the previous suite handed over Source.
+    desktop.cycle_to(editable=False)
     desktop.screenshot(artifacts / "reveal-preview.png")
     desktop.settle()  # Hit-test against the frame that already shows Preview.
     # Intentional click on the first block's explicit Show block source bar,
