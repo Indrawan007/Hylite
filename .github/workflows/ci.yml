@@ -52,6 +52,9 @@ jobs:
         run: ./scripts/ci-cargo.sh cargo build --locked --all-targets --all-features
       - name: Run tests without a display server
         run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
+      - name: Measure Stage 10b raw editor timings
+        timeout-minutes: 5
+        run: ./scripts/ci-cargo.sh cargo test --locked --bin hylite --all-features performance_benchmarks::stage10b_baseline -- --ignored --exact --nocapture
       - name: Smoke test actual GUI on isolated X11
         timeout-minutes: 10
         run: |
@@ -147,9 +150,6 @@ jobs:
       - name: Smoke test the read-only math subset on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite math --artifacts "$RUNNER_TEMP/hylite-gui-smoke/math"
-      - name: Measure Stage 10b raw editor timings
-        timeout-minutes: 5
-        run: ./scripts/ci-cargo.sh cargo test --locked --bin hylite --all-features performance_benchmarks::stage10b_baseline -- --ignored --exact --nocapture
       - name: Upload GUI smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
