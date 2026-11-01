@@ -812,8 +812,8 @@ def exercise_preview_heading(desktop, artifacts):
         h_plus = b"#" + source
         h_minus = source.replace(b"##\t", b"#\t", 1)
         found = []
-        for y in (126, 134, 142, 150):
-            for x in (940, 980, 1020):
+        for y in (150,):
+            for x in range(830, 1015, 10):
                 desktop.command("xdotool", "mousemove", "--window", desktop.window,
                                 str(x), str(y), "click", "1")
                 desktop.settle()
