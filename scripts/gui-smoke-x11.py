@@ -691,6 +691,19 @@ def exercise_preview_heading(desktop, artifacts):
 
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        # TEMPORARY DIAGNOSTIC (drop before merge): where does the action bar
+        # start a draft instead of acting on the heading?
+        probes = []
+        for x in (820, 880, 932, 984, 1036, 1092):
+            desktop.key("Escape")
+            desktop.settle(0.3)
+            desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                            str(x), "151", "click", "1")
+            desktop.settle(0.5)
+            title = desktop.window_title() or ""
+            probes.append((x, "draft" if "[" in title else "none"))
+        raise AssertionError(f"bar-probe {probes!r}")
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
     time.sleep(0.25)
     inspect("Preview H+ changes exactly one opening hash", demoted)
