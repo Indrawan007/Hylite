@@ -38,10 +38,16 @@ pub enum Icon {
     MoveUp,
     MoveDown,
     Keyboard,
+    /// Tab strip controls: the strip used to print "＋", "×" and "›", and the
+    /// first of those is absent from the bundled font, so the new-tab button
+    /// rendered as an empty box.
+    Plus,
+    Close,
+    ChevronRight,
 }
 
 impl Icon {
-    const ALL: [Self; 32] = [
+    const ALL: [Self; 35] = [
         Self::Menu,
         Self::NewFile,
         Self::OpenFile,
@@ -74,6 +80,9 @@ impl Icon {
         Self::MoveUp,
         Self::MoveDown,
         Self::Keyboard,
+        Self::Plus,
+        Self::Close,
+        Self::ChevronRight,
     ];
 
     const fn paths(self) -> &'static str {
@@ -172,6 +181,9 @@ impl Icon {
             Self::Keyboard => {
                 "<rect x=\"2.5\" y=\"5\" width=\"19\" height=\"14\" rx=\"2\"/><path d=\"M6 9h.01M9 9h.01M12 9h.01M15 9h.01M18 9h.01M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01M8 16h8\"/>"
             }
+            Self::Plus => "<path d=\"M12 5v14M5 12h14\"/>",
+            Self::Close => "<path d=\"m6 6 12 12M18 6 6 18\"/>",
+            Self::ChevronRight => "<path d=\"m9 5 7 7-7 7\"/>"
         }
     }
 }

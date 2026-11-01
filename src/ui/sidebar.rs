@@ -75,11 +75,13 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     .spacing(10)
     .height(Length::Fill);
 
+    // The folder shortcut is already part of the empty workspace state, so the
+    // footer only carries what that state cannot say.
     let hints = column![
-        text("Ctrl+O to open · Ctrl+Shift+O folder")
+        text("Ctrl+O open · Ctrl+N new")
             .size(10)
             .color(colors.muted),
-        text("Ctrl+N new · F11 zen mode")
+        text("Ctrl+B sidebar · F11 zen mode")
             .size(10)
             .color(colors.muted),
     ]
