@@ -93,11 +93,11 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             .spacing(5)
             .align_y(iced::Alignment::Center),
         )
-        .on_press(Message::CycleMode)
+        .on_press(Message::SwitchMode(app.mode.next()))
         .style(chrome::button_style(ButtonKind::Toolbar))
         .height(20)
         .padding([0, 6]),
-        "Editing mode · Ctrl+Shift+M cycles",
+        "Next editing mode · Ctrl+Shift+M cycles",
         tooltip::Position::Top,
     );
 

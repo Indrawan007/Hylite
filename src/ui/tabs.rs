@@ -1,6 +1,6 @@
 use crate::app::Hylite;
 use crate::commands::Message;
-use crate::ui::chrome::{self, ButtonKind};
+use crate::ui::chrome::{self, ButtonKind, Colors};
 use crate::ui::icons::Icon;
 use iced::widget::{button, container, row, scrollable, text, tooltip};
 use iced::{Element, Length};
@@ -23,31 +23,53 @@ fn icon_button(
 }
 
 /// A tab carries the note's name, never its position: Obsidian's tabs are the
-/// document, and a leading index reads as a menu item instead.
-fn short_title(title: &str) -> String {
+/// document, and a leading index reads as a menu item instead. The flag is the
+/// unsaved marker the title already carries.
+fn tab_label(title: &str) -> (String, bool) {
     let (name, dirty) = title
         .strip_suffix(" •")
         .map_or((title, false), |name| (name, true));
     let mut chars = name.chars();
     let compact: String = chars.by_ref().take(16).collect();
-    let truncated = chars.next().is_some();
-    let suffix = if dirty { " •" } else { "" };
-    if truncated {
-        format!("{compact}…{suffix}")
+    if chars.next().is_some() {
+        (format!("{compact}…"), dirty)
     } else {
-        format!("{compact}{suffix}")
+        (compact, dirty)
     }
+}
+
+/// The unsaved marker is painted, not typeset: the bundled font has no `●`/`○`
+/// and a missing glyph renders as an empty box.
+fn dirty_dot(dirty: bool) -> Element<'static, Message> {
+    container(iced::widget::Space::new(
+        Length::Fixed(6.0),
+        Length::Fixed(6.0),
+    ))
+    .style(chrome::dot_style(dirty))
+    .width(Length::Fixed(6.0))
+    .height(Length::Fixed(6.0))
+    .into()
 }
 
 /// Tab strip stays in the existing toolbar slot. It uses only the space its
 /// current tabs need, up to a cap; horizontal scrolling keeps later tabs reachable.
 pub fn view(app: &Hylite) -> Element<'_, Message> {
+    let colors = Colors::from_theme(&app.theme());
     let mut strip = row![].spacing(4).height(28);
     for index in 0..app.tab_count() {
         let active = index == app.active_tab();
         let title = app.tab_title(index);
+        let (label, dirty) = tab_label(&title);
+        let content = row![
+            dirty_dot(dirty),
+            text(label)
+                .size(12)
+                .color(if active { colors.text } else { colors.muted }),
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
         strip = strip.push(tooltip(
-            button(text(short_title(&title)).size(12))
+            button(content)
                 .on_press(Message::SwitchTab(index))
                 .style(chrome::button_style(if active {
                     ButtonKind::Selected

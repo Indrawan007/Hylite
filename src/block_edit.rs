@@ -14,6 +14,9 @@ pub enum BlockStyle {
 }
 
 impl BlockStyle {
+    /// Only the picker needed the full list; it is kept for the tests that sweep
+    /// every style.
+    #[cfg(test)]
     pub const ALL: [Self; 10] = [
         Self::Heading(1),
         Self::Heading(2),

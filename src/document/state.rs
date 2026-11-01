@@ -1287,9 +1287,13 @@ impl Document {
     pub fn is_dirty(&self) -> bool {
         self.snapshot.state_id != self.saved_state_id
     }
+    /// The surfaces that gated the old Undo/Redo buttons are gone, so these are
+    /// read by the tests that pin history behaviour.
+    #[allow(dead_code)]
     pub fn can_undo(&self) -> bool {
         self.history.peek_undo().is_some()
     }
+    #[allow(dead_code)]
     pub fn can_redo(&self) -> bool {
         self.history.peek_redo().is_some()
     }

@@ -155,6 +155,11 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
             keyboard::Key::Character("t" | "T") if ctrl && shift => Some(Message::FormatBlock(
                 crate::block_edit::BlockStyle::TaskList,
             )),
+            // The block-style picker is gone, so the quote keeps a chord like the
+            // other block styles do.
+            keyboard::Key::Character("q" | "Q") if ctrl && shift => Some(Message::FormatBlock(
+                crate::block_edit::BlockStyle::Quote,
+            )),
             keyboard::Key::Character("c" | "C") if ctrl && shift => Some(Message::InsertCodeBlock),
             _ => None,
         };
@@ -400,6 +405,7 @@ mod tests {
             ("L", crate::block_edit::BlockStyle::BulletList),
             ("O", crate::block_edit::BlockStyle::OrderedList),
             ("T", crate::block_edit::BlockStyle::TaskList),
+            ("Q", crate::block_edit::BlockStyle::Quote),
         ] {
             assert!(
                 matches!(key_binding(press(key, shifted, focused)), Some(text_editor::Binding::Custom(Message::FormatBlock(actual))) if actual == expected)
