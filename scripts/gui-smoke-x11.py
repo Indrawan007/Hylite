@@ -311,8 +311,15 @@ class Desktop:
                              str(x), str(y), "click", "1")
                 self.settle()
                 self.type_ascii("X")
-                if self.copy_probe() == sentinel + source:
+                copied = self.copy_probe()
+                if copied == sentinel + source:
                     return
+                if copied != PROBE_MARKER and copied.replace(sentinel, b"", 1) == source:
+                    # The app navigated but put the caret somewhere else; that is
+                    # the behaviour under test, not a missed press.
+                    raise AssertionError(
+                        f"Preview block action at {(x, y)} put the caret off the block start"
+                    )
                 # Wrong target: a draft keeps the sentinel and swallows Ctrl+Z,
                 # so cancel it first and let the mode cycle verify Preview.
                 self.key("Escape")
@@ -626,7 +633,7 @@ def exercise_preview_reveal(desktop, artifacts):
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     # The bar only exists once the preview has rendered the block actions.
     desktop.reveal_from_preview(
-        [(250, 151), (350, 151), (450, 151), (550, 151), (650, 151), (750, 151)],
+        [(800, 151), (850, 151), (900, 151), (780, 151), (730, 151), (800, 139)],
         source,
     )
     desktop.type_ascii("X")
