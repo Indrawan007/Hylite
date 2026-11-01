@@ -380,8 +380,11 @@ class Desktop:
                     return
                 if copied == PROBE_MARKER:
                     continue  # Read-only answer: nothing was revealed here.
-                seen.append(((x, y), copied.index(sentinel)
-                             if sentinel in copied else None))
+                index = copied.index(sentinel) if sentinel in copied else None
+                around = b"" if index is None else copied[max(0, index - 8):index + 8]
+                title = self.command(
+                    "xdotool", "getwindowname", self.window).decode("utf-8").strip()
+                seen.append(((x, y), index, around, title))
                 # A draft keeps the sentinel and swallows Ctrl+Z, so cancel it
                 # first and let the mode cycle verify Preview again.
                 self.key("Escape")
@@ -722,11 +725,12 @@ def exercise_preview_reveal(desktop, artifacts):
     source = ("# café🙂\n\nbody **bold**\n\n"
               "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
               "```rs\n\tcode  \n```\n\t").encode("utf-8")
-    # The measured action row at y=151 belongs to the paragraph after the
-    # heading, whose provenance start is byte 26; the reveal promises the caret
-    # of the block whose bar was pressed, not the top of the document. If the
-    # layout ever moves, the helper reports every offset it observed.
-    block_start = 26
+    # The reveal promises the caret of the block whose bar was pressed, not the
+    # top of the document: the paragraph after the heading starts at byte 13
+    # (the heading line is "# café🙂", 11 UTF-8 bytes plus the blank line), so a
+    # caret at 0 is the wrong block and every other answer is reported.
+    block_start = source.index(b"body")
+    assert block_start == 13
     desktop.paste_from_clean(source)
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
     # Any editable mode pastes; the preview is then reached through the probe
