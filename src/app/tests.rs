@@ -7337,4 +7337,3 @@ fn workspace_shortcuts_are_exact_alt_and_altgr_never_moves_the_selection() {
         Some(Message::RefreshWorkspace)
     ));
 }
-
