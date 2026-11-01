@@ -2,6 +2,7 @@
 use super::Hylite;
 use crate::commands::Message;
 use crate::editor::EditMode;
+use crate::multiline_draft_history::Record;
 use crate::preview_paragraph::{self, Target};
 use crate::ui::paragraph_edit::Draft;
 use iced::Task;
@@ -45,12 +46,6 @@ pub(super) fn empty_history_notice(redo: bool) -> &'static str {
         "Nothing to redo in this draft; Source is unchanged."
     } else {
         "Nothing to undo in this draft; Source is unchanged."
-    }
-}
-fn record_of(value: &str) -> crate::multiline_draft_history::Record {
-    crate::multiline_draft_history::Record {
-        text: value.to_owned(),
-        caret: value.len(),
     }
 }
 
@@ -97,7 +92,7 @@ impl Hylite {
             } else {
                 draft
                     .history
-                    .record(record_of(&draft.value), &record_of(&value));
+                    .record(Record::at_end(&draft.value), &Record::at_end(&value));
                 draft.error = if draft.inline_preview {
                     preview_paragraph::escape_plain_text(&value).is_none().then_some(
                         "Use plain one-line text without leading whitespace/control characters; escaped Markdown must fit 16 KiB.",
@@ -359,7 +354,7 @@ impl Hylite {
             return self.restore_input_focus();
         };
         if target.text.len() > preview_paragraph::MAX_BYTES
-            || draft.history.step(record_of(&draft.value), redo).is_none()
+            || draft.history.step(Record::at_end(&draft.value), redo).is_none()
         {
             draft.navigation_notice = Some(REFUSED_HISTORY_NOTICE);
             return self.restore_input_focus();

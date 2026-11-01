@@ -138,17 +138,7 @@ pub fn view(draft: &Draft, viewport_width: f32) -> Element<'_, Message> {
     .width(Length::Fill);
     // Keep the default top-aligned geometry while allowing action rows to scroll
     // instead of clipping when the window is narrower than their natural width.
-    container(
-        container(controls)
-            .width(Length::Fill)
-            .max_width(820)
-            .style(chrome::surface_style(crate::ui::chrome::SurfaceKind::Panel)),
-    )
-    .padding(crate::ui::layout::panel_padding(viewport_width))
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .center_x(Length::Fill)
-    .into()
+    crate::ui::layout::draft_panel(controls.into(), viewport_width)
 }
 #[cfg(test)]
 mod tests {

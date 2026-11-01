@@ -2,17 +2,12 @@
 use super::Hylite;
 use crate::commands::Message;
 use crate::editor::EditMode;
+use crate::multiline_draft_history::Record;
 use crate::operations::OperationKind;
 use crate::preview_cell::{self, Target};
 use crate::ui::cell_edit::Draft;
 use iced::Task;
 
-fn record_of(value: &str) -> crate::multiline_draft_history::Record {
-    crate::multiline_draft_history::Record {
-        text: value.to_owned(),
-        caret: value.len(),
-    }
-}
 
 impl Hylite {
     fn cell_operation_allowed(&self) -> bool {
@@ -50,7 +45,7 @@ impl Hylite {
             } else {
                 draft
                     .history
-                    .record(record_of(&draft.value), &record_of(&value));
+                    .record(Record::at_end(&draft.value), &Record::at_end(&value));
                 draft.error = (!preview_cell::valid_value(&value)).then_some(
                     "Use one line, escape pipes as \\|, and avoid an odd trailing backslash.",
                 );
@@ -234,7 +229,7 @@ impl Hylite {
             return self.restore_input_focus();
         };
         if target.text.len() > preview_cell::MAX_BYTES
-            || draft.history.step(record_of(&draft.value), redo).is_none()
+            || draft.history.step(Record::at_end(&draft.value), redo).is_none()
         {
             draft.navigation_notice = Some(super::paragraph_edit::REFUSED_HISTORY_NOTICE);
             return self.restore_input_focus();

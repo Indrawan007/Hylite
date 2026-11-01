@@ -1,11 +1,45 @@
 //! Multiline paragraph drafts remain separate from both Source and single-line drafts.
 use super::Hylite;
 use crate::commands::Message;
+use crate::document::ParagraphDirection;
 use crate::editor::EditMode;
 use crate::preview_paragraph::Target;
 use crate::preview_paragraph_multiline;
 use crate::ui::multiline_paragraph::Draft;
 use iced::{widget::text_editor, Task};
+/// The six reports that depend on which neighbour Apply & Previous/Next picks.
+struct AdjacentLabels {
+    invalid: &'static str,
+    boundary: &'static str,
+    unpreparable: &'static str,
+    unpreservable: &'static str,
+    applied: &'static str,
+    unchanged: &'static str,
+}
+
+impl AdjacentLabels {
+    fn for_direction(direction: ParagraphDirection) -> Self {
+        use ParagraphDirection::{Next, Previous};
+        match direction {
+            Previous => Self {
+                invalid: "Invalid multiline draft; correct it or Cancel before Apply & Previous.",
+                boundary: "First supported multiline paragraph: use Apply or Cancel. Nothing applied.",
+                unpreparable: "Apply & Previous must preserve the complete root paragraph and previous payload. Nothing applied.",
+                unpreservable: "Previous raw native draft cannot be preserved. Nothing applied.",
+                applied: "Paragraph applied atomically; previous multiline draft opened",
+                unchanged: "Unchanged paragraph; previous multiline draft opened without Source history",
+            },
+            Next => Self {
+                invalid: "Invalid multiline draft; correct it or Cancel before Apply & Next.",
+                boundary: "Last supported multiline paragraph: use Apply or Cancel. Nothing applied.",
+                unpreparable: "Apply & Next must preserve the complete root paragraph and next payload. Nothing applied.",
+                unpreservable: "Next raw native draft cannot be preserved. Nothing applied.",
+                applied: "Paragraph applied atomically; next multiline draft opened",
+                unchanged: "Unchanged paragraph; next multiline draft opened without Source history",
+            },
+        }
+    }
+}
 impl Hylite {
     fn multiline_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source && self.navigation_allowed()
@@ -127,7 +161,19 @@ impl Hylite {
         }
     }
     pub(super) fn apply_multiline_paragraph_previous(&mut self) -> Task<Message> {
-        use crate::document::ParagraphDirection::Previous;
+        self.apply_multiline_paragraph_adjacent(ParagraphDirection::Previous)
+    }
+    pub(super) fn apply_multiline_paragraph_next(&mut self) -> Task<Message> {
+        self.apply_multiline_paragraph_adjacent(ParagraphDirection::Next)
+    }
+    /// One body for Apply & Previous/Next: the two gestures differ only in the
+    /// direction, the document primitive it picks, and the wording it reports.
+    fn apply_multiline_paragraph_adjacent(
+        &mut self,
+        direction: ParagraphDirection,
+    ) -> Task<Message> {
+        use ParagraphDirection::{Next, Previous};
+        let labels = AdjacentLabels::for_direction(direction);
         if !self.multiline_operation_allowed() {
             return Task::none();
         }
@@ -136,8 +182,7 @@ impl Hylite {
         };
         let value = draft.value();
         if draft.error.is_some() || !preview_paragraph_multiline::valid_value(&value) {
-            draft.error =
-                Some("Invalid multiline draft; correct it or Cancel before Apply & Previous.");
+            draft.error = Some(labels.invalid);
             return self.restore_input_focus();
         }
         if self
@@ -150,23 +195,27 @@ impl Hylite {
         }
         if self
             .document
-            .adjacent_multiline_paragraph(&draft.target, Previous)
+            .adjacent_multiline_paragraph(&draft.target, direction)
             .is_none()
         {
-            draft.navigation_notice =
-                Some("First supported multiline paragraph: use Apply or Cancel. Nothing applied.");
+            draft.navigation_notice = Some(labels.boundary);
             return self.restore_input_focus();
         }
-        let Some(plan) = self
-            .document
-            .prepare_multiline_paragraph_previous(&draft.target, &value)
-        else {
-            draft.error=Some("Apply & Previous must preserve the complete root paragraph and previous payload. Nothing applied.");
+        let plan = match direction {
+            Previous => self
+                .document
+                .prepare_multiline_paragraph_previous(&draft.target, &value),
+            Next => self
+                .document
+                .prepare_multiline_paragraph_next(&draft.target, &value),
+        };
+        let Some(plan) = plan else {
+            draft.error = Some(labels.unpreparable);
             return self.restore_input_focus();
         };
         let [previous, next] = plan.neighbors();
         let Some(next_draft) = Draft::new(plan.move_target(), plan.move_value()) else {
-            draft.error = Some("Previous raw native draft cannot be preserved. Nothing applied.");
+            draft.error = Some(labels.unpreservable);
             return self.restore_input_focus();
         };
         let Some((target, changed)) = self.document.commit_multiline_paragraph_move(plan) else {
@@ -180,73 +229,9 @@ impl Hylite {
         moved.target = target;
         self.multiline_draft = Some(moved);
         self.status_message = if changed {
-            "Paragraph applied atomically; previous multiline draft opened"
+            labels.applied
         } else {
-            "Unchanged paragraph; previous multiline draft opened without Source history"
-        }
-        .into();
-        if changed {
-            self.edited();
-        }
-        self.restore_input_focus()
-    }
-    pub(super) fn apply_multiline_paragraph_next(&mut self) -> Task<Message> {
-        use crate::document::ParagraphDirection::Next;
-        if !self.multiline_operation_allowed() {
-            return Task::none();
-        }
-        let Some(draft) = &mut self.multiline_draft else {
-            return Task::none();
-        };
-        let value = draft.value();
-        if draft.error.is_some() || !preview_paragraph_multiline::valid_value(&value) {
-            draft.error =
-                Some("Invalid multiline draft; correct it or Cancel before Apply & Next.");
-            return self.restore_input_focus();
-        }
-        if self
-            .document
-            .multiline_paragraph_payload(&draft.target)
-            .is_none()
-        {
-            draft.error = Some("Multiline target is stale; Cancel and reopen. Draft kept.");
-            return self.restore_input_focus();
-        }
-        if self
-            .document
-            .adjacent_multiline_paragraph(&draft.target, Next)
-            .is_none()
-        {
-            draft.navigation_notice =
-                Some("Last supported multiline paragraph: use Apply or Cancel. Nothing applied.");
-            return self.restore_input_focus();
-        }
-        let Some(plan) = self
-            .document
-            .prepare_multiline_paragraph_next(&draft.target, &value)
-        else {
-            draft.error = Some("Apply & Next must preserve the complete root paragraph and next payload. Nothing applied.");
-            return self.restore_input_focus();
-        };
-        let [previous, next] = plan.neighbors();
-        let Some(next_draft) = Draft::new(plan.move_target(), plan.move_value()) else {
-            draft.error = Some("Next raw native draft cannot be preserved. Nothing applied.");
-            return self.restore_input_focus();
-        };
-        let Some((target, changed)) = self.document.commit_multiline_paragraph_move(plan) else {
-            draft.error = Some("Multiline transition became stale. Draft and Source kept.");
-            return self.restore_input_focus();
-        };
-        let context = self.document.multiline_context(&target);
-        let mut next_draft = next_draft
-            .with_neighbors(previous, next)
-            .with_context(context);
-        next_draft.target = target;
-        self.multiline_draft = Some(next_draft);
-        self.status_message = if changed {
-            "Paragraph applied atomically; next multiline draft opened"
-        } else {
-            "Unchanged paragraph; next multiline draft opened without Source history"
+            labels.unchanged
         }
         .into();
         if changed {

@@ -1,6 +1,7 @@
 //! Small shared rules for layouts that have to survive narrow application windows.
 use crate::commands::Message;
-use iced::widget::scrollable;
+use crate::ui::chrome;
+use iced::widget::{container, scrollable};
 use iced::{Element, Length};
 
 pub const COMPACT_BREAKPOINT: f32 = 1040.0;
@@ -61,6 +62,26 @@ pub fn panel_padding(viewport_width: f32) -> f32 {
     } else {
         32.0
     }
+}
+
+/// The frame every Preview draft panel shares: one 820 px surface card, centred
+/// in whatever height the viewport leaves, with padding that steps down as the
+/// window narrows. Only the controls inside differ per draft kind.
+pub fn draft_panel<'a>(
+    controls: Element<'a, Message>,
+    viewport_width: f32,
+) -> Element<'a, Message> {
+    container(
+        container(controls)
+            .width(Length::Fill)
+            .max_width(NARROW_BREAKPOINT)
+            .style(chrome::surface_style(chrome::SurfaceKind::Panel)),
+    )
+    .padding(panel_padding(viewport_width))
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_x(Length::Fill)
+    .into()
 }
 
 pub fn sidebar_width(configured: u32, viewport_width: f32) -> f32 {
