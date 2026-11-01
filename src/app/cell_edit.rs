@@ -8,7 +8,6 @@ use crate::preview_cell::{self, Target};
 use crate::ui::cell_edit::Draft;
 use iced::Task;
 
-
 impl Hylite {
     fn cell_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source
@@ -229,7 +228,10 @@ impl Hylite {
             return self.restore_input_focus();
         };
         if target.text.len() > preview_cell::MAX_BYTES
-            || draft.history.step(Record::at_end(&draft.value), redo).is_none()
+            || draft
+                .history
+                .step(Record::at_end(&draft.value), redo)
+                .is_none()
         {
             draft.navigation_notice = Some(super::paragraph_edit::REFUSED_HISTORY_NOTICE);
             return self.restore_input_focus();

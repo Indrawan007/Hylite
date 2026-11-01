@@ -354,7 +354,10 @@ impl Hylite {
             return self.restore_input_focus();
         };
         if target.text.len() > preview_paragraph::MAX_BYTES
-            || draft.history.step(Record::at_end(&draft.value), redo).is_none()
+            || draft
+                .history
+                .step(Record::at_end(&draft.value), redo)
+                .is_none()
         {
             draft.navigation_notice = Some(REFUSED_HISTORY_NOTICE);
             return self.restore_input_focus();
