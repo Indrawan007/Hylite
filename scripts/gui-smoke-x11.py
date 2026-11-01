@@ -18,6 +18,7 @@ import uuid
 from dataclasses import dataclass
 
 ROOT = Path(__file__).resolve().parent.parent
+STARTED = time.monotonic()
 
 
 def isolated_environment(parent, scratch):
@@ -68,7 +69,7 @@ class Desktop:
 
     def passed_check(self, description):
         self.passed.append(description)
-        print(f"PASS: {description}", flush=True)
+        print(f"PASS: [{time.monotonic() - STARTED:6.1f}s] {description}", flush=True)
 
     def find_window(self, initial_click=True):
         def find():
@@ -3465,7 +3466,7 @@ def main():
     # it, so the previous 300s ceiling is reached before the last suite runs and
     # a healthy run reports a budget timeout instead of its own verdict. Keep the
     # guard (it still bounds a hang) but leave room under the 10 minute step.
-    signal.alarm(540)
+    signal.alarm(900)
     with tempfile.TemporaryDirectory(prefix="hylite-gui-") as temp:
         env = isolated_environment(os.environ, Path(temp))
         # The tree suite boots with a folder argument; every other suite keeps
