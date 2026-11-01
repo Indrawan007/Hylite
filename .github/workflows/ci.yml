@@ -42,8 +42,17 @@ jobs:
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Check formatting
         run: |
-          cargo fmt --all -- --check
-          rustfmt --edition 2021 --check tools/source-core-tests.rs
+          set +e
+          cargo fmt --all -- --check > "$RUNNER_TEMP/fmt.txt" 2>&1
+          cargo_status=$?
+          rustfmt --edition 2021 --check tools/source-core-tests.rs > "$RUNNER_TEMP/fmt2.txt" 2>&1
+          tool_status=$?
+          if [ $cargo_status -ne 0 ] || [ $tool_status -ne 0 ]; then
+            cat "$RUNNER_TEMP/fmt.txt" "$RUNNER_TEMP/fmt2.txt" | head -c 60000 > "$RUNNER_TEMP/all.txt"
+            body=$(sed -e 's/%/%25/g' -e 's/\r//g' "$RUNNER_TEMP/all.txt" | head -c 30000 | awk '{printf "%s%%0A", $0}')
+            echo "::error title=fmt-diff::$body"
+          fi
+          [ $cargo_status -eq 0 ] && [ $tool_status -eq 0 ]
       - name: Test and lint independent Source core
         run: ./scripts/ci-cargo.sh env RUSTC="$(rustup which clippy-driver)" ./scripts/test-source-core.sh
       - name: Lint all targets
