@@ -35,6 +35,9 @@ def isolated_environment(parent, scratch):
     return env
 
 
+PROBE_MARKER = b"hylite-mode-probe-not-acknowledged"
+
+
 class Desktop:
     def __init__(self, app, env, log, arguments=()):
         self.app = app
@@ -255,49 +258,66 @@ class Desktop:
             f" attempts={attempts!r}"
         ) from timeout
 
+    def copy_probe(self, marker=PROBE_MARKER, seconds=1.5):
+        """Stage a marker, ask the app to copy, and return what it served.
+
+        The marker comes back untouched when nothing owns an editable selection
+        (a read-only Preview), the copied bytes come back otherwise, and a
+        clipboard that never answers raises, so an xclip hiccup is never
+        mistaken for an editable document.
+        """
+        self.put_clipboard(marker)
+        self.key("ctrl+a")
+        self.key("ctrl+c")
+        # The app serves the selection asynchronously, so poll instead of
+        # reading once: a single early read still sees our marker.
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            got = self.clipboard()
+            if got is not None and got != marker:
+                return got
+            time.sleep(0.05)
+        got = self.clipboard()
+        if got is None:
+            raise AssertionError("Clipboard probe got no answer")
+        return got
+
     def mode_is_editable(self):
-        """True when an editable Source widget owns the keyboard.
+        """True when an editable widget owns the keyboard.
 
         A read-only Preview has no editable widget, so Ctrl+A/Ctrl+C leave the
         staged marker in place; Source and Split answer with the document.
         """
-        marker = b"hylite-mode-probe-not-acknowledged"
         for _ in range(3):
-            self.put_clipboard(marker)
-            self.key("ctrl+a")
-            self.key("ctrl+c")
-            # The app serves the selection asynchronously, so poll instead of
-            # reading once: a single early read still sees our marker and would
-            # report an editable document as read-only.
-            deadline = time.monotonic() + 1.5
-            while time.monotonic() < deadline:
-                got = self.clipboard()
-                if got is not None and got != marker:
-                    return True
-                time.sleep(0.05)
-            got = self.clipboard()
-            if got == marker:
-                return False
-            # A failed read is not an answer; ask again rather than claim the
-            # document is editable because xclip hiccuped.
+            try:
+                return self.copy_probe() != PROBE_MARKER
+            except AssertionError:
+                continue
         raise AssertionError("Mode probe got no clipboard answer")
 
-    def reveal_from_preview(self, points, attempts=2):
-        """Click a Preview affordance until the document leaves Preview.
+    def reveal_from_preview(self, points, source, attempts=2):
+        """Click a Preview affordance until the document itself answers.
 
         The block actions only exist once the preview has rendered the current
-        revision, so a press that lands first is indistinguishable from a miss.
-        The press is repeated and the document decides which happened; a point
-        that is not an action still fails after the last attempt.
+        revision, and a press that misses can open an editable draft instead,
+        so an editable widget is no proof of navigation: the copy has to be the
+        untouched document, which is what the reveal promises (the caret lands
+        on the block start, not on a selection). A draft that answers is
+        cancelled and the next point tried.
         """
         for _ in range(attempts):
             for x, y in points:
                 self.command("xdotool", "mousemove", "--window", self.window,
                              str(x), str(y), "click", "1")
                 self.settle()
-                if self.mode_is_editable():
+                copied = self.copy_probe()
+                if copied == source:
                     return
-        raise AssertionError(f"Preview block action at {points!r} never reached a mode")
+                if copied != PROBE_MARKER:  # a draft answered instead.
+                    self.key("Escape")
+                    self.settle()
+                    self.cycle_to(editable=False)
+        raise AssertionError(f"Preview block action at {points!r} never revealed Source")
 
     def cycle_to(self, editable, attempts=4):
         """Cycle modes until the document confirms the wanted editability.
@@ -601,7 +621,10 @@ def exercise_preview_reveal(desktop, artifacts):
     # Intentional click on the first block's explicit Show block source bar,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     # The bar only exists once the preview has rendered the block actions.
-    desktop.reveal_from_preview([(350, 151), (600, 151)])
+    desktop.reveal_from_preview(
+        [(250, 151), (350, 151), (450, 151), (550, 151), (650, 151), (750, 151)],
+        source,
+    )
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
     desktop.screenshot(artifacts / "reveal-split.png")
