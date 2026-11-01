@@ -107,9 +107,10 @@ fn render_preview_internal<'a>(
     } else {
         render_blocks(blocks, colors, snapshot, base_dir, &inline_edit)
     };
-    let instructions = text("Tasks, tables, headings and plain root text have limited Preview edits")
-        .size(11)
-        .color(colors.text);
+    let instructions =
+        text("Tasks, tables, headings and plain root text have limited Preview edits")
+            .size(11)
+            .color(colors.text);
     column![instructions, content]
         .spacing(12)
         .width(Length::Fill)
@@ -244,60 +245,63 @@ fn render_block<'a>(
             && draft.target.block == block.source
             && block.inline_text_payload.as_ref() == Some(&draft.target.payload)
     });
-    let element: Element<'_, Message> =
-        match &block.kind {
-            Kind::Paragraph | Kind::Heading(_) => {
-                // Only a paragraph that is *just* one image becomes a picture;
-                // inline images mixed with text stay their inert marker.
-                if let [run] = block.runs.as_slice() {
-                    if let Some(spec) = run.image.as_ref() {
-                        return render_image(spec, base_dir, colors);
-                    }
-                }
-                if let Some(draft) = visual_draft {
-                    crate::ui::visual_edit::view(draft)
-                } else if let Some(draft) = inline_draft {
-                    crate::ui::paragraph_edit::inline_preview_view(draft)
-                } else {
-                    let heading = matches!(block.kind, Kind::Heading(_));
-                    let size = match block.kind {
-                        Kind::Heading(1) => 32,
-                        Kind::Heading(2) => 27,
-                        Kind::Heading(3) => 23,
-                        Kind::Heading(4) => 20,
-                        Kind::Heading(5) => 18,
-                        _ => 16,
-                    };
-                    let spans: Vec<text::Span<'_, Message>> = block
-                        .runs
-                        .iter()
-                        .map(|run| styled_span(run, heading, colors))
-                        .collect();
-                    rich_text(spans).size(size).width(Length::Fill).into()
+    let element: Element<'_, Message> = match &block.kind {
+        Kind::Paragraph | Kind::Heading(_) => {
+            // Only a paragraph that is *just* one image becomes a picture;
+            // inline images mixed with text stay their inert marker.
+            if let [run] = block.runs.as_slice() {
+                if let Some(spec) = run.image.as_ref() {
+                    return render_image(spec, base_dir, colors);
                 }
             }
-            Kind::Quote => container(render_blocks(
-                &block.children,
-                colors,
-                snapshot,
-                base_dir,
-                inline_edit,
-            ))
-            .padding([8, 16])
-            .width(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(colors.surface.into()),
-                border: Border {
-                    color: colors.accent,
-                    width: 1.0,
-                    ..Border::default()
-                },
-                ..container::Style::default()
-            })
-            .into(),
-            Kind::List(start) => {
-                let items = block.children.iter().enumerate().map(
-                    |(index, item)| -> Element<'_, Message> {
+            if let Some(draft) = visual_draft {
+                crate::ui::visual_edit::view(draft)
+            } else if let Some(draft) = inline_draft {
+                crate::ui::paragraph_edit::inline_preview_view(draft)
+            } else {
+                let heading = matches!(block.kind, Kind::Heading(_));
+                let size = match block.kind {
+                    Kind::Heading(1) => 32,
+                    Kind::Heading(2) => 27,
+                    Kind::Heading(3) => 23,
+                    Kind::Heading(4) => 20,
+                    Kind::Heading(5) => 18,
+                    _ => 16,
+                };
+                let spans: Vec<text::Span<'_, Message>> = block
+                    .runs
+                    .iter()
+                    .map(|run| styled_span(run, heading, colors))
+                    .collect();
+                rich_text(spans).size(size).width(Length::Fill).into()
+            }
+        }
+        Kind::Quote => container(render_blocks(
+            &block.children,
+            colors,
+            snapshot,
+            base_dir,
+            inline_edit,
+        ))
+        .padding([8, 16])
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(colors.surface.into()),
+            border: Border {
+                color: colors.accent,
+                width: 1.0,
+                ..Border::default()
+            },
+            ..container::Style::default()
+        })
+        .into(),
+        Kind::List(start) => {
+            let items =
+                block
+                    .children
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| -> Element<'_, Message> {
                         let marker = start.map_or_else(
                             || "•".into(),
                             |start| format!("{}.", start.saturating_add(index as u64)),
@@ -328,53 +332,40 @@ fn render_block<'a>(
                             }
                             _ => row![
                                 text(marker).color(colors.text),
-                                render_block(
-                                    item,
-                                    colors,
-                                    snapshot,
-                                    base_dir,
-                                    inline_edit,
-                                )
+                                render_block(item, colors, snapshot, base_dir, inline_edit,)
                             ]
                             .spacing(8)
                             .into(),
                         }
-                    },
-                );
-                column(items).spacing(6).width(Length::Fill).into()
-            }
-            Kind::Item(_) => render_blocks(
-                &block.children,
-                colors,
-                snapshot,
-                base_dir,
-                inline_edit,
-            ),
-            Kind::Code {
-                info,
-                text: payload,
-            } => {
-                let label = if info.is_empty() {
-                    "Code".to_owned()
-                } else {
-                    format!("Code · {info}")
-                };
-                code_panel(label, payload, colors)
-            }
-            Kind::Math { display } => math_panel(block, *display, colors),
-            Kind::Literal {
-                label,
-                text: payload,
-            } => code_panel((*label).into(), payload, colors),
-            Kind::Table(_) => table::render(
-                block,
-                snapshot,
-                colors,
-                inline_edit.source.as_deref(),
-                inline_edit.visual_draft,
-            ),
-            Kind::Rule => horizontal_rule(1).into(),
-        };
+                    });
+            column(items).spacing(6).width(Length::Fill).into()
+        }
+        Kind::Item(_) => render_blocks(&block.children, colors, snapshot, base_dir, inline_edit),
+        Kind::Code {
+            info,
+            text: payload,
+        } => {
+            let label = if info.is_empty() {
+                "Code".to_owned()
+            } else {
+                format!("Code · {info}")
+            };
+            code_panel(label, payload, colors)
+        }
+        Kind::Math { display } => math_panel(block, *display, colors),
+        Kind::Literal {
+            label,
+            text: payload,
+        } => code_panel((*label).into(), payload, colors),
+        Kind::Table(_) => table::render(
+            block,
+            snapshot,
+            colors,
+            inline_edit.source.as_deref(),
+            inline_edit.visual_draft,
+        ),
+        Kind::Rule => horizontal_rule(1).into(),
+    };
     let inline_session =
         inline_edit.draft.is_some_and(|draft| draft.inline_preview) || visual_draft.is_some();
     let element = if inline_session {

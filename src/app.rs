@@ -260,7 +260,9 @@ impl Hylite {
         } else {
             ""
         };
-        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{visual}{multiline} — Hylite")
+        format!(
+            "{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{visual}{multiline} — Hylite"
+        )
     }
 
     /// A blocked gesture must not look like a dead click. Only user commands that
