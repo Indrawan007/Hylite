@@ -705,6 +705,11 @@ def exercise_preview_reveal(desktop, artifacts):
     source = ("# café🙂\n\nbody **bold**\n\n"
               "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
               "```rs\n\tcode  \n```\n\t").encode("utf-8")
+    # The measured action row at y=151 belongs to the paragraph after the
+    # heading, whose provenance start is byte 26; the reveal promises the caret
+    # of the block whose bar was pressed, not the top of the document. If the
+    # layout ever moves, the helper reports every offset it observed.
+    block_start = 26
     desktop.paste_from_clean(source)
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
     desktop.key("ctrl+shift+m")  # Source -> Preview.
@@ -716,10 +721,11 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.reveal_from_preview(
         [(800, 151), (800, 139), (800, 157), (800, 147), (800, 165), (800, 175)],
         source,
-        0,
+        block_start,
     )
     desktop.type_ascii("X")
-    desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
+    desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret",
+                        source[:block_start] + b"X" + source[block_start:], refocus=False)
     desktop.screenshot(artifacts / "reveal-split.png")
     desktop.key("ctrl+z")
     desktop.expect_copy("Reveal: sentinel undo restores exact source and terminal whitespace", source, refocus=False)
