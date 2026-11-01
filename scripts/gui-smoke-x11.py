@@ -250,19 +250,22 @@ class Desktop:
         self.settle(0.3)
         return self.clipboard() != marker
 
-    def cycle_to_editable(self, attempts=4):
-        """Cycle modes until the document confirms an editable Source widget.
+    def cycle_to(self, editable, attempts=4):
+        """Cycle modes until the document confirms the wanted editability.
 
-        Ctrl+Shift+M is delivered through the window subscription while the
-        app renders a native table, so a single press can be dropped; the mode
-        is therefore verified through the document instead of assumed.
+        Ctrl+Shift+M is delivered through the window subscription whenever the
+        Source editor is not focused, and that press is occasionally dropped
+        while the app renders a native table. The mode is therefore verified
+        through the document (a read-only Preview cannot copy) instead of
+        assumed, and the press is repeated until it takes effect.
         """
         for _ in range(attempts):
-            if self.mode_is_editable():
+            if self.mode_is_editable() == editable:
                 return
             self.key("ctrl+shift+m")
             self.settle(0.4)
-        raise AssertionError("Ctrl+Shift+M never reached an editable mode")
+        wanted = "editable" if editable else "read-only"
+        raise AssertionError(f"Ctrl+Shift+M never reached a {wanted} mode")
 
     def paste_from_clean(self, data):
         self.title_is_dirty(False)
@@ -480,7 +483,7 @@ def exercise_tables(desktop, artifacts):
               + wide_row + wide_delimiter + wide_row + "\nterminal\n\t").encode("utf-8")
     desktop.paste_from_clean(source)
     desktop.expect_copy("Table fixture: Source with alignment, ragged rows and limit fallback", source, refocus=False)
-    desktop.key("ctrl+shift+m")
+    desktop.cycle_to(editable=False)  # Source -> read-only Preview, verified.
     desktop.screenshot(artifacts / "tables-native.png")
     # Send real horizontal wheel events inside the table viewport. Screenshots
     # record runtime behavior, not an automatic assertion of scrollbar position.
@@ -489,8 +492,7 @@ def exercise_tables(desktop, artifacts):
                     "click", "--repeat", "6", "--delay", "70", "7")
     desktop.screenshot(artifacts / "tables-horizontal.png")
     desktop.type_ascii("LEAK")
-    desktop.key("ctrl+shift+m")
-    desktop.cycle_to_editable()
+    desktop.cycle_to(editable=True)  # Preview -> Split, verified.
     desktop.screenshot(artifacts / "tables-split.png")
     desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
     desktop.key("ctrl+shift+m")

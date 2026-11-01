@@ -127,7 +127,11 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(desktop.screenshot.call_count, 3)
         desktop.command.assert_called_once_with("xdotool", "mousemove", "--window", "42", "900", "300",
                                                 "click", "--repeat", "6", "--delay", "70", "7")
-        self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 3)
+        # Both mode changes are verified against the document instead of assumed,
+        # so the suite only presses the cycle chord itself to leave Split.
+        self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 1)
+        self.assertEqual([call.kwargs for call in desktop.cycle_to.call_args_list],
+                         [{"editable": False}, {"editable": True}])
 
     def test_cache_probe_checks_warm_split_edits_undo_redo_without_refocusing(self):
         desktop = Mock(window="42")
