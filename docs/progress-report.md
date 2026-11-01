@@ -2,7 +2,11 @@
 
 **Tanggal:** 26 Oktober 2026 · **Branch:** `arena/21a4c00b-hylite` · **Kode terakhir terverifikasi:** `fdf991b`
 
-**Basis verifikasi Stage 11a:** commit `fdf991b` lulus seluruh gate di [CI 40244045608](https://github.com/Indrawan007/Hylite/actions/runs/40244045608): helper Python, format, strict Source core, strict Clippy, build, tes Rust, semua suite GUI X11, dan probe opt-in yang telah ada. Laporan diagnostik Stage 11a hanya menyajikan petunjuk yang diizinkan dan merahasiakan nilai endpoint/path; batas serta hasil ada di [docs/testing-stage11a.md](testing-stage11a.md). CI ini **bukan** bukti Arch + Hyprland/Wayland, portal runtime, atau paket/release build. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Status kerja: **belum di-merge ke `main` dan tidak ada PR**. Kontrak dan hasil probe alternatif: [dokumen terpisah](proposal-alternative-widget-probe.md).
+> **Catatan 31 Oktober 2026:** harness Stage 9a/9b dan probe custom-widget pasca-9b
+> sudah **dihapus** dari repo (audit B5). Baris 9a/9b di bawah adalah catatan historis;
+> tidak ada lagi flag `--inline-*` maupun suite `inline-*`.
+
+**Basis verifikasi Stage 11a:** commit `fdf991b` lulus seluruh gate di [CI 40244045608](https://github.com/Indrawan007/Hylite/actions/runs/40244045608): helper Python, format, strict Source core, strict Clippy, build, tes Rust, semua suite GUI X11, dan probe opt-in yang telah ada. Laporan diagnostik Stage 11a hanya menyajikan petunjuk yang diizinkan dan merahasiakan nilai endpoint/path; batas serta hasil ada di [docs/testing-stage11a.md](testing-stage11a.md). CI ini **bukan** bukti Arch + Hyprland/Wayland, portal runtime, atau paket/release build. Stage 9b asli tetap **NO-GO historis**; probe custom-widget terpisah juga **NO-GO terbatas**. Status kerja: **belum di-merge ke `main` dan tidak ada PR**. Kontrak dan hasil probe alternatif: [dokumen terpisah (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 
 > Persentase di bawah adalah **estimasi terhadap roadmap bertahap yang dideklarasikan**,
 > bukan hasil pengukuran otomatis dan bukan klaim kesiapan produksi. Dua angka sengaja
@@ -87,13 +91,13 @@ Stage 9b berikutnya telah ditutup dengan hasil **NO-GO**:
 
 | Stage | Isi | Bukti / batas |
 |---|---|---|
-| 9a | Opt-in, satu paragraf root satu baris ASCII; projection bold/italic/code; insert/delete satu karakter dengan satu Source transaction | `docs/testing-stage9a.md`; [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) |
+| 9a | Opt-in, satu paragraf root satu baris ASCII; projection bold/italic/code; insert/delete satu karakter dengan satu Source transaction | `docs/testing-stage9a.md` (dihapus); [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) |
 | Hasil GUI 9a | Caret keyboard 0→7 pada satu posisi di strong run; ketik `X` memberi `left **boXld** right\n`; Undo/Redo byte-exact | X11 + Xvfb + tiny-skia; 7 pemeriksaan; bukan hit-testing per glyph |
-| 9b | Probe opt-in read-only pada fixture `ab**CDEFGH**ijk\n`; sampling caret mouse dan directional drag jika endpoint ditemukan | `docs/testing-stage9b.md`; [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359) |
+| 9b | Probe opt-in read-only pada fixture `ab**CDEFGH**ijk\n`; sampling caret mouse dan directional drag jika endpoint ditemukan | `docs/testing-stage9b.md` (dihapus); [CI 40058088359](https://github.com/Indrawan007/Hylite/actions/runs/40058088359) |
 | Hasil GUI 9b | 325 posisi x yang berulang maju/balik hanya melaporkan caret 0; dense band `x=256..511` juga hanya 0; offset 1–11 tidak teramati | **NO-GO** untuk fixture/jalur X11 + Xvfb + tiny-skia ini |
 | Selection | Drag tidak dikirim karena offset 3 dan 7 tidak ditemukan; anchor/arah selection tidak teramati | Bukan bukti bahwa selection gagal pada semua backend; tidak ada implementasi mapping |
 | Pengamanan | Source, dirty state, file fixture dan history tetap utuh; jendela keluar natural | 7 pemeriksaan Stage 9b lulus sebagai smoke/safety checks, bukan verdict feasibility GO |
-| Probe custom-widget pasca-9b (terpisah, test-only) | 113 x berulang maju/balik mencapai offset 0–6; keduanya non-monotone; offset 7–11 tidak teramati sehingga drag tidak dijalankan | **NO-GO terbatas**; 9 safety/harness checks lulus; [hasil](proposal-alternative-widget-probe.md) |
+| Probe custom-widget pasca-9b (terpisah, test-only) | 113 x berulang maju/balik mencapai offset 0–6; keduanya non-monotone; offset 7–11 tidak teramati sehingga drag tidak dijalankan | **NO-GO terbatas**; 9 safety/harness checks lulus; [hasil (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) |
 
 ### Stage 10b — benchmark harness (selesai; test-only)
 
@@ -249,7 +253,7 @@ penjelasan akar penyebab atau bukti target desktop.
 
 ## 7. Referensi
 
-- Kontrak & bukti terbaru: [keputusan scope Stage 9c/9d](proposal-stage9c-9d-scope.md) · [evaluasi scope Stage 10a](proposal-stage10a-scope.md) · [Stage 10b benchmark](performance.md) · [Stage 9b](testing-stage9b.md) · [kontrak dan hasil probe alternatif](proposal-alternative-widget-probe.md) · [Stage 9a](testing-stage9a.md) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
+- Kontrak & bukti terbaru: [keputusan scope Stage 9c/9d](proposal-stage9c-9d-scope.md) · [evaluasi scope Stage 10a](proposal-stage10a-scope.md) · [Stage 10b benchmark](performance.md) · [Stage 9b (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) · [kontrak dan hasil probe alternatif (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) · [Stage 9a (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) · [Stage 8e](testing-stage8e.md) · [8d](testing-stage8d.md) · [8c](testing-stage8c.md) · [8b](testing-stage8b.md) · [8a](testing-stage8a.md) · [7n](testing-stage7n.md) · [7m](testing-stage7m.md) · [7l](testing-stage7l.md) · [7k](testing-stage7k.md) · [7j](testing-stage7j.md) · [7i](testing-stage7i.md) · [7h](testing-stage7h.md) · [7g](testing-stage7g.md) · [7f](testing-stage7f.md) · [7e](testing-stage7e.md) ·
   [7d](testing-stage7d.md) · [bukti GUI](testing-gui-x11.md) ·
   [verifikasi native](verification-native.md)
 - CI verifikasi kode Stage 10a: `40094818086` (`16bcb77`) **success** — format, strict core, Clippy,

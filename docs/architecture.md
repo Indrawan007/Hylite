@@ -1140,24 +1140,12 @@ oracle piksel, jadi tidak membuktikan ketersediaan glyph atau kualitas rumus di
 mesin nyata.
 [Kontrak/tests/evidence/batas 8e](testing-stage8e.md).
 
-## Inline edit spike terbatas (Stage 9a)
+## Harness eksperimen inline — dihapus 31 Oktober 2026
 
-`src/inline_edit.rs` membuat proyeksi satu paragraf root satu-baris: teks ASCII
-maksimal 16 KiB, marker `**strong**`, `*emphasis*`, dan `` `code` `` yang
-terbatas, visible byte-boundary → Source byte offset, serta `TextChange` untuk
-satu karakter insert/delete yang ditambatkan ke caret native sebelum/sesudah aksi
-(bukan diff teks yang ambigu untuk karakter berulang). Run style harus sama dengan
-model Preview aktif;
-controller mengautentikasi snapshot, block, dan payload, memparse kandidat penuh,
-memastikan root paragraph/range tetap utuh dan teks terlihat cocok, baru memanggil
-`Document::change`. Aksi lain dikembalikan ke draft; Source tidak menerima
-partial/ambiguous edit.
-
-`src/ui/inline_spike.rs` memakai native Iced `text_editor::Content` dan
-`Highlighter`; gaya bold/italic/monospace diterapkan ke range **teks terlihat**,
-bukan delimiter Source. Jalur hanya tersedia lewat `--inline-edit-spike <file>`
-dan tidak mengganti `render_preview` default atau panel draft yang ada. Controller
-mengunci aksi dokumen lain selama spike; Esc menutupnya dan history tetap history
-Source yang sudah ada. Peta ini sengaja byte/ASCII-only dan edge caret difavoritkan
-ke sisi run berformat; bukan fondasi selection/glyph umum. Lihat
-[kontrak, tes dan batas Stage 9a](testing-stage9a.md).
+Stage 9a (spike caret keyboard), Stage 9b (probe hit-testing read-only), dan probe
+custom-widget pasca-9b beserta `src/inline_edit.rs`, `src/ui/inline_spike.rs`,
+`src/ui/inline_advanced_probe.rs`, dua modul `app/inline_*`, flag CLI-nya, dan
+tiga suite GUI-nya **dihapus** atas keputusan pemilik repo (audit B5). Alasannya:
+±2.000 baris harness test-only ikut binary rilis tanpa jalur menuju fitur, dan
+verdict ketiganya sudah NO-GO/terbatas. Riwayat hasil ada di git dan di
+[audit §9](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).

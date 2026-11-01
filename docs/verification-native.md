@@ -2,6 +2,11 @@
 
 **Snapshot terkini:** 24 Oktober 2026 · branch `arena/21a4c00b-hylite` · kode terakhir diverifikasi `ea2f4de`.
 
+> **Catatan 31 Oktober 2026:** harness Stage 9a/9b dan probe custom-widget sudah
+> dihapus (audit B5). Angka suite/pemeriksaan di bawah adalah riwayat run saat harness
+> itu masih ada; dokumen terpisahnya ikut dihapus dan ringkasannya ada di
+> [audit §9](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
+
 ## Probe custom-widget pasca-9b — test-only/read-only, verdict NO-GO terbatas
 
 [CI 40070349616](https://github.com/Indrawan007/Hylite/actions/runs/40070349616),
@@ -19,7 +24,7 @@ terbatas** untuk custom widget + fixture + X11/Xvfb/tiny-skia ini, bukan klaim
 universal tentang Iced/backend. Sembilan safety checks mengonfirmasi Source
 byte-exact/clean, history Undo tak bertambah, disk fixture tetap sama, aksi
 lain terblokir ketika probe aktif, dan natural close. Hasil bukan fitur editing
-produksi; lihat [kontrak dan hasil probe](proposal-alternative-widget-probe.md).
+produksi; lihat [kontrak dan hasil probe (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 
 ## Stage 9b historis — probe kelayakan read-only, verdict NO-GO
 
@@ -37,7 +42,7 @@ mencapai offset 1–11. Endpoint offset 3 dan 7 tidak ditemukan, sehingga drag
 tidak dijalankan dan anchor/arah selection tidak teramati. Source/fixture tetap
 byte-identik, dokumen clean, dan jendela keluar natural. Status CI success
 menyatakan harness/safety gates lulus, bukan feasibility GO. Rincian dan
-batasnya ada di [catatan Stage 9b](testing-stage9b.md).
+batasnya ada di [catatan Stage 9b (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 
 ## Stage 9a (riwayat milestone) — spike inline terbatas
 
@@ -54,7 +59,7 @@ tiny-skia: posisi 0→1 untuk membuktikan fokus, `Home`, lalu 7 `Right` mencapai
 caret 7. Ketikan `X` memberi Source `left **boXld** right\n`; satu Undo dan Redo
 memulihkan dua keadaan byte-exact. Klik harness hanya mencari fokus, bukan
 hit-testing glyph. Stage 9b kemudian menguji klik secara terpisah dan berakhir
-NO-GO; lihat [catatan Stage 9b](testing-stage9b.md). Stage 9a tidak menambah
+NO-GO; lihat [catatan Stage 9b (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026). Stage 9a tidak menambah
 dependency.
 
 ## Stage 8e (riwayat saat milestone ditutup) — math read-only subset
@@ -761,6 +766,6 @@ diagnosis, tidak diklaim diperbaiki oleh fitur atau pemisahan suite ini.
 
 Gate build/lint/tes native terkini terpenuhi pada Stage 9a: **1041 Cargo / 344 strict core subset / 90 Python / 29 suite GUI, 512 pemeriksaan** lulus [CI 40039268185](https://github.com/Indrawan007/Hylite/actions/runs/40039268185) (`7b8f82f`). Metrik 8e di bagian atas adalah snapshot historis saat milestone itu ditutup, bukan hasil terkini. **Tahap 4 belum dinyatakan selesai.**
 Stage 5a–5e renderer/navigasi serta 6a checkbox/6b history/6c ATX/6d Setext/
-6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia/8e math read-only subset berlinearization Unicode dan fallback source bertanda tersedia; rekaman milestone ada di [catatan Stage 8e](testing-stage8e.md). Stage 9a spike inline terbatas, opt-in, ASCII satu baris; hasil dan batas ada di [catatan Stage 9a](testing-stage9a.md).
+6e batch task, 6f alignment kolom, 6g raw body row dan 6h panel draft teks sel serta 6i navigasi/Apply & Next dan 6j insert baris serta 6k insert/6l hapus kolom dan 6m pindah body row/6n pindah kolom/6o duplikasi kolom/6p Apply & Previous/7a root paragraph draft/7b native multiline root paragraph draft/7c history lokal/7d navigasi unchanged draft multiline terbatas/7e Apply & Next multiline atomik/7f Apply & Previous multiline atomik/7g shortcut commit draft multiline/7h hardening properti draft/7i konteks baris Source dan umpan balik blokir/7j navigasi dan Apply & Previous/Next paragraf satu baris/7k baris Source pada draft sel tabel/7l history draft lokal Undo/Redo panel satu baris (paragraf dan sel)/7m shortcut keyboard Ctrl+Z Ctrl+Y Ctrl+Shift+Z untuk kedua panel itu/7n umpan balik gestur history kosong dan penguatan properti batas/8a tab multi-buffer dengan park seluruh Document/8b workspace folder dan file tree tanpa watcher/8c gambar read-only dengan gerbang path, format, dan ukuran tersedia/8d ekspor PDF 1.4 yang ditulis sendiri plus `hylite export-pdf` headless tersedia/8e math read-only subset berlinearization Unicode dan fallback source bertanda tersedia; rekaman milestone ada di [catatan Stage 8e](testing-stage8e.md). Stage 9a spike inline terbatas, opt-in, ASCII satu baris; hasil dan batas ada di [catatan Stage 9a (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 WYSIWYG umum tetap belum ada.
 Tidak ada merge ke `main` dalam verifikasi ini.

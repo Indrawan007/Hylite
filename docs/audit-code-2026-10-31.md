@@ -123,7 +123,7 @@ Modul yang hanya melayani eksperimen yang sudah dinyatakan **NO-GO** di dokumen:
 
 Ditambah: 9 field di struct `Hylite` (`inline_*_enabled/pending/draft`), 3 flag CLI di `main.rs`, cabang di `update`/`title`/`view_preview`, 5 fungsi `render_*` di `document/preview.rs`, dan 17 tes bernama `probe`/`spike`.
 
-`AGENT.md` §2 ("no features beyond what was asked", "nothing speculative") berbenturan dengan peran harness ini sebagai **bukti** yang dirujuk `docs/testing-stage9a.md`, `docs/testing-stage9b.md`, dan `docs/proposal-alternative-widget-probe.md`. Ini keputusan produk, bukan keputusan teknis — lihat §7.
+`AGENT.md` §2 ("no features beyond what was asked", "nothing speculative") berbenturan dengan peran harness ini sebagai **bukti** yang dirujuk `docs/testing-stage9a.md`, `docs/testing-stage9b.md`, dan `docs/proposal-alternative-widget-probe.md` (ketiganya dihapus pada Langkah 7). Ini keputusan produk, bukan keputusan teknis — lihat §7.
 
 ### B6 · P2 · Validasi flag CLI triplikat
 
@@ -288,7 +288,8 @@ Ketiga jawaban itu menentukan apakah pekerjaan berhenti di ±2 file (D1 + koreks
 | B1 | **selesai** | Empat blok guard di `Hylite::update` (±90 baris) menjadi satu gerbang `if let Some(active) = self.active_draft()`. `ActiveDraft::accepts(&message)` memuat keempat daftar pesan sebagai satu `match`, dan `ActiveDraft::label()` memberi label status yang sama seperti sebelumnya. Daftar izin per panel diperiksa identik dengan versi lama oleh skrip pembanding: visual 9 pesan, multiline 11, paragraf 12, sel 12 — termasuk `Cancel*` serta `DraftHistory` yang hanya dibagi tiga panel single-line, bukan panel multiline | 0 perubahan perilaku yang diharapkan; seluruh tes Rust lulus |
 | C4 | **selesai** | `impl Default for Hylite` memuat keadaan "buffer kosong + config default + tanpa draft"; `app()` di `app/tests.rs` menyusut dari 33 field menjadi `Hylite { document: Document::new("Original\n"), ..Hylite::default() }`, jadi field baru tidak perlu ditambahkan di dua tempat | seluruh tes Rust lulus |
 | B2 | **selesai** | `SingleMovePlan`/`MultilineMovePlan` menjadi satu `ParagraphMovePlan`; `prepare_single_paragraph_move`/`prepare_multiline_paragraph_move` (±190 baris) menjadi satu `prepare_paragraph_move`, begitu pula kedua `commit_*`. Bedanya kini eksplisit di `enum ParagraphRoot { Single, Multiline }`: validator payload, `plan`, `owns`/`is_root`/`payload_matches`. `move_line()` mengembalikan `Option<usize>` karena hanya editor satu baris yang melacak nomor baris; pemanggil di `app/paragraph_edit.rs` menyesuaikan. Nama fungsi publik (`prepare_*`, `commit_*`) dan signature-nya tidak berubah | dua tes regresi baru menuliskan perilaku yang tidak boleh kabur: plan satu baris menolak root multiline (dan sebaliknya), dan `move_line()` hanya terisi untuk plan satu baris |
-| B3-B5, C3, D2-D4 | terbuka | — | — |
+| B5 | **selesai — dihapus** | Atas keputusan pemilik repo, seluruh harness eksperimen dihapus: `src/inline_edit.rs`, `src/ui/inline_spike.rs`, `src/ui/inline_advanced_probe.rs`, `src/app/inline_spike.rs`, `src/app/inline_advanced_probe.rs`, `SpikeSession` + dua jalur render di `document/preview.rs`, 9 field + 3 konstruktor + 3 blok dispatch di `app.rs`, 5 varian `Message` + 2 tipe event di `commands.rs`, `enum Experiment`/`parse_experiment` di `main.rs`, 8 tes aplikasi, 7 tes Python, dan 3 langkah CI (`--suite inline-spike`, `inline-probe`, `inline-alt-probe`) | `grep` tanpa sisa di `src/`, `scripts/`, `.github/`, `tools/`; 91 tes Python lulus; tree-sitter 0 error; fmt/clippy/tes Rust lulus di CI |
+| B3-B4, C3, D2-D4 | terbuka | — | — |
 
 Verifikasi perubahan ini:
 
@@ -302,6 +303,15 @@ Verifikasi perubahan ini:
 | `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
 
 Catatan verifikasi Langkah 3: dua run di antaranya (`41250413374`, `41250584210`) merah di *Check formatting* dan satu (`41251074070`) di *Lint all targets*. Keduanya cacat nyata pada perubahan A2, bukan flake: rustfmt ingin `render_blocks(blocks, colors, snapshot, base_dir, session, &inline_edit)` dalam satu baris setelah argumen `spike`+`mode` menyusut menjadi satu `session`, dan `on_block` memindahkan `block.source` (`Range<usize>` bukan `Copy`) sehingga gagal kompilasi. Log job tidak dapat diunduh dari sandbox, jadi diff-nya dibaca lewat langkah CI sementara yang mencetak output sebagai anotasi; langkah itu sudah dihapus lagi.
+
+### 9b. Penghapusan harness eksperimen (Langkah 7)
+
+Keputusan produk: **hapus** (bukan `cfg(feature)`), karena verdict Stage 9a/9b/probe sudah NO-GO atau terbatas dan tidak ada jalur dari harness ke fitur. Yang hilang dari binary: 5 modul (`inline_edit`, `ui/inline_spike`, `ui/inline_advanced_probe`, `app/inline_spike`, `app/inline_advanced_probe`), 9 field status, tiga konstruktor `with_inline_*_path`, `enum Experiment` + `parse_experiment` beserta flag `--inline-edit-spike`/`--inline-feasibility-probe`/`--inline-alt-widget-probe`, lima varian `Message` probe, dan tiga suite GUI. Yang tetap: seluruh jalur Preview/visual-edit, inline *preview text* (`OpenInlinePreviewText`), serta suite GUI lain (28 suite).
+
+Konsekuensi yang disengaja:
+- Refactor A2 (`SpikeSession`) ikut terhapus. Perbaikannya tetap tercatat sebagai temuan yang sah — invariant "dua `Option` paralel" memang nyata — tetapi objeknya kini tidak ada.
+- Dokumen `docs/testing-stage9a.md`, `docs/testing-stage9b.md`, dan `docs/proposal-alternative-widget-probe.md` dihapus. Semua tautan ke ketiganya kini menunjuk ke bagian ini; riwayat angka run tetap ada di git, di `docs/verification-native.md`, `docs/testing-gui-x11.md`, `docs/progress-report.md`, dan `docs/roadmap.md` yang diberi banner "dihapus/historis".
+- Tidak ada perubahan perilaku pada fitur yang tersisa.
 
 ### 9a. Gate GUI X11 yang merah sebelum sesi ini
 

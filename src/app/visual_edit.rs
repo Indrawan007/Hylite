@@ -11,9 +11,6 @@ impl Hylite {
     fn visual_operation_allowed(&self) -> bool {
         self.mode != EditMode::Source
             && self.navigation_allowed()
-            && self.inline_spike.is_none()
-            && self.inline_probe.is_none()
-            && self.inline_alt_probe.is_none()
             && !self
                 .operations
                 .active()

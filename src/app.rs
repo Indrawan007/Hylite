@@ -1,8 +1,6 @@
 mod cell_edit;
 mod editing;
 mod file_actions;
-mod inline_advanced_probe;
-mod inline_spike;
 mod multiline_paragraph;
 mod navigation;
 mod paragraph_edit;
@@ -102,15 +100,6 @@ pub struct Hylite {
     pub paragraph_draft: Option<crate::ui::paragraph_edit::Draft>,
     pub visual_draft: Option<crate::ui::visual_edit::Draft>,
     pub cell_draft: Option<crate::ui::cell_edit::Draft>,
-    inline_spike_enabled: bool,
-    inline_spike_pending: bool,
-    inline_spike: Option<crate::ui::inline_spike::Draft>,
-    inline_probe_enabled: bool,
-    inline_probe_pending: bool,
-    inline_probe: Option<crate::ui::inline_spike::Probe>,
-    inline_alt_probe_enabled: bool,
-    inline_alt_probe_pending: bool,
-    inline_alt_probe: Option<crate::ui::inline_advanced_probe::Probe>,
     pub mode: EditMode,
     pub sidebar_open: bool,
     pub zen_mode: bool,
@@ -145,15 +134,6 @@ impl Default for Hylite {
             paragraph_draft: None,
             visual_draft: None,
             cell_draft: None,
-            inline_spike_enabled: false,
-            inline_spike_pending: false,
-            inline_spike: None,
-            inline_probe_enabled: false,
-            inline_probe_pending: false,
-            inline_probe: None,
-            inline_alt_probe_enabled: false,
-            inline_alt_probe_pending: false,
-            inline_alt_probe: None,
             mode: EditMode::Source,
             sidebar_open: true,
             zen_mode: false,
@@ -176,30 +156,6 @@ impl Hylite {
     /// `launch` is the optional command-line path: a folder opens a workspace,
     /// a file is opened in the single startup buffer.
     pub fn with_launch_path(launch: Option<std::path::PathBuf>) -> (Self, Task<Message>) {
-        Self::with_launch_options(launch, false, false, false)
-    }
-
-    /// Starts the explicitly opt-in Stage 9a test harness for a single file.
-    pub fn with_inline_spike_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
-        Self::with_launch_options(Some(path), true, false, false)
-    }
-
-    /// Starts the read-only Stage 9b feasibility probe for one existing file.
-    pub fn with_inline_probe_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
-        Self::with_launch_options(Some(path), false, true, false)
-    }
-
-    /// Starts the separate read-only custom-widget feasibility probe.
-    pub fn with_inline_alt_probe_path(path: std::path::PathBuf) -> (Self, Task<Message>) {
-        Self::with_launch_options(Some(path), false, false, true)
-    }
-
-    fn with_launch_options(
-        launch: Option<std::path::PathBuf>,
-        inline_spike_enabled: bool,
-        inline_probe_enabled: bool,
-        inline_alt_probe_enabled: bool,
-    ) -> (Self, Task<Message>) {
         let loaded = Config::load();
         let config_warning = (!loaded.warnings.is_empty()).then(|| loaded.warnings.join("\n"));
         if let Some(warning) = &config_warning {
@@ -215,14 +171,7 @@ impl Hylite {
             "Running standalone".to_string()
         };
 
-        let mode = if inline_spike_enabled || inline_probe_enabled || inline_alt_probe_enabled {
-            EditMode::Preview
-        } else {
-            config.editor.default_mode
-        };
-        let inline_spike_pending = inline_spike_enabled && launch.is_some();
-        let inline_probe_pending = inline_probe_enabled && launch.is_some();
-        let inline_alt_probe_pending = inline_alt_probe_enabled && launch.is_some();
+        let mode = config.editor.default_mode;
 
         let mut app = Self {
             document: Document::new(include_str!("welcome.md")),
@@ -236,15 +185,6 @@ impl Hylite {
             paragraph_draft: None,
             visual_draft: None,
             multiline_draft: None,
-            inline_spike_enabled,
-            inline_spike_pending,
-            inline_spike: None,
-            inline_probe_enabled,
-            inline_probe_pending,
-            inline_probe: None,
-            inline_alt_probe_enabled,
-            inline_alt_probe_pending,
-            inline_alt_probe: None,
             mode,
             sidebar_open: true,
             zen_mode: false,
@@ -320,32 +260,7 @@ impl Hylite {
         } else {
             ""
         };
-        let inline_spike = self
-            .inline_spike
-            .as_ref()
-            .map_or_else(String::new, |draft| {
-                format!(
-                    " [Stage 9a caret {}]",
-                    draft
-                        .caret()
-                        .map_or_else(|| "unmapped".to_owned(), |caret| caret.to_string())
-                )
-            });
-        let inline_probe = self
-            .inline_probe
-            .as_ref()
-            .map_or_else(String::new, |probe| {
-                format!(
-                    " [Stage 9b event {} {}]",
-                    probe.events,
-                    probe.title_marker()
-                )
-            });
-        let inline_alt_probe = self
-            .inline_alt_probe
-            .as_ref()
-            .map_or_else(String::new, |probe| format!(" [{}]", probe.title_marker()));
-        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{visual}{multiline}{inline_spike}{inline_probe}{inline_alt_probe} — Hylite")
+        format!("{filename}{dirty}{zen}{confirmation}{draft}{paragraph}{visual}{multiline} — Hylite")
     }
 
     /// A blocked gesture must not look like a dead click. Only user commands that
@@ -430,7 +345,7 @@ impl Hylite {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         // Window diagnostics are system events and must remain observable even
-        // while an opt-in probe or an editing draft is active.
+        // while an editing draft is active.
         match &message {
             Message::ScaleFactorWindowChanged(id) => {
                 return window::get_scale_factor(*id).map(Message::ScaleFactorUpdated);
@@ -449,59 +364,6 @@ impl Hylite {
             _ => {}
         }
 
-        if self.inline_alt_probe.is_some() {
-            match message {
-                Message::InlineAltProbePointer(event) => {
-                    return self.inline_alt_probe_pointer(event);
-                }
-                Message::ExitZenMode => return self.finish_inline_alt_probe(),
-                Message::EndTypingGroup => return Task::none(),
-                Message::CloseRequested(id) => {
-                    self.inline_alt_probe = None;
-                    self.inline_alt_probe_enabled = false;
-                    return self.request_action(PendingAction::Close(id));
-                }
-                _ => {
-                    self.status_message =
-                        "Alternative inline probe is read-only: press Esc to finish before another action"
-                            .into();
-                    return Task::none();
-                }
-            }
-        }
-        if self.inline_probe.is_some() {
-            match message {
-                Message::InlineProbeAction(action) => return self.inline_probe_action(action),
-                Message::FinishInlineProbe => return self.finish_inline_probe(),
-                Message::EndTypingGroup => return Task::none(),
-                Message::CloseRequested(id) => {
-                    self.inline_probe = None;
-                    return self.request_action(PendingAction::Close(id));
-                }
-                _ => {
-                    self.status_message =
-                        "Stage 9b probe is read-only: press Esc to finish before another action"
-                            .into();
-                    return Task::none();
-                }
-            }
-        }
-        if self.inline_spike.is_some() {
-            match message {
-                Message::InlineSpikeAction(action) => return self.inline_spike_action(action),
-                Message::FinishInlineSpike => return self.finish_inline_spike(),
-                Message::EndTypingGroup => return Task::none(),
-                Message::CloseRequested(id) => {
-                    self.inline_spike = None;
-                    return self.request_action(PendingAction::Close(id));
-                }
-                _ => {
-                    self.status_message =
-                        "Stage 9a is active: press Esc to finish before another action".into();
-                    return Task::none();
-                }
-            }
-        }
         if let Some(active) = self.active_draft() {
             if matches!(&message, Message::ExitZenMode) {
                 return match active {
@@ -548,11 +410,6 @@ impl Hylite {
             Message::FormatPreviewVisual(format) => self.format_preview_visual_draft(format),
             Message::ApplyPreviewVisualText => self.apply_preview_visual_text(),
             Message::CancelPreviewVisualText => self.cancel_preview_visual_text(),
-            Message::InlineSpikeAction(action) => self.inline_spike_action(action),
-            Message::FinishInlineSpike => self.finish_inline_spike(),
-            Message::InlineProbeAction(action) => self.inline_probe_action(action),
-            Message::FinishInlineProbe => self.finish_inline_probe(),
-            Message::InlineAltProbePointer(event) => self.inline_alt_probe_pointer(event),
             Message::PreviewParagraphChanged(value) => self.change_preview_paragraph(value),
             Message::ApplyPreviewParagraphPrevious => self.apply_preview_paragraph_previous(),
             Message::ApplyPreviewParagraphNext => self.apply_preview_paragraph_next(),
@@ -938,31 +795,7 @@ impl Hylite {
                     .as_ref()
                     == Some(&draft.original)
         });
-        let parsed = if self.inline_alt_probe_enabled {
-            crate::document::render_inline_alt_probe_preview(
-                blocks,
-                &theme,
-                snapshot,
-                base_dir,
-                self.inline_alt_probe.as_ref(),
-            )
-        } else if self.inline_spike_enabled {
-            crate::document::render_inline_spike_preview(
-                blocks,
-                &theme,
-                snapshot,
-                base_dir,
-                self.inline_spike.as_ref(),
-            )
-        } else if self.inline_probe_enabled {
-            crate::document::render_inline_probe_preview(
-                blocks,
-                &theme,
-                snapshot,
-                base_dir,
-                self.inline_probe.as_ref(),
-            )
-        } else if blocks.is_empty() {
+        let parsed = if blocks.is_empty() {
             crate::document::render_preview(blocks, &theme, snapshot, base_dir)
         } else {
             crate::document::render_preview_with_visual_edit(

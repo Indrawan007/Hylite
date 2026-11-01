@@ -33,9 +33,9 @@ Lihat [hasil dan batas lifecycle](testing-lifecycle-x11.md) untuk rincian.
 Runner `scripts/test-gui-x11.sh` membuka **aplikasi Hylite sebenarnya**, bukan test
 controller atau widget tiruan, pada X server Xvfb privat dengan renderer CPU
 `tiny-skia`. Ia mengirim event mouse/keyboard menggunakan `xdotool` dan membaca
-clipboard X11 melalui `xclip`. Pengecualian yang disengaja adalah suite opt-in
-Stage 9a/9b (`--inline-edit-spike` / `--inline-feasibility-probe`), masing-masing
-memakai fixture terbatas; suite biasa tidak bergantung pada hook tersebut.
+clipboard X11 melalui `xclip`. Tiga suite opt-in lama — Stage 9a/9b dan probe
+custom-widget — sudah dihapus 31 Oktober 2026 (audit B5), jadi setiap suite yang
+tersisa memakai jalur aplikasi normal tanpa hook eksperimen.
 
 Pemeriksaan yang dijalankan:
 
@@ -1334,6 +1334,11 @@ Batas: screenshot hanya evidence; tidak ada oracle piksel, pembaca equation,
 KaTeX/MathJax parity, pembuktian glyph/spacing, 2D typesetting atau Wayland /
 Hyprland. Lihat [kontrak Stage 8e](testing-stage8e.md).
 
+> **Dihapus 31 Oktober 2026 (audit B5).** Tiga suite di bawah — `inline-spike`,
+> `inline-probe`, `inline-alt-probe` — beserta harness, flag CLI, dan modulnya sudah
+> dihapus dari repo. Bagian ini disimpan sebagai riwayat hasilnya; jumlah suite/gate
+> di bawah menggambarkan keadaan **sebelum** penghapusan dan tidak berlaku lagi.
+
 ## Stage 9a: suite ke-29 `inline-spike` (keyboard caret terbatas)
 
 Suite ini boot hanya dengan flag opt-in `--inline-edit-spike` dan fixture satu
@@ -1352,7 +1357,7 @@ Redo harus memulihkan fixture/hasil byte-exact.
 
 Batas: bukti hanya gerak caret keyboard ASCII di satu baris pada X11 + Xvfb +
 tiny-skia. Tidak membuktikan click hit-testing per glyph, selection, Unicode/IME,
-RTL, renderer lain, Hyprland/Wayland, atau WYSIWYG umum. Lihat [kontrak Stage 9a](testing-stage9a.md); hasil probe kelayakan Stage 9b yang dilakukan sesudahnya dicatat di bawah.
+RTL, renderer lain, Hyprland/Wayland, atau WYSIWYG umum. Lihat [kontrak Stage 9a (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026); hasil probe kelayakan Stage 9b yang dilakukan sesudahnya dicatat di bawah.
 
 ## Stage 9b: suite ke-30 `inline-probe` (feasibility, read-only)
 
@@ -1387,7 +1392,7 @@ Run ini menutup suite GUI menjadi **30 suite / 519 pemeriksaan**; suite 9b
 menambahkan 7 pemeriksaan dan smoke regresi utama tetap lulus 116 pemeriksaan.
 Artifact `gui-x11-smoke` id `12546617100` (4.779.552 byte) tersedia sampai
 2026-10-31T03:37:53Z. Kontrak, hasil lengkap, dan cara mengulang ada di
-[catatan Stage 9b](testing-stage9b.md). Tidak ada gate lama yang diganti atau
+[catatan Stage 9b (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026). Tidak ada gate lama yang diganti atau
 dilonggarkan.
 
 ## Probe custom widget pasca-Stage 9b: suite ke-31 `inline-alt-probe`
@@ -1415,6 +1420,6 @@ baru, file fixture tidak berubah, dan jendela keluar natural. Suite baru
 menambahkan 9 pemeriksaan; total workflow menjadi **31 suite / 528 pemeriksaan**
 dan smoke regresi utama tetap 116. Artifact `gui-x11-smoke` id
 `12551795605` (5.070.204 byte) tersedia sampai `2026-10-31T06:44:22Z`.
-Lihat [kontrak dan hasil terperinci](proposal-alternative-widget-probe.md). Stage
+Lihat [kontrak dan hasil terperinci (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026). Stage
 9b asli tetap NO-GO historis; tidak ada gate lama, editing produksi, atau
 Preview default yang diganti.

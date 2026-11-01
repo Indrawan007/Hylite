@@ -32,35 +32,6 @@ struct InlineTextEditor<'a> {
     enabled: bool,
 }
 
-/// One active inline experiment session. The draft and the mode it belongs to
-/// travel together, so the render path can never be handed half a session and
-/// no `expect` is needed to reunite them.
-#[derive(Clone, Copy)]
-struct SpikeSession<'a> {
-    draft: &'a crate::ui::inline_spike::Draft,
-    mode: crate::ui::inline_spike::InputMode,
-}
-
-impl<'a> SpikeSession<'a> {
-    fn stage9a(draft: &'a crate::ui::inline_spike::Draft) -> Self {
-        Self {
-            draft,
-            mode: crate::ui::inline_spike::InputMode::Stage9a,
-        }
-    }
-
-    fn stage9b(probe: &'a crate::ui::inline_spike::Probe) -> Self {
-        Self {
-            draft: &probe.draft,
-            mode: crate::ui::inline_spike::InputMode::Stage9b,
-        }
-    }
-
-    fn on_block(&self, block: &std::ops::Range<usize>) -> bool {
-        self.draft.target.block == *block
-    }
-}
-
 impl Colors {
     fn new(theme: &Theme) -> Self {
         let palette = theme.palette();
@@ -90,7 +61,6 @@ pub fn render_preview<'a>(
         theme,
         snapshot,
         base_dir,
-        None,
         InlineTextEditor {
             draft: None,
             visual_draft: None,
@@ -115,7 +85,6 @@ pub fn render_preview_with_visual_edit<'a>(
         theme,
         snapshot,
         base_dir,
-        None,
         InlineTextEditor {
             draft,
             visual_draft,
@@ -125,115 +94,22 @@ pub fn render_preview_with_visual_edit<'a>(
     )
 }
 
-/// Render the opt-in Stage 9a caret-edit spike without changing the default
-/// Preview widget tree or replacing any existing draft panel.
-pub fn render_inline_spike_preview<'a>(
-    blocks: &'a [Block],
-    theme: &Theme,
-    snapshot: Snapshot,
-    base_dir: Option<&Path>,
-    spike: Option<&'a crate::ui::inline_spike::Draft>,
-) -> Element<'a, Message> {
-    render_preview_internal(
-        blocks,
-        theme,
-        snapshot,
-        base_dir,
-        spike.map(SpikeSession::stage9a),
-        InlineTextEditor {
-            draft: None,
-            visual_draft: None,
-            source: None,
-            enabled: false,
-        },
-    )
-}
-
-/// Render the read-only Stage 9b hit-testing probe. Only diagnostic events are
-/// accepted; Source is never written by this path.
-pub fn render_inline_probe_preview<'a>(
-    blocks: &'a [Block],
-    theme: &Theme,
-    snapshot: Snapshot,
-    base_dir: Option<&Path>,
-    probe: Option<&'a crate::ui::inline_spike::Probe>,
-) -> Element<'a, Message> {
-    render_preview_internal(
-        blocks,
-        theme,
-        snapshot,
-        base_dir,
-        probe.map(SpikeSession::stage9b),
-        InlineTextEditor {
-            draft: None,
-            visual_draft: None,
-            source: None,
-            enabled: false,
-        },
-    )
-}
-
-/// A separate test-only render path for the alternative advanced widget. It
-/// shows only the authenticated fixture paragraph, not the Stage 9b TextEditor.
-pub fn render_inline_alt_probe_preview<'a>(
-    blocks: &'a [Block],
-    theme: &Theme,
-    snapshot: Snapshot,
-    base_dir: Option<&Path>,
-    probe: Option<&'a crate::ui::inline_advanced_probe::Probe>,
-) -> Element<'a, Message> {
-    let colors = Colors::new(theme);
-    let content = probe
-        .filter(|probe| {
-            probe.target.snapshot == snapshot
-                && blocks.iter().any(|block| {
-                    block.source == probe.target.block && matches!(block.kind, Kind::Paragraph)
-                })
-        })
-        .map_or_else(
-            || render_preview(blocks, theme, snapshot, base_dir),
-            |probe| crate::ui::inline_advanced_probe::widget(probe, colors.text),
-        );
-    let instructions = text(
-        "Alternative custom-widget probe · bounded ASCII hit-testing only · Source stays read-only · Esc finishes",
-    )
-    .size(11)
-    .color(colors.accent);
-    column![instructions, content]
-        .spacing(12)
-        .width(Length::Fill)
-        .into()
-}
-
 fn render_preview_internal<'a>(
     blocks: &'a [Block],
     theme: &Theme,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    session: Option<SpikeSession<'a>>,
     inline_edit: InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let colors = Colors::new(theme);
     let content: Element<'_, Message> = if blocks.is_empty() {
         text("Empty document").size(14).color(colors.text).into()
     } else {
-        render_blocks(blocks, colors, snapshot, base_dir, session, &inline_edit)
+        render_blocks(blocks, colors, snapshot, base_dir, &inline_edit)
     };
-    let instructions = match session.map(|session| session.mode) {
-        Some(crate::ui::inline_spike::InputMode::Stage9a) => text(
-            "Stage 9a inline spike · one ASCII root line · caret only · Esc finishes; Source updates live",
-        )
+    let instructions = text("Tasks, tables, headings and plain root text have limited Preview edits")
         .size(11)
-        .color(colors.accent),
-        Some(crate::ui::inline_spike::InputMode::Stage9b) => text(
-            "Stage 9b feasibility probe · ASCII caret/selection diagnostics only · Source unchanged · Esc finishes",
-        )
-        .size(11)
-        .color(colors.accent),
-        None => text("Tasks, tables, headings and plain root text have limited Preview edits")
-            .size(11)
-            .color(colors.text),
-    };
+        .color(colors.text);
     column![instructions, content]
         .spacing(12)
         .width(Length::Fill)
@@ -296,13 +172,12 @@ fn render_blocks<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    session: Option<SpikeSession<'a>>,
     inline_edit: &InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     column(
         blocks
             .iter()
-            .map(|block| render_block(block, colors, snapshot, base_dir, session, inline_edit)),
+            .map(|block| render_block(block, colors, snapshot, base_dir, inline_edit)),
     )
     .spacing(10)
     .width(Length::Fill)
@@ -346,7 +221,6 @@ fn render_block<'a>(
     colors: Colors,
     snapshot: Snapshot,
     base_dir: Option<&Path>,
-    session: Option<SpikeSession<'a>>,
     inline_edit: &InlineTextEditor<'a>,
 ) -> Element<'a, Message> {
     let origin = format!(
@@ -384,8 +258,6 @@ fn render_block<'a>(
                     crate::ui::visual_edit::view(draft)
                 } else if let Some(draft) = inline_draft {
                     crate::ui::paragraph_edit::inline_preview_view(draft)
-                } else if let Some(session) = session.filter(|s| s.on_block(&block.source)) {
-                    crate::ui::inline_spike::editor(session.draft, session.mode)
                 } else {
                     let heading = matches!(block.kind, Kind::Heading(_));
                     let size = match block.kind {
@@ -409,7 +281,6 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
-                session,
                 inline_edit,
             ))
             .padding([8, 16])
@@ -449,7 +320,6 @@ fn render_block<'a>(
                                         colors,
                                         snapshot,
                                         base_dir,
-                                        session,
                                         inline_edit,
                                     )
                                 ]
@@ -463,7 +333,6 @@ fn render_block<'a>(
                                     colors,
                                     snapshot,
                                     base_dir,
-                                    session,
                                     inline_edit,
                                 )
                             ]
@@ -479,7 +348,6 @@ fn render_block<'a>(
                 colors,
                 snapshot,
                 base_dir,
-                session,
                 inline_edit,
             ),
             Kind::Code {
@@ -507,30 +375,10 @@ fn render_block<'a>(
             ),
             Kind::Rule => horizontal_rule(1).into(),
         };
-    let session_target = session.filter(|s| s.on_block(&block.source));
     let inline_session =
         inline_edit.draft.is_some_and(|draft| draft.inline_preview) || visual_draft.is_some();
     let element = if inline_session {
         element
-    } else if let Some(session) = session_target {
-        let (label, finish) = match session.mode {
-            crate::ui::inline_spike::InputMode::Stage9a => {
-                ("Finish inline spike (Esc)", Message::FinishInlineSpike)
-            }
-            crate::ui::inline_spike::InputMode::Stage9b => {
-                ("Finish hit-test probe (Esc)", Message::FinishInlineProbe)
-            }
-        };
-        column![
-            button(text(label).size(11))
-                .padding([2, 6])
-                .height(24)
-                .on_press(finish),
-            element,
-        ]
-        .spacing(4)
-        .width(Length::Fill)
-        .into()
     } else if let Some(action) = source_action(block, snapshot) {
         let mut actions = row![button(text("Show block source").size(11))
             .padding([2, 6])

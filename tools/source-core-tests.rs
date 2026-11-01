@@ -13,9 +13,6 @@ mod search;
 #[path = "../src/text_edit.rs"]
 mod text_edit;
 
-#[path = "../src/inline_edit.rs"]
-mod inline_edit;
-
 #[path = "../src/limits.rs"]
 mod limits;
 

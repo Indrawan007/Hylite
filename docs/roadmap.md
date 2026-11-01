@@ -68,8 +68,8 @@ fondasi → perluasan**, bukan big bang.
 
 | Stage | Isi | Usaha | Risiko |
 |---|---|---|---|
-| **9a** ✅ | **Spike terbatas**: satu baris paragraf, edit inline untuk `**bold**`/`*italic*`/`` `code` `` dengan model "teks terlihat + peta ke byte Source". X11 membuktikan caret keyboard ASCII 0→7 dan delta `left **bold** right\n` → `left **boXld** right\n`, Undo/Redo byte-exact. **Belum** menggantikan panel draft mana pun — [catatan](testing-stage9a.md) | selesai | tinggi untuk perluasan; hit-testing/selection tetap belum terbukti setelah probe 9b NO-GO |
-| **9b** ⚠️ NO-GO (probe selesai) | **Feasibility terbatas**: satu fixture ASCII, hit-testing caret dan selection pada widget native, tanpa Source edit atau implementasi mapping. Hasil: hanya caret 0 yang teramati; drag tidak dijalankan karena endpoint 3/7 tidak ditemukan — [bukti lengkap](testing-stage9b.md) | kecil–sedang | probe tertutup; hit-testing/selection belum layak dibuktikan |
+| ~~**9a**~~ **DIHAPUS** | **Spike terbatas** (satu baris paragraf, pemetaan teks terlihat → byte Source): membuktikan caret keyboard ASCII 0→7 dan delta Source byte-exact di X11, tetapi **tidak** menggantikan panel draft mana pun. Harness-nya dihapus 31 Oktober 2026 (audit B5) — [ringkasan](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) | selesai, lalu dihapus | — |
+| ~~**9b**~~ ~~NO-GO~~ | **Feasibility terbatas** (hit-testing caret/selection pada widget native): hanya caret 0 teramati, drag tidak dijalankan. Probe-nya dihapus 31 Oktober 2026 (audit B5) — [ringkasan](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026) | selesai, lalu dihapus | — |
 | **9c** | **DIBUKA KEMBALI — irisan awal sedang dikerjakan.** Whole-block styled draft untuk paragraf root satu baris dan heading ATX root, marker tersembunyi, format seleksi terbatas, history lokal dan Apply atomik sudah ditulis; belum diverifikasi dan bukan caret/glyph mapping ke Source. Lihat [riwayat scope](proposal-stage9c-9d-scope.md). | sedang–besar | sedang |
 | **9d** | **DIBUKA KEMBALI — belum lengkap.** General editing untuk nested block/list/quote/table, multiline, cakupan grammar, dan kriteria penutupan panel draft belum dipenuhi. WYSIWYG umum ala MarkText belum tersedia. Lihat [riwayat scope](proposal-stage9c-9d-scope.md). | besar | tinggi |
 
@@ -85,7 +85,7 @@ tetapi feasibility runner hanya menemukan caret `[0]` pada 325 posisi x yang
 berulang maju/balik; dense band `x=256..511` juga tidak mencapai offset 1–11.
 Karena titik 3 dan 7 tidak ditemukan, drag tidak dijalankan dan anchor/arah
 selection tidak teramati. Source, dirty state, file fixture dan history tidak
-berubah. Lihat [catatan hasil 9b](testing-stage9b.md).
+berubah. Lihat [catatan hasil 9b (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 
 **Scope terpisah pasca-9b — selesai, NO-GO terbatas:** atas persetujuan
 terpisah, custom widget `advanced::Widget` + `Paragraph::hit_test` dibuat sebagai
@@ -96,7 +96,7 @@ pemetaan tidak monoton, dan offset 7–11 tidak ditemukan. Drag tidak dijalankan
 Source, dirty/history, file, dan natural close terjaga. Verdict **NO-GO** hanya
 untuk fixture ASCII dan X11 + Xvfb + tiny-skia; bukan penilaian drag yang tidak
 diuji dan bukan klaim universal. Lihat [kontrak dan hasil probe
-alternatif](proposal-alternative-widget-probe.md).
+alternatif (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026).
 
 **Batas bukti:** NO-GO Stage 9b asli tetap historis dan final; probe
 alternatif terpisah tidak menimpanya. Kedua hasil tidak membuktikan kelayakan
@@ -214,7 +214,7 @@ milestone/fitur produk. Lihat snapshot [`progress-report.md`](progress-report.md
   percobaan custom-widget terpisah juga berakhir NO-GO terbatas. Permintaan
   pengguna terbaru membuka kembali pekerjaan produk Stage 9c/9d; kedua probe
   tetap alat test-only/opt-in dan tidak menjadi peta Source produksi
-  ([kontrak dan hasil](proposal-alternative-widget-probe.md), [riwayat keputusan](proposal-stage9c-9d-scope.md)).
+  ([kontrak dan hasil (dokumen dihapus)](audit-code-2026-10-31.md#9-status-perbaikan-31-okt-2026), [riwayat keputusan](proposal-stage9c-9d-scope.md)).
 - Math read-only subset yang sebelumnya ditunda kini dilaksanakan sebagai Stage 8e.
   Diagram tetap di luar scope; tidak ada klaim KaTeX parity.
 - Crate baru boleh minimal; implementasi 8e tidak menambah dependency.

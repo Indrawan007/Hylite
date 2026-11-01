@@ -3,8 +3,6 @@ pub mod chrome;
 pub mod confirmation;
 pub mod editing;
 pub mod icons;
-pub mod inline_advanced_probe;
-pub mod inline_spike;
 pub mod layout;
 pub mod multiline_paragraph;
 pub mod navigation;
