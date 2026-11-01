@@ -217,7 +217,7 @@ pub fn view(icon: Icon, kind: ButtonKind) -> svg::Svg<'static> {
                 ButtonKind::Primary => colors.on_accent,
                 ButtonKind::Destructive => colors.on_danger,
                 ButtonKind::Quiet => colors.muted,
-                ButtonKind::Neutral | ButtonKind::Selected => colors.text,
+                ButtonKind::Neutral | ButtonKind::Toolbar | ButtonKind::Selected => colors.text,
             };
             svg::Style { color: Some(color) }
         })

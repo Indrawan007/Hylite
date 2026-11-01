@@ -31,17 +31,13 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let file_chip = tooltip(
         container(
             row![
-                text(if app.document.is_dirty() {
-                    "●"
-                } else {
-                    "○"
-                })
-                .size(11)
-                .color(if app.document.is_dirty() {
-                    colors.accent
-                } else {
-                    colors.muted
-                }),
+                // Painted, not typeset: the bundled font has no ●/○ and a
+                // missing glyph renders as an empty box.
+                container(iced::widget::Space::new(
+                    Length::Fixed(6.0),
+                    Length::Fixed(6.0),
+                ))
+                .style(chrome::dot_style(app.document.is_dirty())),
                 text(compact_name(
                     file_name,
                     if narrow {

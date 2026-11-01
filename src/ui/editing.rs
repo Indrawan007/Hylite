@@ -8,7 +8,7 @@ use crate::text_edit::InlineStyle;
 use crate::ui::chrome::{self, ButtonKind, SurfaceKind};
 use crate::ui::icons::Icon;
 use crate::ui::layout::{self, ToolbarDensity};
-use iced::widget::{button, column, container, row, tooltip};
+use iced::widget::{button, column, container, horizontal_space, row, tooltip};
 use iced::{Element, Length};
 
 fn icon_action(
@@ -17,14 +17,14 @@ fn icon_action(
     hint: &'static str,
 ) -> Element<'static, Message> {
     let icon_kind = if message.is_some() {
-        ButtonKind::Neutral
+        ButtonKind::Toolbar
     } else {
         ButtonKind::Quiet
     };
     tooltip(
         button(crate::ui::icons::view(icon, icon_kind))
             .on_press_maybe(message)
-            .style(chrome::button_style(ButtonKind::Neutral))
+            .style(chrome::button_style(ButtonKind::Toolbar))
             .width(34)
             .height(28)
             .padding(0),
@@ -207,6 +207,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             navigation_actions,
             formatting_actions,
             line_actions,
+            horizontal_space(),
             shortcuts,
         ]
         .spacing(8)

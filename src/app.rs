@@ -176,7 +176,7 @@ impl Hylite {
         let hyprland = HyprlandIntegration::new();
 
         let status = if hyprland.is_hyprland() {
-            "Hyprland detected ✓".to_string()
+            "Hyprland detected".to_string()
         } else {
             "Running standalone".to_string()
         };

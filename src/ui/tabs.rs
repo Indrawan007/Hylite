@@ -50,7 +50,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 .style(chrome::button_style(if active {
                     ButtonKind::Selected
                 } else {
-                    ButtonKind::Neutral
+                    ButtonKind::Toolbar
                 }))
                 .padding([3, 8]),
             text(title),
@@ -70,7 +70,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         }
     }
     strip = strip.push(tooltip(
-        icon_button(Icon::Plus, Message::NewTab, ButtonKind::Neutral, 26.0),
+        icon_button(Icon::Plus, Message::NewTab, ButtonKind::Toolbar, 26.0),
         "New tab · Ctrl+T",
         tooltip::Position::Bottom,
     ));

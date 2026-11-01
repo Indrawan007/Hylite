@@ -40,7 +40,7 @@ fn mode_action(
     let kind = if app.mode == mode {
         ButtonKind::Selected
     } else {
-        ButtonKind::Neutral
+        ButtonKind::Toolbar
     };
     tooltip(
         icon_control(icon, Message::SwitchMode(mode), kind),
@@ -72,7 +72,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let save_kind = if app.document.is_dirty() {
         ButtonKind::Primary
     } else {
-        ButtonKind::Neutral
+        ButtonKind::Toolbar
     };
     let save_hint = if app.document.is_dirty() {
         "Save changes · Ctrl+S"
@@ -88,39 +88,39 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 if app.sidebar_open {
                     ButtonKind::Selected
                 } else {
-                    ButtonKind::Neutral
+                    ButtonKind::Toolbar
                 },
                 "Toggle file sidebar · Ctrl+B",
             ),
             icon_action(
                 Icon::NewFile,
                 Message::NewFile,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "New document · Ctrl+N",
             ),
             icon_action(
                 Icon::OpenFile,
                 Message::OpenFile,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "Open a Markdown file · Ctrl+O",
             ),
             icon_action(Icon::Save, Message::SaveFile, save_kind, save_hint),
             icon_action(
                 Icon::SaveAs,
                 Message::SaveAs,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "Save a copy · Ctrl+Shift+S",
             ),
             icon_action(
                 Icon::Html,
                 Message::ExportHtml,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "Export HTML · Ctrl+Shift+E",
             ),
             icon_action(
                 Icon::Pdf,
                 Message::ExportPdf,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "Export PDF · Ctrl+Shift+P",
             ),
         ]
@@ -143,14 +143,14 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
                 if app.zen_mode {
                     ButtonKind::Selected
                 } else {
-                    ButtonKind::Neutral
+                    ButtonKind::Toolbar
                 },
                 "Toggle distraction-free mode · F11",
             ),
             icon_action(
                 Icon::Copy,
                 Message::CopyEnvironmentReport,
-                ButtonKind::Neutral,
+                ButtonKind::Toolbar,
                 "Copy a redacted environment report",
             ),
         ]

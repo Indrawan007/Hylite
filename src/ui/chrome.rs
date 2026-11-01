@@ -8,6 +8,9 @@ use iced::{Border, Color, Theme};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonKind {
     Neutral,
+    /// Icon-only controls in the toolbars: no box at rest, so the group panel
+    /// behind them is the only visible structure.
+    Toolbar,
     Selected,
     Primary,
     Destructive,
@@ -29,6 +32,9 @@ pub struct Colors {
     pub surface: Color,
     pub raised: Color,
     pub border: Color,
+    /// Separators and group outlines: `border` alone is nearly the surface it
+    /// sits on, so hairlines drawn with it disappear.
+    pub edge: Color,
     pub text: Color,
     pub muted: Color,
     pub accent: Color,
@@ -47,6 +53,7 @@ impl Colors {
         let surface = mix(background, text, if dark { 0.035 } else { 0.025 });
         let raised = mix(background, text, if dark { 0.075 } else { 0.055 });
         let border = mix(background, text, if dark { 0.14 } else { 0.16 });
+        let edge = mix(background, text, if dark { 0.22 } else { 0.24 });
         let accent_soft = mix(background, palette.primary, if dark { 0.28 } else { 0.12 });
         let danger = Color::from_rgb(0.78, 0.25, 0.30);
 
@@ -55,6 +62,7 @@ impl Colors {
             surface,
             raised,
             border,
+            edge,
             text,
             // Secondary text is 10-12px (sidebar hints, status bar); at 42%
             // toward the background those lines read as disabled rather than
@@ -78,6 +86,11 @@ pub fn button_style(kind: ButtonKind) -> impl Fn(&Theme, button::Status) -> butt
 
         let (base, border, foreground) = match kind {
             ButtonKind::Neutral => (colors.raised, colors.border, colors.text),
+            ButtonKind::Toolbar => (
+                Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                colors.text,
+            ),
             ButtonKind::Selected => (colors.accent_soft, colors.accent, colors.text),
             ButtonKind::Primary => (colors.accent, colors.accent, colors.on_accent),
             ButtonKind::Destructive => (colors.danger, colors.danger, colors.on_danger),
@@ -101,7 +114,8 @@ pub fn button_style(kind: ButtonKind) -> impl Fn(&Theme, button::Status) -> butt
         } else {
             base
         };
-        let visible_background = !matches!(kind, ButtonKind::Quiet) || hovered || pressed;
+        let visible_background =
+            !matches!(kind, ButtonKind::Quiet | ButtonKind::Toolbar) || hovered || pressed;
 
         button::Style {
             background: visible_background.then_some(background.into()),
@@ -113,6 +127,8 @@ pub fn button_style(kind: ButtonKind) -> impl Fn(&Theme, button::Status) -> butt
                     ButtonKind::Selected | ButtonKind::Primary | ButtonKind::Destructive
                 ) {
                     1.0
+                } else if matches!(kind, ButtonKind::Toolbar) && !(hovered || pressed) {
+                    0.0
                 } else {
                     0.75
                 },
@@ -129,7 +145,7 @@ pub fn divider_style() -> impl Fn(&Theme) -> container::Style {
     |theme| {
         let colors = Colors::from_theme(theme);
         container::Style {
-            background: Some(colors.border.into()),
+            background: Some(colors.edge.into()),
             ..Default::default()
         }
     }
@@ -149,7 +165,7 @@ pub fn surface_style(kind: SurfaceKind) -> impl Fn(&Theme) -> container::Style {
                 (colors.surface, colors.border, 0.0, 0.75)
             }
             SurfaceKind::Sidebar => (colors.surface, colors.border, 0.0, 1.0),
-            SurfaceKind::Panel => (colors.raised, colors.border, 8.0, 1.0),
+            SurfaceKind::Panel => (colors.raised, colors.edge, 8.0, 1.0),
         };
 
         container::Style {
@@ -158,6 +174,25 @@ pub fn surface_style(kind: SurfaceKind) -> impl Fn(&Theme) -> container::Style {
                 color: border,
                 width,
                 radius: radius.into(),
+            },
+            ..Default::default()
+        }
+    }
+}
+
+/// A six-pixel status dot.
+///
+/// The bundled font has no `●`/`○`, and a missing glyph renders as an empty
+/// box, so the dirty indicator is painted instead of typeset.
+pub fn dot_style(dirty: bool) -> impl Fn(&Theme) -> container::Style {
+    move |theme| {
+        let colors = Colors::from_theme(theme);
+        container::Style {
+            background: dirty.then_some(colors.accent.into()),
+            border: Border {
+                color: if dirty { colors.accent } else { colors.muted },
+                width: if dirty { 0.0 } else { 1.0 },
+                radius: 3.0.into(),
             },
             ..Default::default()
         }
