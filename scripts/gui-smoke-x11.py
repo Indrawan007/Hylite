@@ -259,7 +259,7 @@ class Desktop:
             f" attempts={attempts!r}"
         ) from timeout
 
-    def copy_probe(self, marker=PROBE_MARKER, seconds=1.5):
+    def copy_probe(self, marker=PROBE_MARKER, seconds=0.8):
         """Stage a marker, ask the app to copy, and return what it served.
 
         The marker comes back untouched when nothing owns an editable selection
@@ -661,7 +661,7 @@ def exercise_preview_reveal(desktop, artifacts):
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     # The bar only exists once the preview has rendered the block actions.
     desktop.reveal_from_preview(
-        [(800, 139), (800, 147), (800, 151), (800, 157), (800, 165), (800, 175)],
+        [(800, 151), (800, 139), (800, 157), (800, 147), (800, 165), (800, 175)],
         source,
         0,
     )
@@ -805,39 +805,6 @@ def exercise_preview_heading(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        # TEMPORARY DIAGNOSTIC (drop before merge): which row and column of the
-        # Preview action bar belong to the heading controls? Every trial is
-        # classified from the document and leaves Preview again before the next.
-        h_plus = b"#" + source
-        h_minus = source.replace(b"##\t", b"#\t", 1)
-        found = []
-        for y in (150,):
-            for x in range(830, 1015, 10):
-                desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                                str(x), str(y), "click", "1")
-                desktop.settle()
-                if not desktop.mode_is_editable():
-                    found.append(((x, y), "blocked"))
-                    continue
-                title = desktop.command(
-                    "xdotool", "getwindowname", desktop.window).decode("utf-8")
-                if "draft" in title:
-                    found.append(((x, y), "draft"))
-                    desktop.key("Escape")
-                    desktop.settle()
-                    desktop.cycle_to(editable=False)
-                    continue
-                copied = desktop.copy_probe()
-                kind = ("h+" if copied == h_plus else
-                        "h-" if copied == h_minus else
-                        "reveal" if copied == source else "other")
-                found.append(((x, y), kind))
-                if kind != "reveal":
-                    desktop.key("ctrl+z")
-                    desktop.settle()
-                desktop.cycle_to(editable=False)
-        raise AssertionError(f"heading-bar {found!r}")
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
@@ -3490,7 +3457,7 @@ def main():
     error_message = None
 
     def timed_out(_signum, _frame):
-        raise TimeoutError("GUI smoke exceeded its 540 second global budget")
+        raise TimeoutError("GUI smoke exceeded its 600 second global budget")
 
     signal.signal(signal.SIGALRM, timed_out)
     # The regression suite renders a full Markdown document between every
@@ -3499,7 +3466,7 @@ def main():
     # it, so the previous 300s ceiling is reached before the last suite runs and
     # a healthy run reports a budget timeout instead of its own verdict. Keep the
     # guard (it still bounds a hang) but leave room under the 10 minute step.
-    signal.alarm(900)
+    signal.alarm(600)
     with tempfile.TemporaryDirectory(prefix="hylite-gui-") as temp:
         env = isolated_environment(os.environ, Path(temp))
         # The tree suite boots with a folder argument; every other suite keeps
