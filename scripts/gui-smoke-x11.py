@@ -496,6 +496,7 @@ def exercise_tables(desktop, artifacts):
     desktop.screenshot(artifacts / "tables-split.png")
     desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
     desktop.key("ctrl+shift+m")
+    desktop.cycle_to(editable=True)  # The cycle landed on an editable widget.
     desktop.expect_copy("Table mode cycle preserves all source including excess cells and terminal tab", source)
     desktop.key("ctrl+z")
     desktop.title_is_dirty(False)

@@ -131,7 +131,7 @@ class SmokeHelperTests(unittest.TestCase):
         # so the suite only presses the cycle chord itself to leave Split.
         self.assertEqual([c.args[0] for c in desktop.key.call_args_list].count("ctrl+shift+m"), 1)
         self.assertEqual([call.kwargs for call in desktop.cycle_to.call_args_list],
-                         [{"editable": False}, {"editable": True}])
+                         [{"editable": False}, {"editable": True}, {"editable": True}])
 
     def test_cache_probe_checks_warm_split_edits_undo_redo_without_refocusing(self):
         desktop = Mock(window="42")
