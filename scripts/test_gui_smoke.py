@@ -164,10 +164,10 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 4)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         points = desktop.reveal_from_preview.call_args.args[0]
-        near = tuple(range(140, 200, 4))
+        near = tuple(range(93, 153, 4))
         self.assertEqual(points[:len(near)], [(800, y) for y in near])
-        self.assertEqual(len(points), len([y for y in range(104, 380, 4)]))
-        self.assertEqual(points[len(near):], [(800, y) for y in range(104, 380, 4)
+        self.assertEqual(len(points), len([y for y in range(57, 333, 4)]))
+        self.assertEqual(points[len(near):], [(800, y) for y in range(57, 333, 4)
                                               if y not in near])
         self.assertEqual(desktop.reveal_from_preview.call_args.args[1], source)
         self.assertEqual(desktop.reveal_from_preview.call_args.args[2], 0)
@@ -227,11 +227,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
             ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
         ])
-        # The toolbar buttons are pressed through the verified helper, which
-        # presses again only when the document does not answer.
-        self.assertEqual([call.args[:2] for call in desktop.press_until_document.call_args_list],
-                         [((26, 62), "Preview toolbar Undo follows task-only history guard"),
-                          ((56, 62), "Preview toolbar Redo follows the same task-only guard")])
+        # The Obsidian shell draws no Undo/Redo buttons, so this suite must not
+        # press one: the guard is pinned by the shortcuts asserted below.
+        desktop.press_until_document.assert_not_called()
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertIn("ctrl+shift+z", keys)
         self.assertIn("ctrl+y", keys)
@@ -255,9 +253,9 @@ class SmokeHelperTests(unittest.TestCase):
         # H+/H- are pressed through the verified helper: a heading change stays
         # in Preview, so only the document can confirm the press.
         self.assertEqual([(call.args[0], call.args[1]) for call in desktop.press_until_document.call_args_list],
-                         [((906, 150), "Preview H+ changes exactly one opening hash"),
-                          ((858, 150), "Preview H- preserves closing hashes, raw inline markup and whitespace"),
-                          ((906, 150), "Preview H+ leaves the caret at the marker end")])
+                         [((906, 103), "Preview H+ changes exactly one opening hash"),
+                          ((858, 103), "Preview H- preserves closing hashes, raw inline markup and whitespace"),
+                          ((906, 103), "Preview H+ leaves the caret at the marker end")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 6)
         self.assertEqual(keys.count("ctrl+y"), 1)
@@ -279,10 +277,10 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(len(copies), 6)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "1092", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1092", "104", "click", "1"),
         ])
         self.assertEqual([(call.args[0], call.args[1]) for call in desktop.press_until_document.call_args_list],
-                         [((906, 150), "Preview Setext H+ changes only the underline run")])
+                         [((906, 103), "Preview Setext H+ changes only the underline run")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 5)
         self.assertEqual(keys.count("ctrl+shift+z"), 1)
@@ -305,11 +303,12 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         # The first candidate of each batch control: the document confirms the
-        # press, so the coordinates are a starting point, not a promise.
+        # press, so the coordinates are a starting point, not a promise. The pair
+        # sits at the right edge of the 34 px tab strip now.
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "1099", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1099", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1129", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1314", "17", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1314", "17", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1344", "17", "click", "1"),
         ])
         self.assertEqual([call.args[0] for call in desktop.key.call_args_list].count("ctrl+z"), 5)
         desktop.type_ascii.assert_called_once_with("X")
@@ -441,9 +440,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "189", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "244", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -478,9 +477,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "281", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "336", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -649,9 +648,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "391", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "409", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -686,9 +685,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "428", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "483", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -723,9 +722,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "501", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "520", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -759,9 +758,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "428", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "446", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -795,9 +794,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "538", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "556", "click", "1"),
         ])
         desktop.type_ascii.assert_called_once_with("X")
@@ -832,9 +831,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "575", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "593", "click", "1"),
         ])
         keys = [call.args[0] for call in desktop.key.call_args_list]
@@ -873,13 +872,13 @@ class SmokeHelperTests(unittest.TestCase):
         clicks = [call.args for call in desktop.command.call_args_list if call.args[-2:] == ("click", "1")]
         previous = ("xdotool", "mousemove", "--window", "42", "650", "244", "click", "1")
         self.assertEqual(clicks, [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "373", "click", "1"),
             previous,
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "900", "373", "click", "1"),
             previous, previous, previous, previous,
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1080", "373", "click", "1"), previous,
         ])
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["bad|pipe", "first pending", "final", "X"])
@@ -917,8 +916,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         clicks = [call.args for call in desktop.command.call_args_list if call.args[-2:] == ("click", "1")]
-        preview = ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1")
-        split = ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1")
+        preview = ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1")
+        split = ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1")
         self.assertEqual(clicks, [preview, preview, split, split, split])
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["discard me", "# heading", "final", "X"])
         keys = [call.args[0] for call in desktop.key.call_args_list]
@@ -955,8 +954,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         clicks = [call.args for call in desktop.command.call_args_list if call.args[-2:] == ("click", "1")]
-        preview = ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1")
-        split = ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1")
+        preview = ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1")
+        split = ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1")
         apply = ("xdotool", "mousemove", "--window", "42", "225", "364", "click", "1")
         self.assertEqual(clicks, [preview, preview, apply, split, apply, split, apply, split, apply])
         self.assertEqual([call.args[0] for call in desktop.type_ascii.call_args_list], ["discard", "pending", "X"])
@@ -998,9 +997,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         clicks = [call.args for call in desktop.command.call_args_list if call.args[-2:] == ("click", "1")]
         self.assertEqual(clicks, [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "984", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "425", "364", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1144", "104", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "225", "364", "click", "1"),
         ])
         keys = [call.args[0] for call in desktop.key.call_args_list]
@@ -1044,7 +1043,7 @@ class SmokeHelperTests(unittest.TestCase):
         clicks = [c.args for c in desktop.command.call_args_list if c.args[-2:] == ("click", "1")]
         def at(x, y):
             return ("xdotool", "mousemove", "--window", "42", str(x), str(y), "click", "1")
-        self.assertEqual(clicks, [at(984,151), at(450,408), at(450,408), at(280,408), at(280,408), at(1144,151), at(450,408), at(450,408), at(1144,151), at(450,408), at(280,408), at(225,364)])
+        self.assertEqual(clicks, [at(984,104), at(450,408), at(450,408), at(280,408), at(280,408), at(1144,104), at(450,408), at(450,408), at(1144,104), at(450,408), at(280,408), at(225,364)])
         keys = [c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 4)
         self.assertEqual(keys.count("ctrl+y"), 1)
@@ -1087,7 +1086,7 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(625,408),at(280,408),at(625,408),at(625,408),at(1144,151),at(625,408),at(1144,151),at(625,408)])
+        self.assertEqual(clicks,[at(984,104),at(625,408),at(280,408),at(625,408),at(625,408),at(1144,104),at(625,408),at(1144,104),at(625,408)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"),6)
         self.assertEqual(keys.count("ctrl+y"),1)
@@ -1135,7 +1134,7 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(450,408),at(450,408),at(302,452),at(302,452),at(302,452),at(1144,151),at(450,408),at(302,452),at(1144,151),at(450,408),at(302,452)])
+        self.assertEqual(clicks,[at(984,104),at(450,408),at(450,408),at(302,452),at(302,452),at(302,452),at(1144,104),at(450,408),at(302,452),at(1144,104),at(450,408),at(302,452)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"),6)
         self.assertEqual(keys.count("ctrl+y"),1)
@@ -1178,7 +1177,7 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(1144,151)])
+        self.assertEqual(clicks,[at(984,104),at(1144,104)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
         for key, count in [("ctrl+Return",1),("ctrl+Next",3),("ctrl+Prior",2),("ctrl+shift+m",2),("Escape",1),("ctrl+z",2),("ctrl+a",2),("ctrl+v",2)]:
             self.assertEqual(keys.count(key), count, key)
@@ -1224,8 +1223,8 @@ class SmokeHelperTests(unittest.TestCase):
         def at(x,y):
             return ("xdotool","mousemove","--window","42",str(x),str(y),"click","1")
         clicks=[c.args for c in desktop.command.call_args_list if c.args[-2:]==("click","1")]
-        self.assertEqual(clicks,[at(984,151),at(430,244),at(430,244),at(270,288),at(270,288),at(270,288),
-                                 at(1144,151),at(430,244),at(428,288),at(1144,151),at(428,288)])
+        self.assertEqual(clicks,[at(984,104),at(430,244),at(430,244),at(270,288),at(270,288),at(270,288),
+                                 at(1144,104),at(430,244),at(428,288),at(1144,104),at(428,288)])
         keys=[c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+shift+m"),2)
         self.assertEqual(keys.count("Escape"),3)
@@ -1275,10 +1274,10 @@ class SmokeHelperTests(unittest.TestCase):
         clicks = [c.args for c in desktop.command.call_args_list if c.args[-2:] == ("click", "1")]
         def at(x, y):
             return ("xdotool", "mousemove", "--window", "42", str(x), str(y), "click", "1")
-        self.assertEqual(clicks, [at(984,151),at(566,288),at(694,288),at(566,288),
-                                  at(984,151),at(566,288),
-                                  at(984,151),at(900,354),at(486,200),at(614,200),at(486,200),
-                                  at(984,151),at(900,354),at(486,200)])
+        self.assertEqual(clicks, [at(984,104),at(566,288),at(694,288),at(566,288),
+                                  at(984,104),at(566,288),
+                                  at(984,104),at(900,354),at(486,200),at(614,200),at(486,200),
+                                  at(984,104),at(900,354),at(486,200)])
         keys = [c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+shift+m"), 11)
         self.assertEqual(keys.count("Escape"), 2)
@@ -1322,7 +1321,7 @@ class SmokeHelperTests(unittest.TestCase):
         clicks = [c.args for c in desktop.command.call_args_list if c.args[-2:] == ("click", "1")]
         def at(x, y):
             return ("xdotool", "mousemove", "--window", "42", str(x), str(y), "click", "1")
-        self.assertEqual(clicks, [at(984,151), at(984,151), at(900,354)])
+        self.assertEqual(clicks, [at(984,104), at(984,104), at(900,354)])
         keys = [c.args[0] for c in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 7)
         self.assertEqual(keys.count("ctrl+y"), 1)

@@ -3,6 +3,10 @@ use crate::ui::chrome::{ButtonKind, Colors};
 use iced::widget::svg;
 use std::sync::OnceLock;
 
+// Formatting, line and history glyphs are kept although the bars that drew them
+// are gone: those commands are bound to keys, and the next surface that shows
+// them should not have to redraw the paths.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 #[repr(usize)]
 pub enum Icon {

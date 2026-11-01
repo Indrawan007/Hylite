@@ -28,10 +28,11 @@ pub fn effective_width(app: &Hylite) -> f32 {
     layout::sidebar_width(app.config.appearance.sidebar_width, app.viewport_width)
 }
 
-pub fn view(app: &Hylite) -> Element<'_, Message> {
+/// `width` is the space the shell gives the panel: the configured sidebar width
+/// minus the ribbon that shares the same column.
+pub fn view(app: &Hylite, width: f32) -> Element<'_, Message> {
     let theme = app.theme();
     let colors = Colors::from_theme(&theme);
-    let width = effective_width(app);
     let folder_label = if width < 180.0 { "+" } else { "Folder" };
     let header = text("DOKUMEN").size(11).color(colors.muted);
     // The folder action belongs to the workspace section it opens, not to the

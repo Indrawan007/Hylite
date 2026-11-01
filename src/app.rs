@@ -14,7 +14,7 @@ use crate::document::Document;
 use crate::editor::{self, EditMode};
 use crate::hyprland::HyprlandIntegration;
 use crate::operations::Operations;
-use crate::ui::{sidebar, statusbar, toolbar};
+use crate::ui::{sidebar, statusbar};
 
 use iced::keyboard;
 use iced::widget::{column, container, row, text_editor, Space};
@@ -695,25 +695,32 @@ impl Hylite {
     }
 
     /// ── NORMAL MODE: UI lengkap ──
+    ///
+    /// Obsidian's shell: the ribbon shares the sidebar column, the tab strip is
+    /// the only chrome above the text, and the status bar spans the window.
     fn view_normal(&self) -> Element<'_, Message> {
-        let top_bar = toolbar::view(self);
-
         let sidebar_panel: Element<'_, Message> = if self.sidebar_open {
-            sidebar::view(self)
+            let width = (sidebar::effective_width(self) - crate::ui::ribbon::WIDTH).max(0.0);
+            sidebar::view(self, width)
         } else {
             Space::with_width(0).into()
         };
 
-        let editor_area = self.view_editor_area();
-        let bottom_bar = statusbar::view(self);
-        let editing_bar = crate::ui::editing::view(self);
+        let files = row![crate::ui::ribbon::view(self), sidebar_panel]
+            .width(Length::Shrink)
+            .height(Length::Fill);
 
-        let main_content = row![sidebar_panel, editor_area]
+        let editor_area = self.view_editor_area();
+        let editor_column = column![crate::ui::header::view(self), editor_area]
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        let main_content = row![files, editor_column]
             .width(Length::Fill)
             .height(Length::Fill);
 
         container(
-            column![top_bar, editing_bar, main_content, bottom_bar]
+            column![main_content, statusbar::view(self)]
                 .width(Length::Fill)
                 .height(Length::Fill),
         )

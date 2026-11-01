@@ -22,18 +22,20 @@ fn icon_button(
         .into()
 }
 
-fn short_title(title: &str, index: usize) -> String {
+/// A tab carries the note's name, never its position: Obsidian's tabs are the
+/// document, and a leading index reads as a menu item instead.
+fn short_title(title: &str) -> String {
     let (name, dirty) = title
         .strip_suffix(" •")
         .map_or((title, false), |name| (name, true));
     let mut chars = name.chars();
-    let compact: String = chars.by_ref().take(12).collect();
+    let compact: String = chars.by_ref().take(16).collect();
     let truncated = chars.next().is_some();
     let suffix = if dirty { " •" } else { "" };
     if truncated {
-        format!("{} {}…{}", index + 1, compact, suffix)
+        format!("{compact}…{suffix}")
     } else {
-        format!("{} {}{}", index + 1, compact, suffix)
+        format!("{compact}{suffix}")
     }
 }
 
@@ -45,14 +47,14 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         let active = index == app.active_tab();
         let title = app.tab_title(index);
         strip = strip.push(tooltip(
-            button(text(short_title(&title, index)).size(11))
+            button(text(short_title(&title)).size(12))
                 .on_press(Message::SwitchTab(index))
                 .style(chrome::button_style(if active {
                     ButtonKind::Selected
                 } else {
                     ButtonKind::Toolbar
                 }))
-                .padding([3, 8]),
+                .padding([4, 10]),
             text(title),
             tooltip::Position::Bottom,
         ));

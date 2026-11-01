@@ -777,9 +777,9 @@ def exercise_preview_reveal(desktop, artifacts):
     # rest of the column follows, because a toolbar-height change moves every
     # bar, and every press is recovered before the next one so each row is read
     # against the same document and the same frame geometry.
-    near = tuple(range(140, 200, 4))
+    near = tuple(range(93, 153, 4))
     points = [(800, y) for y in near] + [
-        (800, y) for y in range(104, 380, 4) if y not in near
+        (800, y) for y in range(57, 333, 4) if y not in near
     ]
     desktop.reveal_from_preview(points, source, block_start, attempts=1)
     desktop.type_ascii("X")
@@ -885,13 +885,9 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+y")
     inspect("Preview Ctrl+Y redoes the task transition", checked)
     back_to_preview()
-    # Editing row: 28 px buttons, 2 px apart, 12 px padding, so Undo is centred
-    # at 26 and Redo at 56; the old 34 px buttons put them at 29 and 71, and the
-    # Redo press landed one pixel past the button.
-    desktop.press_until_document((26, 62), "Preview toolbar Undo follows task-only history guard", source)
-    back_to_preview()
-    desktop.press_until_document((56, 62), "Preview toolbar Redo follows the same task-only guard", checked)
-    back_to_preview()
+    # The Obsidian shell has no Undo/Redo buttons: the task-only history guard is
+    # pinned through Ctrl+Z / Ctrl+Shift+Z above, which are the only routes left
+    # to PreviewHistory besides the draft panels' own buttons.
     desktop.screenshot(artifacts / "task-history-preview.png")
     desktop.key("ctrl+z")
     desktop.key("ctrl+z")  # Must stop at the Source paste, not erase fixture.
@@ -928,7 +924,7 @@ def exercise_preview_heading(desktop, artifacts):
 
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
-    desktop.press_until_document((906, 150), "Preview H+ changes exactly one opening hash", demoted)
+    desktop.press_until_document((906, 103), "Preview H+ changes exactly one opening hash", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Undo restores raw heading without normalizing its body", source)
@@ -937,13 +933,13 @@ def exercise_preview_heading(desktop, artifacts):
     inspect("Preview Redo restores one-hash heading edit", demoted)
     back_to_preview()
     desktop.screenshot(artifacts / "heading-preview.png")
-    desktop.press_until_document((858, 150), "Preview H- preserves closing hashes, raw inline markup and whitespace", source)
+    desktop.press_until_document((858, 103), "Preview H- preserves closing hashes, raw inline markup and whitespace", source)
     # The Split preview pane has its own column geometry, so the same control is
     # pressed while the panel is still the full width Preview: the assertion is
     # unchanged (heading change, caret at the marker end, Source focused after
     # the app's own mode switch) and no second pixel map is needed.
     back_to_preview()
-    desktop.press_until_document((906, 150), "Preview H+ leaves the caret at the marker end", demoted)
+    desktop.press_until_document((906, 103), "Preview H+ leaves the caret at the marker end", demoted)
     desktop.type_ascii("X")
     desktop.expect_copy("Split H+ restores Source keyboard focus at marker end", demoted[:3] + b"X" + demoted[3:], refocus=False)
     desktop.screenshot(artifacts / "heading-split.png")
@@ -978,7 +974,7 @@ def exercise_preview_setext(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    desktop.press_until_document((906, 150), "Preview Setext H+ changes only the underline run", demoted)
+    desktop.press_until_document((906, 103), "Preview Setext H+ changes only the underline run", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Setext Undo restores exact raw heading and underline", source)
@@ -986,7 +982,7 @@ def exercise_preview_setext(desktop, artifacts):
     desktop.key("ctrl+shift+z")
     desktop.screenshot(artifacts / "setext-preview.png")
     inspect("Preview Setext Redo preserves body, marker count and whitespace", demoted)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1092", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1092", "104", "click", "1")
     time.sleep(0.25)
     desktop.type_ascii("X")
     sentinel = source.replace(b"=====  \t", b"=====X  \t", 1)
@@ -1002,12 +998,13 @@ def exercise_preview_setext(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
-# The task-batch pair sits at the right end of the second toolbar row, before
-# the shortcut hint (28 px buttons, 2 px inside a cluster, 12 px row padding).
-# Both batch actions are idempotent, so a press that lands a few pixels off is
-# corrected by the next candidate instead of being reported as a pixel miss.
-TASK_CHECK_POINTS = [(1099, 62), (1096, 62), (1102, 62), (1093, 62), (1105, 62)]
-TASK_CLEAR_POINTS = [(1129, 62), (1126, 62), (1132, 62), (1123, 62), (1135, 62)]
+# The task-batch pair sits at the right edge of the tab strip: 34 px row with
+# 28 px buttons, 2 px between them and 8 px row padding, so their centres are
+# 1314 and 1344 on a 1366 px window and the row centre is y=17. Both actions are
+# idempotent, so a press that lands a few pixels off is corrected by the next
+# candidate instead of being reported as a pixel miss.
+TASK_CHECK_POINTS = [(1314, 17), (1311, 17), (1317, 17), (1308, 17), (1320, 17)]
+TASK_CLEAR_POINTS = [(1344, 17), (1341, 17), (1347, 17), (1338, 17), (1350, 17)]
 
 
 def press_batch_control(desktop, points, verify, recover):
@@ -1196,7 +1193,7 @@ def exercise_table_alignment(desktop, artifacts):
     desktop.key("ctrl+shift+m")
     # Table action-bar height stays 24 px. Pick-list rows are 11 px text +
     # 2 px vertical padding (18.3 px line boxes); current alignments omitted.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "189", "click", "1")
     time.sleep(0.25)  # Column 1: Center, second menu row.
@@ -1217,7 +1214,7 @@ def exercise_table_alignment(desktop, artifacts):
     desktop.key("ctrl+y")
     desktop.screenshot(artifacts / "alignment-preview.png")
     inspect("Preview alignment Redo preserves all raw cell source", centered)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "244", "click", "1")
     time.sleep(0.25)  # Column 2: Left, fifth row after Column 1 became Center.
@@ -1247,7 +1244,7 @@ def exercise_table_rows(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Row fixture preserves UTF-8, escaped pipes, ragged rows and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "281", "click", "1")
     time.sleep(0.25)  # Six alignment options, then Row 1: Duplicate.
@@ -1268,7 +1265,7 @@ def exercise_table_rows(desktop, artifacts):
     desktop.key("ctrl+y")
     desktop.screenshot(artifacts / "rows-preview.png")
     inspect("Preview row Redo restores raw duplicate and untouched suffix", duplicated)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "336", "click", "1")
     time.sleep(0.25)  # Row 2: Delete, tenth option.
@@ -1305,7 +1302,7 @@ def exercise_table_cells(desktop, artifacts):
         desktop.wait(f"Cell draft title = {expected}", lambda: ("[cell draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == expected)
 
     def open_cell(split=False, second=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080" if split else "900", "372" if second else "354", "click", "1")
         draft_title(True)  # Alignment 6 + row actions 2 + header cells 2 precede body cells.
@@ -1396,7 +1393,7 @@ def exercise_cell_navigation(desktop, artifacts):
         time.sleep(0.25)
 
     def open_body(split=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080" if split else "900", "354", "click", "1")
         position(1, 1)
@@ -1479,7 +1476,7 @@ def exercise_table_insert(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Insert fixture retains raw Unicode, escaped pipe, entity and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     # Alignment(6), old row(2), cell(4), then explicit Insert blank before.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "391", "click", "1")
@@ -1504,7 +1501,7 @@ def exercise_table_insert(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores the original table and menu prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "409", "click", "1")
     time.sleep(0.25)  # Original row: Insert blank after, fourteenth option.
@@ -1538,7 +1535,7 @@ def exercise_table_columns(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Column fixture retains raw Unicode, spacing, escaped pipe, entity and tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "428", "click", "1")
     time.sleep(0.25)  # All 14 old choices, then Column 1: Insert before.
@@ -1562,7 +1559,7 @@ def exercise_table_columns(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores original table and complete old menu prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "483", "click", "1")
     time.sleep(0.25)  # Column 2: Insert after, eighteenth option.
@@ -1593,7 +1590,7 @@ def exercise_table_column_delete(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Delete fixture retains raw UTF-8 markup escaped pipe entity and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "501", "click", "1")
     time.sleep(0.25)  # All eighteen old choices, then Column 1: Delete.
@@ -1617,7 +1614,7 @@ def exercise_table_column_delete(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores full original table and eighteen-choice prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "520", "click", "1")
     time.sleep(0.25)  # Column 2: Delete, twentieth option.
@@ -1649,7 +1646,7 @@ def exercise_table_row_move(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Move fixture retains Unicode markup escaped pipe entity ragged row and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "428", "click", "1")
     time.sleep(0.25)  # Ragged fixture: fourteen old choices, then Row 1: Move down.
@@ -1673,7 +1670,7 @@ def exercise_table_row_move(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores original body rows and old action menu prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "446", "click", "1")
     time.sleep(0.25)  # Row 2: Move up, sixteenth option; never moves the header.
@@ -1705,7 +1702,7 @@ def exercise_table_column_move(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Column move fixture retains Unicode raw markup escaped pipe entity spacing and tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "538", "click", "1")
     time.sleep(0.25)  # Twenty old single-body choices, then Column 1: Move right.
@@ -1729,7 +1726,7 @@ def exercise_table_column_move(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores full original table and old action menu prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "556", "click", "1")
     time.sleep(0.25)  # Column 2: Move left, twenty-second option; no wrap.
@@ -1762,7 +1759,7 @@ def exercise_table_column_duplicate(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Column duplicate fixture retains Unicode raw markup escaped pipe entity spacing and tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "575", "click", "1")
     time.sleep(0.25)  # All twenty-two old choices, then Column 1: Duplicate.
@@ -1786,7 +1783,7 @@ def exercise_table_column_duplicate(desktop, artifacts):
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Undo before Split restores full original table and old action menu prefix", source)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
+    desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "104", "click", "1")
     time.sleep(0.25)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080", "593", "click", "1")
     time.sleep(0.25)  # Column 2: Duplicate; caret in the new third header, not original.
@@ -1828,7 +1825,7 @@ def exercise_cell_apply_previous(desktop, artifacts):
         time.sleep(0.25)  # New fourth button, all three old navigation positions fixed.
 
     def open_last(split=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         desktop.command("xdotool", "mousemove", "--window", desktop.window, "1080" if split else "900", "373", "click", "1")
         position(1, 2)
@@ -1915,7 +1912,7 @@ def exercise_paragraph_draft(desktop, artifacts):
         desktop.wait("Paragraph draft title transition", lambda: ("[paragraph draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == active)
 
     def open_paragraph(split=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         draft_title(True)
 
@@ -1999,7 +1996,7 @@ def exercise_paragraph_multiline(desktop, artifacts):
         desktop.wait("Multiline draft title transition", lambda: ("[multiline paragraph draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == active)
 
     def open_paragraph(split=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         draft_title(True)
 
@@ -2094,7 +2091,7 @@ def exercise_paragraph_draft_history(desktop, artifacts):
         desktop.wait("Local history draft title transition", lambda: ("[multiline paragraph draft]" in desktop.command("xdotool", "getwindowname", desktop.window).decode("utf-8")) == active)
 
     def open_paragraph(split=False):
-        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "151", "click", "1")
+        desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144" if split else "984", "104", "click", "1")
         time.sleep(0.25)
         draft_title(True)
 
@@ -2196,7 +2193,7 @@ def exercise_paragraph_navigation(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph(split=False):
-        click(1144 if split else 984, 151)
+        click(1144 if split else 984, 104)
         draft_title(True)
 
     def copy(description, expected):
@@ -2284,7 +2281,7 @@ def exercise_paragraph_apply_next(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph(split=False):
-        click(1144 if split else 984, 151)
+        click(1144 if split else 984, 104)
         draft_title(True)
 
     def paste(raw):
@@ -2390,7 +2387,7 @@ def exercise_paragraph_apply_previous(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph(split=False):
-        click(1144 if split else 984, 151)
+        click(1144 if split else 984, 104)
         draft_title(True)
 
     def paste(raw):
@@ -2491,7 +2488,7 @@ def exercise_paragraph_draft_shortcuts(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph(split=False):
-        click(1144 if split else 984, 151)
+        click(1144 if split else 984, 104)
         draft_title(True)
 
     def paste(raw):
@@ -2569,7 +2566,7 @@ def exercise_single_paragraph_navigation(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph(split=False):
-        click(1144 if split else 984, 151)
+        click(1144 if split else 984, 104)
         draft_title(True)
 
     def paste(raw):
@@ -2671,11 +2668,11 @@ def exercise_draft_history_single(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph():
-        click(984, 151)
+        click(984, 104)
         draft_title("[paragraph draft]", True)
 
     def open_cell():
-        click(984, 151)
+        click(984, 104)
         click(900, 354)
         draft_title("[cell draft]", True)
 
@@ -2782,11 +2779,11 @@ def exercise_draft_history_keys(desktop, artifacts):
         time.sleep(0.25)
 
     def open_paragraph():
-        click(984, 151)
+        click(984, 104)
         draft_title("[paragraph draft]", True)
 
     def open_cell():
-        click(984, 151)
+        click(984, 104)
         click(900, 354)
         draft_title("[cell draft]", True)
 
