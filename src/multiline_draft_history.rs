@@ -13,14 +13,6 @@ pub struct Record {
     pub caret: usize,
 }
 impl Record {
-    /// The current draft text with the caret collapsed at its end — the shape
-    /// every panel records before and after a native edit.
-    pub fn at_end(text: &str) -> Self {
-        Self {
-            text: text.to_owned(),
-            caret: text.len(),
-        }
-    }
     fn valid(&self) -> bool {
         self.text.len() <= MAX_BYTES && self.text.is_char_boundary(self.caret)
     }

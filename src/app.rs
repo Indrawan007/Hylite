@@ -20,6 +20,15 @@ use iced::keyboard;
 use iced::widget::{column, container, row, text_editor, Space};
 use iced::{event, window, Element, Length, Subscription, Task, Theme};
 
+/// A draft value snapshotted with the caret collapsed at its end — the shape
+/// the cell and single-line draft histories record before and after an edit.
+fn record_of(value: &str) -> crate::multiline_draft_history::Record {
+    crate::multiline_draft_history::Record {
+        text: value.to_owned(),
+        caret: value.len(),
+    }
+}
+
 /// The draft panel that is open, if any. One source of truth for "a draft owns
 /// the keyboard" so the four controller modules cannot disagree about it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

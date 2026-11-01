@@ -2,7 +2,6 @@
 use super::Hylite;
 use crate::commands::Message;
 use crate::editor::EditMode;
-use crate::multiline_draft_history::Record;
 use crate::preview_paragraph::{self, Target};
 use crate::ui::paragraph_edit::Draft;
 use iced::Task;
@@ -92,7 +91,7 @@ impl Hylite {
             } else {
                 draft
                     .history
-                    .record(Record::at_end(&draft.value), &Record::at_end(&value));
+                    .record(super::record_of(&draft.value), &super::record_of(&value));
                 draft.error = if draft.inline_preview {
                     preview_paragraph::escape_plain_text(&value).is_none().then_some(
                         "Use plain one-line text without leading whitespace/control characters; escaped Markdown must fit 16 KiB.",
@@ -356,7 +355,7 @@ impl Hylite {
         if target.text.len() > preview_paragraph::MAX_BYTES
             || draft
                 .history
-                .step(Record::at_end(&draft.value), redo)
+                .step(super::record_of(&draft.value), redo)
                 .is_none()
         {
             draft.navigation_notice = Some(REFUSED_HISTORY_NOTICE);
