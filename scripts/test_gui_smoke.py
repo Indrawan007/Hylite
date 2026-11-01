@@ -159,7 +159,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual([call.args[1] for call in copies[:3]], [source, b"X" + source, source])
         self.assertEqual(len(copies), 4)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
-        desktop.command.assert_called_once_with("xdotool", "mousemove", "--window", "42", "350", "151", "click", "1")
+        self.assertEqual([call.args[0] for call in desktop.reveal_from_preview.call_args_list],
+                         [[(350, 151), (600, 151)]])
+        desktop.command.assert_not_called()  # No Source click/windowfocus workaround.
         self.assertEqual(desktop.screenshot.call_count, 2)
 
     def test_cell_probe_requires_right_click_and_raw_markup_offset_without_source_click(self):

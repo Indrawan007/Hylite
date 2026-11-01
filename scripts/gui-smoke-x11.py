@@ -282,6 +282,23 @@ class Desktop:
             # document is editable because xclip hiccuped.
         raise AssertionError("Mode probe got no clipboard answer")
 
+    def reveal_from_preview(self, points, attempts=2):
+        """Click a Preview affordance until the document leaves Preview.
+
+        The block actions only exist once the preview has rendered the current
+        revision, so a press that lands first is indistinguishable from a miss.
+        The press is repeated and the document decides which happened; a point
+        that is not an action still fails after the last attempt.
+        """
+        for _ in range(attempts):
+            for x, y in points:
+                self.command("xdotool", "mousemove", "--window", self.window,
+                             str(x), str(y), "click", "1")
+                self.settle()
+                if self.mode_is_editable():
+                    return
+        raise AssertionError(f"Preview block action at {points!r} never reached a mode")
+
     def cycle_to(self, editable, attempts=4):
         """Cycle modes until the document confirms the wanted editability.
 
@@ -583,8 +600,8 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.settle()  # Hit-test against the frame that already shows Preview.
     # Intentional click on the first block's explicit Show block source bar,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "350", "151", "click", "1")
-    desktop.settle()  # Let the navigation message and scoped focus task run.
+    # The bar only exists once the preview has rendered the block actions.
+    desktop.reveal_from_preview([(350, 151), (600, 151)])
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
     desktop.screenshot(artifacts / "reveal-split.png")
