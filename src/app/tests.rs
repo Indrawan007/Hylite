@@ -620,6 +620,28 @@ fn replace_all_is_one_undo_step_and_does_not_touch_query_history() {
 }
 
 #[test]
+fn replace_all_refuses_a_truncated_result_instead_of_replacing_a_prefix() {
+    let mut app = app();
+    app.replace_document(None, &"a".repeat(crate::search::MAX_MATCHES + 5));
+    let _ = app.update(Message::OpenFind(true));
+    let _ = app.update(Message::FindQueryChanged("a".into()));
+    let _ = app.update(Message::ReplacementChanged("b".into()));
+    assert!(app.search.truncated());
+    assert_eq!(app.search.count(), crate::search::MAX_MATCHES);
+    let before = app.document.buffer_text();
+    let _ = app.update(Message::ReplaceAll);
+    assert_eq!(app.document.buffer_text(), before);
+    assert!(!app.document.is_dirty());
+    assert!(!app.document.can_undo());
+    assert!(app.status_message.contains("Replace All refuses"));
+    // Single Replace still works on a collected match.
+    let _ = app.update(Message::FindNext(false));
+    let _ = app.update(Message::ReplaceCurrent);
+    assert_eq!(app.document.buffer_text().len(), before.len());
+    assert!(app.document.is_dirty());
+}
+
+#[test]
 fn editing_invalidates_the_active_find_match_before_replacement() {
     let mut app = app();
     app.replace_document(None, "a a");

@@ -424,6 +424,15 @@ impl Hylite {
         }
         // Never reuse ranges from an older buffer/revision, including after undo.
         self.refresh_search();
+        // Collected ranges are capped, so a truncated result would replace only a
+        // prefix and silently leave the rest of the document alone.
+        if all && self.search.truncated() {
+            self.status_message = format!(
+                "Replace All refuses more than {} matches; narrow the query",
+                crate::search::MAX_MATCHES
+            );
+            return Task::none();
+        }
         let text = self.document.buffer_text();
         let change = if all {
             self.search.replacement_all(&text)

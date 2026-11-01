@@ -4,6 +4,12 @@ use crate::document::Snapshot;
 use crate::text_edit::{valid_range, TextChange};
 use std::ops::Range;
 
+/// Upper bound on collected ranges. A one-character query on a multi-megabyte
+/// document would otherwise collect hundreds of thousands of ranges on every
+/// keystroke; the panel stops here and reports the result as truncated, the same
+/// way the other bounded lists in this project do.
+pub const MAX_MATCHES: usize = 10_000;
+
 #[derive(Default)]
 pub struct Search {
     pub open: bool,
@@ -14,6 +20,7 @@ pub struct Search {
     current: Option<usize>,
     snapshot: Option<Snapshot>,
     searched_query: String,
+    truncated: bool,
 }
 
 impl Search {
@@ -21,13 +28,19 @@ impl Search {
         if self.snapshot == Some(snapshot) && self.searched_query == self.query {
             return;
         }
-        self.matches = if self.query.is_empty() {
+        let mut matches: Vec<Range<usize>> = if self.query.is_empty() {
             Vec::new()
         } else {
             text.match_indices(self.query.as_str())
+                .take(MAX_MATCHES + 1)
                 .map(|(start, matched)| start..start + matched.len())
                 .collect()
         };
+        // The probe match past the cap is what distinguishes "exactly 10,000
+        // matches" from "many more"; it is dropped from the kept ranges.
+        self.truncated = matches.len() > MAX_MATCHES;
+        matches.truncate(MAX_MATCHES);
+        self.matches = matches;
         self.current = None;
         self.snapshot = Some(snapshot);
         self.searched_query.clone_from(&self.query);
@@ -37,6 +50,7 @@ impl Search {
         self.matches.clear();
         self.current = None;
         self.snapshot = None;
+        self.truncated = false;
     }
 
     /// A different navigation command must not leave an old replacement target.
@@ -46,6 +60,11 @@ impl Search {
 
     pub fn count(&self) -> usize {
         self.matches.len()
+    }
+    /// True when the document holds more matches than were collected, so
+    /// `count()` is a lower bound and Replace All must refuse.
+    pub fn truncated(&self) -> bool {
+        self.truncated
     }
     pub fn index(&self) -> Option<usize> {
         self.current
@@ -203,6 +222,37 @@ mod tests {
         let mut search = search("a a a", "a");
         assert_eq!(search.next_from(2), Some(2..3));
         assert_eq!(search.next_from(9), Some(0..1));
+    }
+
+    #[test]
+    fn matches_are_capped_and_a_truncated_result_says_so() {
+        let text = "a".repeat(MAX_MATCHES + 5);
+        let search = search(&text, "a");
+        assert_eq!(search.count(), MAX_MATCHES);
+        assert!(search.truncated());
+        // Exact-cap documents are not reported as truncated.
+        let exact = "a".repeat(MAX_MATCHES);
+        assert!(!search(&exact, "a").truncated());
+        assert_eq!(search(&exact, "a").count(), MAX_MATCHES);
+        assert!(!search("aaa", "a").truncated());
+    }
+
+    #[test]
+    fn narrowing_the_query_clears_truncation_and_reset_document_drops_it() {
+        let mut search = search(&"a".repeat(MAX_MATCHES + 1), "a");
+        assert!(search.truncated());
+        search.refresh(&"ab".repeat(MAX_MATCHES + 1), Snapshot::default());
+        assert_eq!(search.query, "a");
+        assert!(search.truncated());
+        search.query = "zz".into();
+        search.refresh(&"ab".repeat(MAX_MATCHES + 1), Snapshot::default());
+        assert_eq!(search.count(), 0);
+        assert!(!search.truncated());
+        search.query = "a".into();
+        search.refresh(&"a".repeat(MAX_MATCHES + 1), Snapshot::default());
+        assert!(search.truncated());
+        search.reset_document();
+        assert!(!search.truncated());
     }
 
     #[test]

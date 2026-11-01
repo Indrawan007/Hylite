@@ -20,10 +20,12 @@ pub fn view<'a>(
     viewport_width: f32,
 ) -> Element<'a, Message> {
     let compact = viewport_width < COMPACT_BREAKPOINT;
+    // A "+" marks a capped result: the count is a lower bound, not the total.
     let count = format!(
-        "{}/{}",
+        "{}/{}{}",
         search.index().map_or(0, |index| index + 1),
-        search.count()
+        search.count(),
+        if search.truncated() { "+" } else { "" }
     );
     let query = text_input("Find text", &search.query)
         .id(query_id())
@@ -65,8 +67,10 @@ pub fn view<'a>(
             button("Replace").on_press_maybe(
                 (editable && search.current().is_some()).then_some(Message::ReplaceCurrent)
             ),
-            button("Replace All")
-                .on_press_maybe((editable && search.count() > 0).then_some(Message::ReplaceAll)),
+            button("Replace All").on_press_maybe(
+                (editable && search.count() > 0 && !search.truncated())
+                    .then_some(Message::ReplaceAll),
+            ),
         ]
         .spacing(8);
         if compact {
