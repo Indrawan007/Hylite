@@ -351,12 +351,16 @@ class Desktop:
     def reveal_from_preview(self, points, source, offset, attempts=2):
         """Click a Preview affordance until the caret lands on a block start.
 
-        The block actions only exist once the preview has rendered the current
-        revision, and a press that misses can open an editable draft instead,
-        so "something editable answered" proves nothing: the sentinel has to
-        arrive at `offset` in front of the untouched document. A trial that
-        navigates but lands elsewhere is a behaviour under test, not a missed
-        press, so every observed offset is collected and reported.
+        The block actions are drawn per rendered block, so their row moves with
+        every change above them (toolbar density, tab height). The caller hands
+        over a column of candidate rows, not a promise about one pixel: the
+        document stays the only witness, and the caret still has to arrive at
+        `offset` in front of the untouched bytes.
+
+        A press that misses is free -- a read-only Preview answers the probe
+        with the staged marker, so the scan just moves on. A press that lands
+        somewhere else is a behaviour under test, not a missed press: every
+        observed offset is collected, undone, and reported.
         """
         sentinel = b"X"
         expected = source[:offset] + sentinel + source[offset:]
@@ -374,9 +378,10 @@ class Desktop:
                     self.key("ctrl+z")
                     self.settle()
                     return
-                if copied != PROBE_MARKER:
-                    seen.append(((x, y), copied.index(sentinel)
-                                 if sentinel in copied else None))
+                if copied == PROBE_MARKER:
+                    continue  # Read-only answer: nothing was revealed here.
+                seen.append(((x, y), copied.index(sentinel)
+                             if sentinel in copied else None))
                 # A draft keeps the sentinel and swallows Ctrl+Z, so cancel it
                 # first and let the mode cycle verify Preview again.
                 self.key("Escape")
@@ -729,11 +734,13 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.cycle_to(editable=False)
     desktop.screenshot(artifacts / "reveal-preview.png")
     desktop.settle()  # Hit-test against the frame that already shows Preview.
-    # Intentional click on the first block's explicit Show block source bar,
+    # Intentional click on the explicit Show block source bar of a block,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
-    # The bar only exists once the preview has rendered the block actions.
+    # The bars are drawn per rendered block, so sweep the editor column instead
+    # of hard-coding the row the toolbar height happens to produce: the document
+    # still decides (byte `block_start`), and a miss costs no undo step.
     desktop.reveal_from_preview(
-        [(800, 151), (800, 139), (800, 157), (800, 147), (800, 165), (800, 175)],
+        [(800, y) for y in range(104, 320, 6)],
         source,
         block_start,
     )
