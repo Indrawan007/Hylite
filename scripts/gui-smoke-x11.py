@@ -318,7 +318,8 @@ class Desktop:
                     # The app navigated but put the caret somewhere else; that is
                     # the behaviour under test, not a missed press.
                     raise AssertionError(
-                        f"Preview block action at {(x, y)} put the caret off the block start"
+                        f"Preview block action at {(x, y)} put the caret at byte "
+                        f"{copied.index(sentinel)} of {len(source)}"
                     )
                 # Wrong target: a draft keeps the sentinel and swallows Ctrl+Z,
                 # so cancel it first and let the mode cycle verify Preview.
