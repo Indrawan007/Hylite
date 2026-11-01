@@ -709,8 +709,12 @@ def exercise_preview_cache(desktop, artifacts):
         # field's own clipboard answer proves the address was replaced.
         wanted = text.encode()
         for _ in range(3):
-            desktop.key("ctrl+a")
+            desktop.key("ctrl+a")  # Replace the seeded address, if it is there.
             desktop.type_ascii(text)
+            # Typing consumed the selection, so select what the field holds now:
+            # Copy without a selection leaves the previous owner's text in place
+            # and would report a stale answer as a mismatch.
+            desktop.key("ctrl+a")
             desktop.key("ctrl+c")
             if desktop.clipboard() == wanted:
                 return
