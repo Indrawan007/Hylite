@@ -804,6 +804,39 @@ def exercise_preview_heading(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        # TEMPORARY DIAGNOSTIC (drop before merge): which row and column of the
+        # Preview action bar belong to the heading controls? Every trial is
+        # classified from the document and leaves Preview again before the next.
+        h_plus = b"#" + source
+        h_minus = source.replace(b"##\t", b"#\t", 1)
+        found = []
+        for y in (126, 134, 142, 150):
+            for x in (940, 980, 1020):
+                desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                                str(x), str(y), "click", "1")
+                desktop.settle()
+                if not desktop.mode_is_editable():
+                    found.append(((x, y), "blocked"))
+                    continue
+                title = desktop.command(
+                    "xdotool", "getwindowname", desktop.window).decode("utf-8")
+                if "draft" in title:
+                    found.append(((x, y), "draft"))
+                    desktop.key("Escape")
+                    desktop.settle()
+                    desktop.cycle_to(editable=False)
+                    continue
+                copied = desktop.copy_probe()
+                kind = ("h+" if copied == h_plus else
+                        "h-" if copied == h_minus else
+                        "reveal" if copied == source else "other")
+                found.append(((x, y), kind))
+                if kind != "reveal":
+                    desktop.key("ctrl+z")
+                    desktop.settle()
+                desktop.cycle_to(editable=False)
+        raise AssertionError(f"heading-bar {found!r}")
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
