@@ -214,12 +214,39 @@ class Desktop:
                     actual[:80] if actual is not None else None,
                     self.window_title(),
                 ))
+        # TEMPORARY DIAGNOSTIC (drop before merge): is the editor focused at
+        # all (plain keys reach it) or is only Ctrl+A/C swallowed?
+        probe = None
+        if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+            def probe_copy(label):
+                self.put_clipboard(f"PROBE-{label}".encode("ascii"))
+                self.key("ctrl+c")
+                self.settle(0.4)
+                got = self.clipboard()
+                if got is None:
+                    return "none"
+                if got.startswith(b"PROBE-"):
+                    return "marker"
+                return got[:70]
+
+            self.key("shift+Home")  # Selection change only: no document edit.
+            line = probe_copy("line")
+            self.key("ctrl+a")
+            everything = probe_copy("all")
+            self.key("ctrl+shift+m")  # One mode change, as DIAG-D recovered.
+            self.settle(0.3)
+            self.command("xdotool", "mousemove", "--window", self.window, "500", "300", "click", "1")
+            self.settle(0.3)
+            self.key("ctrl+a")
+            after_cycle = probe_copy("cycle")
+            probe = {"shift+home": line, "ctrl+a": everything, "after-cycle": after_cycle}
+
         owner = self.owners[-1] if self.owners else None
         owner_exit = None if owner is None else owner.poll()
         raise AssertionError(
             f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
             f" marker-owner-exit={owner_exit!r}, window-title={self.window_title()!r},"
-            f" attempts={attempts!r}"
+            f" attempts={attempts!r}, probe={probe!r}"
         ) from timeout
 
     def paste_from_clean(self, data):
