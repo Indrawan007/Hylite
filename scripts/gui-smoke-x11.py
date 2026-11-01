@@ -940,10 +940,22 @@ def exercise_preview_heading(desktop, artifacts):
     # pressed while the panel is still the full width Preview: the assertion is
     # unchanged (heading change, caret at the marker end, Source focused after
     # the app's own mode switch) and no second pixel map is needed.
-    back_to_preview()
-    desktop.press_until_document((906, 103), "Preview H+ leaves the caret at the marker end", demoted)
-    desktop.type_ascii("X")
-    desktop.expect_copy("Split H+ restores Source keyboard focus at marker end", demoted[:3] + b"X" + demoted[3:], refocus=False)
+    # The sentinel press is recovered like the bar presses above: if the typed X
+    # did not reach the Source editor (one run read back a lone "X" from a
+    # focused input, another lost the gesture), the stray byte is undone, the
+    # bar is pressed again and the document, not the pixel, decides.
+    sentinel = demoted[:3] + b"X" + demoted[3:]
+    for attempt in (1, 2):
+        back_to_preview()
+        desktop.press_until_document((906, 103), "Preview H+ leaves the caret at the marker end", demoted)
+        desktop.type_ascii("X")
+        try:
+            desktop.expect_copy("Split H+ restores Source keyboard focus at marker end", sentinel, refocus=False)
+            break
+        except (AssertionError, TimeoutError):
+            if attempt == 2:
+                raise
+            desktop.key("ctrl+z")  # Drop the stray sentinel before retrying.
     desktop.screenshot(artifacts / "heading-split.png")
     desktop.key("ctrl+z")  # Only the native Source sentinel.
     desktop.key("ctrl+z")  # Only the Split heading transaction.
