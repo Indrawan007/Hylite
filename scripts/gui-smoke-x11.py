@@ -634,8 +634,9 @@ def exercise_preview_reveal(desktop, artifacts):
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     # The bar only exists once the preview has rendered the block actions.
     desktop.reveal_from_preview(
-        [(800, 151), (850, 151), (900, 151), (780, 151), (730, 151), (800, 139)],
+        [(800, 139), (800, 147), (800, 151), (800, 157), (800, 165), (800, 175)],
         source,
+        0,
     )
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret", b"X" + source, refocus=False)
