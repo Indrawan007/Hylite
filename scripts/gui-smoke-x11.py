@@ -483,7 +483,7 @@ def exercise_preview(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source.
     desktop.expect_copy("Full preview cycle preserves terminal whitespace", source)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Preview rendering and blocked input add no undo entry", welcome, refocus=False)
 
 
@@ -551,8 +551,9 @@ def exercise_preview_cache(desktop, artifacts):
     desktop.expect_copy("Warm Split: redo restores the edited table cell", edited, refocus=False)
     desktop.key("ctrl+z")
     desktop.key("ctrl+shift+m")  # Split -> Source.
+    desktop.cycle_to(editable=True)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Cached preview and navigation add no undo entries", welcome, refocus=False)
 
 
@@ -575,7 +576,7 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.key("ctrl+z")
     desktop.expect_copy("Reveal: sentinel undo restores exact source and terminal whitespace", source, refocus=False)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Reveal navigation adds no document undo entry", welcome, refocus=False)
     desktop.key("ctrl+shift+m")  # Split -> Source for the lifecycle probe.
 
@@ -603,7 +604,7 @@ def exercise_cell_reveal(desktop, artifacts):
     desktop.key("ctrl+z")
     desktop.expect_copy("Cell sentinel undo restores exact source including trailing whitespace", source, refocus=False)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Cell navigation adds no document undo entry", welcome, refocus=False)
     desktop.key("ctrl+shift+m")  # Split -> Source.
 
@@ -635,7 +636,7 @@ def exercise_task_toggle(desktop, artifacts):
     desktop.key("ctrl+z")
     desktop.expect_copy("Undo first task edit restores exact original fixture", source, refocus=False)
     desktop.key("ctrl+z")
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Undo fixture returns clean welcome without extra checkbox history", welcome, refocus=False)
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
@@ -684,7 +685,7 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+shift+b")
     inspect("Preview history stops at Source boundary and other editing remains blocked", source)
     desktop.key("ctrl+z")  # Source Undo is captured and must execute exactly once.
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Source Undo still restores clean welcome after Preview task history", welcome, refocus=False)
     desktop.screenshot(artifacts / "task-history-source.png")
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
@@ -738,7 +739,7 @@ def exercise_preview_heading(desktop, artifacts):
     desktop.key("ctrl+z")  # Preview H-.
     desktop.key("ctrl+z")  # Preview H+.
     desktop.key("ctrl+z")  # Source paste; no extra history from rendering/navigation.
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Heading edits Undo back to exact clean welcome without extra history", welcome, refocus=False)
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
@@ -784,7 +785,7 @@ def exercise_preview_setext(desktop, artifacts):
     desktop.expect_copy("Setext underline change and native Source typing remain separate transactions", demoted, refocus=False)
     desktop.key("ctrl+z")  # Preview Setext heading.
     desktop.key("ctrl+z")  # Source paste.
-    desktop.title_is_dirty(False)
+    desktop.undo_until_clean()
     desktop.expect_copy("Setext edits Undo to exact clean welcome without extra history", welcome, refocus=False)
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
