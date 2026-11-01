@@ -56,6 +56,7 @@ impl ActiveDraft {
     fn accepts(self, message: &Message) -> bool {
         match message {
             Message::EndTypingGroup
+            | Message::RestoreInputFocus
             | Message::FileOpened(..)
             | Message::FileSaved(..)
             | Message::HtmlExported(..) => true,
@@ -355,6 +356,13 @@ impl Hylite {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        // A mode change cannot focus a widget that the same update has not built
+        // yet: the operation runs against the frame that still shows the old
+        // mode. Re-asserting focus one message later is idempotent and is what
+        // makes "the mode change restores Source focus" hold on every frame.
+        if matches!(message, Message::RestoreInputFocus) {
+            return self.restore_input_focus();
+        }
         // Window diagnostics are system events and must remain observable even
         // while an editing draft is active.
         match &message {
@@ -448,6 +456,7 @@ impl Hylite {
             Message::MovePreviewCell(direction) => self.move_preview_cell(direction),
             Message::CancelPreviewCell => self.cancel_preview_cell(),
             Message::EndTypingGroup => Task::none(),
+            Message::RestoreInputFocus => self.restore_input_focus(),
             Message::Edit(action) => self.edit_native(action),
             Message::InsertNewline => self.insert_newline(),
             Message::Undo => self.undo_redo(false),
@@ -577,7 +586,10 @@ impl Hylite {
                     self.go_to.close();
                 }
                 self.status_message = format!("Mode: {}", mode.label());
-                self.restore_input_focus()
+                Task::batch([
+                    self.restore_input_focus(),
+                    Task::done(Message::RestoreInputFocus),
+                ])
             }
 
             Message::CycleMode => {
@@ -587,7 +599,10 @@ impl Hylite {
                     self.go_to.close();
                 }
                 self.status_message = format!("Mode: {}", self.mode.label());
-                self.restore_input_focus()
+                Task::batch([
+                    self.restore_input_focus(),
+                    Task::done(Message::RestoreInputFocus),
+                ])
             }
 
             // ── Zen Mode ──

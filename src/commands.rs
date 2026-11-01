@@ -23,6 +23,8 @@ pub enum Message {
     // Editor
     Edit(text_editor::Action),
     EndTypingGroup,
+    /// Re-assert keyboard focus after a mode change has rendered.
+    RestoreInputFocus,
     InsertTab,
     InsertNewline,
     Undo,
