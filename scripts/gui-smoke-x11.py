@@ -699,9 +699,26 @@ def exercise_preview_cache(desktop, artifacts):
     # is swallowed instead of reaching the query: run 41269670022 copied
     # b'11:2:119', i.e. the seeded "11:2" plus ":11" and "9" with the first
     # typed character missing. Settle for the frame, then replace the seed.
+
+
+    def address(text):
+        # The panel's input mounts one frame after Ctrl+G and a Select All that
+        # lands before it exists is swallowed: run 41269670022 copied the seed
+        # with the query appended ("11:2" + ":11" + "9"), and run 41300975586
+        # copied "11:25:119" for the same reason. Repeat the gesture until the
+        # field's own clipboard answer proves the address was replaced.
+        wanted = text.encode()
+        for _ in range(3):
+            desktop.key("ctrl+a")
+            desktop.type_ascii(text)
+            desktop.key("ctrl+c")
+            if desktop.clipboard() == wanted:
+                return
+            desktop.settle()
+        raise AssertionError(f"Go to Line address never became {text!r}")
+
     desktop.settle()
-    desktop.key("ctrl+a")
-    desktop.type_ascii("5:11")  # Unicode scalar position immediately before 3.
+    address("5:11")  # Unicode scalar position immediately before 3.
     desktop.key("Return")
     desktop.settle()
     desktop.type_ascii("9")
@@ -743,16 +760,16 @@ def exercise_preview_reveal(desktop, artifacts):
     # The bars are drawn per rendered block, so sweep the editor column instead
     # of hard-coding the row the toolbar height happens to produce: the document
     # still decides (byte `block_start`), and a miss costs no undo step.
-    # Sweep the clean column once: every press above is followed by a full
-    # recovery, so each row is read against the same document and the same
-    # frame geometry, and the reported offsets are a usable row map when it
-    # fails.
-    desktop.reveal_from_preview(
-        [(800, y) for y in range(104, 380, 6)],
-        source,
-        block_start,
-        attempts=1,
-    )
+    # The measured rows come first -- they answered with the table's provenance
+    # start in the last clean run, so the common case costs a few presses. The
+    # rest of the column follows, because a toolbar-height change moves every
+    # bar, and every press is recovered before the next one so each row is read
+    # against the same document and the same frame geometry.
+    measured = (284, 290, 296, 302, 278, 308)
+    points = [(800, y) for y in measured] + [
+        (800, y) for y in range(104, 380, 6) if y not in measured
+    ]
+    desktop.reveal_from_preview(points, source, block_start, attempts=1)
     desktop.type_ascii("X")
     desktop.expect_copy("Preview source action opens Split and focuses exact block-start caret",
                         source[:block_start] + b"X" + source[block_start:], refocus=False)

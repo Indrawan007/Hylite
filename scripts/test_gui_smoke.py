@@ -136,6 +136,8 @@ class SmokeHelperTests(unittest.TestCase):
 
     def test_cache_probe_checks_warm_split_edits_undo_redo_without_refocusing(self):
         desktop = Mock(window="42")
+        # The Go to Line field answers the address probe with its own text.
+        desktop.clipboard.return_value = b"5:11"
         gui.exercise_preview_cache(desktop, Path("/unused-evidence"))
         source = desktop.paste_from_clean.call_args.args[0]
         edited = source.replace(b"| 3 |", b"| 93 |")
@@ -161,8 +163,12 @@ class SmokeHelperTests(unittest.TestCase):
                          [source, source[:28] + b"X" + source[28:], source])
         self.assertEqual(len(copies), 4)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
-        self.assertEqual([call.args[0] for call in desktop.reveal_from_preview.call_args_list],
-                         [[(800, y) for y in range(104, 380, 6)]])
+        points = desktop.reveal_from_preview.call_args.args[0]
+        measured = (284, 290, 296, 302, 278, 308)
+        self.assertEqual(points[:6], [(800, y) for y in measured])
+        self.assertEqual(len(points), len([y for y in range(104, 380, 6)]))
+        self.assertEqual(points[6:], [(800, y) for y in range(104, 380, 6)
+                                      if y not in measured])
         self.assertEqual(desktop.reveal_from_preview.call_args.args[1], source)
         self.assertEqual(desktop.reveal_from_preview.call_args.args[2], 28)
         desktop.command.assert_not_called()  # No Source click/windowfocus workaround.
