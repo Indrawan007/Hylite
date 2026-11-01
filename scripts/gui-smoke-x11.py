@@ -996,6 +996,35 @@ def exercise_preview_setext(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
+# The task-batch pair sits at the right end of the second toolbar row, before
+# the shortcut hint (28 px buttons, 2 px inside a cluster, 12 px row padding).
+# Both batch actions are idempotent, so a press that lands a few pixels off is
+# corrected by the next candidate instead of being reported as a pixel miss.
+TASK_CHECK_POINTS = [(1099, 62), (1096, 62), (1102, 62), (1093, 62), (1105, 62)]
+TASK_CLEAR_POINTS = [(1129, 62), (1126, 62), (1132, 62), (1123, 62), (1135, 62)]
+
+
+def press_batch_control(desktop, points, verify, recover):
+    """Press one batch control until `verify` accepts the result.
+
+    `verify` reads the product, `recover` puts the window back into Preview
+    between candidates. The last candidate re-raises, so a control that is not
+    there at all still fails the suite.
+    """
+    for index, (x, y) in enumerate(points):
+        desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                        str(x), str(y), "click", "1")
+        time.sleep(0.25)
+        try:
+            verify()
+        except (AssertionError, TimeoutError):
+            if index + 1 == len(points):
+                raise
+            recover()
+        else:
+            return
+
+
 def exercise_lifecycle(desktop, artifacts, binary):
     source = "lifecycle café🙂\nkeep me\t".encode("utf-8")
     desktop.paste_from_clean(source)
@@ -1099,22 +1128,42 @@ def exercise_task_batch(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "185", "62", "click", "1")
-    time.sleep(0.25)
-    inspect("Check tasks changes only supported unchecked markers and preserves uppercase X", checked)
+    def check_tasks(label):
+        press_batch_control(
+            desktop,
+            TASK_CHECK_POINTS,
+            lambda: inspect(label, checked),
+            lambda: desktop.cycle_to(editable=False),
+        )
+
+    check_tasks(
+        "Check tasks changes only supported unchecked markers and preserves uppercase X"
+    )
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("One Preview Undo restores the complete batch fixture byte-exact", source)
     back_to_preview()
     desktop.key("ctrl+shift+z")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "185", "62", "click", "1")
-    time.sleep(0.25)  # Already checked: disabled/no-op must add no history.
+    # Already checked: disabled/no-op must add no history.
+    check_tasks("Preview batch Redo and already-checked no-op preserve exact bytes")
     desktop.screenshot(artifacts / "batch-preview.png")
-    inspect("Preview batch Redo and already-checked no-op preserve exact bytes", checked)
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "305", "62", "click", "1")
-    time.sleep(0.25)
-    desktop.type_ascii("X")
-    desktop.expect_copy("Split Clear tasks restores Source keyboard focus after last changed marker byte", sentinel, refocus=False)
+
+    def clear_tasks():
+        def verify():
+            desktop.type_ascii("X")
+            desktop.expect_copy(
+                "Split Clear tasks restores Source keyboard focus after last changed marker byte",
+                sentinel,
+                refocus=False,
+            )
+
+        def recover():
+            desktop.key("ctrl+z")
+            desktop.settle()
+
+        press_batch_control(desktop, TASK_CLEAR_POINTS, verify, recover)
+
+    clear_tasks()
     desktop.screenshot(artifacts / "batch-split.png")
     desktop.key("ctrl+z")  # Native sentinel only.
     desktop.key("ctrl+z")  # Clear batch only, including capital X restoration.

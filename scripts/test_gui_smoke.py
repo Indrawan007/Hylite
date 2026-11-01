@@ -304,10 +304,12 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertEqual([call.args[1] for call in copies[1:7]], [source, checked, source, checked, sentinel, checked])
         self.assertEqual(copies[0].args[1], copies[-1].args[1])
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
+        # The first candidate of each batch control: the document confirms the
+        # press, so the coordinates are a starting point, not a promise.
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "185", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "185", "62", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "305", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1099", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1099", "62", "click", "1"),
+            ("xdotool", "mousemove", "--window", "42", "1129", "62", "click", "1"),
         ])
         self.assertEqual([call.args[0] for call in desktop.key.call_args_list].count("ctrl+z"), 5)
         desktop.type_ascii.assert_called_once_with("X")

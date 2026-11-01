@@ -115,8 +115,10 @@ impl Icon {
             Self::Split => {
                 "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M12 4v16\"/>"
             }
+            // Corner brackets, not a sparkle: this toggles distraction-free
+            // mode, and the star read as decoration rather than a control.
             Self::Zen => {
-                "<path d=\"m12 3 1.5 6.5L20 11l-6.5 1.5L12 19l-1.5-6.5L4 11l6.5-1.5z\"/><path d=\"m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z\"/>"
+                "<path d=\"M9 4H4v5\"/><path d=\"M15 4h5v5\"/><path d=\"M20 15v5h-5\"/><path d=\"M4 15v5h5\"/>"
             }
             Self::Copy => {
                 "<rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2\"/>"
@@ -209,8 +211,8 @@ fn handle(icon: Icon) -> svg::Handle {
 
 pub fn view(icon: Icon, kind: ButtonKind) -> svg::Svg<'static> {
     svg::Svg::new(handle(icon))
-        .width(18)
-        .height(18)
+        .width(16)
+        .height(16)
         .style(move |theme, _| {
             let colors = Colors::from_theme(theme);
             let color = match kind {

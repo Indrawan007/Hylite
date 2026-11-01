@@ -25,20 +25,13 @@ fn icon_action(
         button(crate::ui::icons::view(icon, icon_kind))
             .on_press_maybe(message)
             .style(chrome::button_style(ButtonKind::Toolbar))
-            .width(34)
+            .width(28)
             .height(28)
             .padding(0),
         hint,
         tooltip::Position::Bottom,
     )
     .into()
-}
-
-fn panel_group<'a>(content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
-    container(content)
-        .padding([0, 4])
-        .style(chrome::surface_style(SurfaceKind::Panel))
-        .into()
 }
 
 pub fn view(app: &Hylite) -> Element<'_, Message> {
@@ -69,42 +62,38 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             "Redo · Ctrl+Y or Ctrl+Shift+Z"
         ),
     ]
-    .spacing(8);
-    let task_actions = panel_group(
-        row![
-            icon_action(
-                Icon::CheckTasks,
-                app.preview_task_batch_action(true),
-                "Check supported tasks · max 1024 · no-op disabled",
-            ),
-            icon_action(
-                Icon::ClearTasks,
-                app.preview_task_batch_action(false),
-                "Clear supported task checks · max 1024 · no-op disabled",
-            ),
-        ]
-        .spacing(4),
-    );
-    let navigation_actions = panel_group(
-        row![
-            icon_action(
-                Icon::Search,
-                navigation_enabled.then_some(Message::OpenFind(false)),
-                "Find · Ctrl+F"
-            ),
-            icon_action(
-                Icon::GoToLine,
-                navigation_enabled.then_some(Message::OpenGoTo),
-                "Go to line · Ctrl+G"
-            ),
-            icon_action(
-                Icon::Replace,
-                navigation_enabled.then_some(Message::OpenFind(true)),
-                "Find and replace · Ctrl+H"
-            ),
-        ]
-        .spacing(4),
-    );
+    .spacing(2);
+    let task_actions = row![
+        icon_action(
+            Icon::CheckTasks,
+            app.preview_task_batch_action(true),
+            "Check supported tasks · max 1024 · no-op disabled",
+        ),
+        icon_action(
+            Icon::ClearTasks,
+            app.preview_task_batch_action(false),
+            "Clear supported task checks · max 1024 · no-op disabled",
+        ),
+    ]
+    .spacing(2);
+    let navigation_actions = row![
+        icon_action(
+            Icon::Search,
+            navigation_enabled.then_some(Message::OpenFind(false)),
+            "Find · Ctrl+F"
+        ),
+        icon_action(
+            Icon::GoToLine,
+            navigation_enabled.then_some(Message::OpenGoTo),
+            "Go to line · Ctrl+G"
+        ),
+        icon_action(
+            Icon::Replace,
+            navigation_enabled.then_some(Message::OpenFind(true)),
+            "Find and replace · Ctrl+H"
+        ),
+    ]
+    .spacing(2);
     let blocks: Element<'_, Message> = if editable {
         tooltip(
             iced::widget::pick_list(BlockStyle::ALL, None::<BlockStyle>, Message::FormatBlock)
@@ -121,72 +110,68 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
             "Block formatting is unavailable in this mode",
         )
     };
-    let formatting_actions = panel_group(
-        row![
-            icon_action(
-                Icon::Bold,
-                editable.then_some(Message::FormatInline(InlineStyle::Bold)),
-                "Bold · Ctrl+Shift+B",
-            ),
-            icon_action(
-                Icon::Italic,
-                editable.then_some(Message::FormatInline(InlineStyle::Italic)),
-                "Italic · Ctrl+I",
-            ),
-            icon_action(
-                Icon::Code,
-                editable.then_some(Message::FormatInline(InlineStyle::Code)),
-                "Inline code · Ctrl+E",
-            ),
-            blocks,
-            icon_action(
-                Icon::Link,
-                editable.then_some(Message::InsertLink),
-                "Insert link · Ctrl+K",
-            ),
-            icon_action(
-                Icon::CodeBlock,
-                editable.then_some(Message::InsertCodeBlock),
-                "Insert fenced code block · Ctrl+Shift+C",
-            ),
-        ]
-        .spacing(4),
-    );
-    let line_actions = panel_group(
-        row![
-            icon_action(
-                Icon::Indent,
-                editable.then_some(Message::Indent(false)),
-                "Indent · Tab",
-            ),
-            icon_action(
-                Icon::Unindent,
-                editable.then_some(Message::Indent(true)),
-                "Unindent · Shift+Tab",
-            ),
-            icon_action(
-                Icon::Duplicate,
-                editable.then_some(Message::EditLines(crate::line_edit::Action::Duplicate)),
-                "Duplicate lines · Ctrl+Shift+D",
-            ),
-            icon_action(
-                Icon::Delete,
-                editable.then_some(Message::EditLines(crate::line_edit::Action::Delete)),
-                "Delete lines · Ctrl+Shift+K",
-            ),
-            icon_action(
-                Icon::MoveUp,
-                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveUp)),
-                "Move lines up · Alt+↑",
-            ),
-            icon_action(
-                Icon::MoveDown,
-                editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown)),
-                "Move lines down · Alt+↓",
-            ),
-        ]
-        .spacing(4),
-    );
+    let formatting_actions = row![
+        blocks,
+        icon_action(
+            Icon::Bold,
+            editable.then_some(Message::FormatInline(InlineStyle::Bold)),
+            "Bold · Ctrl+Shift+B",
+        ),
+        icon_action(
+            Icon::Italic,
+            editable.then_some(Message::FormatInline(InlineStyle::Italic)),
+            "Italic · Ctrl+I",
+        ),
+        icon_action(
+            Icon::Code,
+            editable.then_some(Message::FormatInline(InlineStyle::Code)),
+            "Inline code · Ctrl+E",
+        ),
+        icon_action(
+            Icon::Link,
+            editable.then_some(Message::InsertLink),
+            "Insert link · Ctrl+K",
+        ),
+        icon_action(
+            Icon::CodeBlock,
+            editable.then_some(Message::InsertCodeBlock),
+            "Insert fenced code block · Ctrl+Shift+C",
+        ),
+    ]
+    .spacing(2);
+    let line_actions = row![
+        icon_action(
+            Icon::Indent,
+            editable.then_some(Message::Indent(false)),
+            "Indent · Tab",
+        ),
+        icon_action(
+            Icon::Unindent,
+            editable.then_some(Message::Indent(true)),
+            "Unindent · Shift+Tab",
+        ),
+        icon_action(
+            Icon::Duplicate,
+            editable.then_some(Message::EditLines(crate::line_edit::Action::Duplicate)),
+            "Duplicate lines · Ctrl+Shift+D",
+        ),
+        icon_action(
+            Icon::Delete,
+            editable.then_some(Message::EditLines(crate::line_edit::Action::Delete)),
+            "Delete lines · Ctrl+Shift+K",
+        ),
+        icon_action(
+            Icon::MoveUp,
+            editable.then_some(Message::EditLines(crate::line_edit::Action::MoveUp)),
+            "Move lines up · Alt+↑",
+        ),
+        icon_action(
+            Icon::MoveDown,
+            editable.then_some(Message::EditLines(crate::line_edit::Action::MoveDown)),
+            "Move lines down · Alt+↓",
+        ),
+    ]
+    .spacing(2);
     let shortcuts = tooltip(
         button(crate::ui::icons::view(Icon::Keyboard, ButtonKind::Quiet))
             .style(chrome::button_style(ButtonKind::Quiet))
@@ -203,57 +188,81 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
     let actions: Element<'_, Message> = match layout::toolbar_density(app.viewport_width) {
         ToolbarDensity::Wide => row![
             history,
-            task_actions,
-            navigation_actions,
+            crate::ui::toolbar::divider(),
             formatting_actions,
+            crate::ui::toolbar::divider(),
             line_actions,
+            crate::ui::toolbar::divider(),
+            navigation_actions,
             horizontal_space(),
+            task_actions,
+            crate::ui::toolbar::divider(),
             shortcuts,
         ]
         .spacing(8)
+        .align_y(iced::Alignment::Center)
         .padding([6, 12])
         .into(),
         ToolbarDensity::Compact => column![
             row![
                 history,
-                task_actions,
-                navigation_actions,
-                formatting_actions
+                crate::ui::toolbar::divider(),
+                formatting_actions,
+                line_actions
             ]
-            .spacing(8),
-            row![line_actions, shortcuts].spacing(8),
+            .spacing(8)
+            .align_y(iced::Alignment::Center),
+            row![
+                navigation_actions,
+                horizontal_space(),
+                task_actions,
+                shortcuts
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center),
         ]
         .spacing(4)
         .padding([6, 12])
         .into(),
         ToolbarDensity::Narrow => column![
-            row![history, task_actions].spacing(8),
-            row![navigation_actions, formatting_actions].spacing(8),
-            row![line_actions, shortcuts].spacing(8),
+            row![history, crate::ui::toolbar::divider(), formatting_actions]
+                .spacing(8)
+                .align_y(iced::Alignment::Center),
+            row![
+                line_actions,
+                crate::ui::toolbar::divider(),
+                navigation_actions
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center),
+            row![horizontal_space(), task_actions, shortcuts]
+                .spacing(8)
+                .align_y(iced::Alignment::Center),
         ]
         .spacing(4)
         .padding([6, 12])
         .into(),
         ToolbarDensity::Minimal => {
             let history_navigation = layout::horizontal_overflow_below(
-                row![history, task_actions, navigation_actions]
-                    .spacing(8)
-                    .into(),
+                row![history, formatting_actions].spacing(8).into(),
                 app.viewport_width,
-                322.0,
+                286.0,
             );
             let formatting = layout::horizontal_overflow_below(
-                row![formatting_actions].into(),
-                app.viewport_width,
-                262.0,
-            );
-            let lines = layout::horizontal_overflow_below(
                 row![line_actions].into(),
                 app.viewport_width,
-                256.0,
+                188.0,
             );
-            let shortcuts =
-                layout::horizontal_overflow_below(row![shortcuts].into(), app.viewport_width, 58.0);
+            let lines = layout::horizontal_overflow_below(
+                row![navigation_actions].into(),
+                app.viewport_width,
+                96.0,
+            );
+            let shortcuts = layout::horizontal_overflow_below(
+                row![task_actions, shortcuts].spacing(8).into(),
+                app.viewport_width,
+                70.0,
+            );
             column![history_navigation, formatting, lines, shortcuts]
                 .spacing(4)
                 .padding([4, 8])
