@@ -419,6 +419,46 @@ def exercise_preview(desktop, artifacts):
     desktop.expect_copy("Preview rendering and blocked input add no undo entry", welcome, refocus=False)
 
 
+def diag_copy_paths(desktop, source):
+    """TEMPORARY DIAGNOSTIC (drop before merge): which gesture reaches Source?"""
+    results = []
+
+    def shoot(label, prepare):
+        desktop.put_clipboard(b"DIAG-" + label.encode("ascii"))
+        try:
+            prepare()
+        except Exception as error:  # noqa: BLE001 - diagnostics only
+            results.append((label, f"prepare-failed:{error}"))
+            return
+        desktop.settle(0.3)
+        desktop.key("ctrl+a")
+        desktop.key("ctrl+c")
+        desktop.settle(0.4)
+        got = desktop.clipboard()
+        if got == source:
+            marker = "SOURCE"
+        elif got is None:
+            marker = "none"
+        elif got.startswith(b"DIAG-"):
+            marker = "marker(no copy)"
+        else:
+            marker = got[:40]
+        results.append((label, marker, desktop.window_title()))
+
+    def click(x):
+        return lambda: desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                                       str(x), "300", "click", "1")
+
+    shoot("A-click500", click(500))
+    shoot("B-click300", click(300))
+    shoot("C-escape+click500", lambda: (desktop.key("Escape"), click(500)()))
+    shoot("D-cycle+click500", lambda: (desktop.key("ctrl+shift+m"), click(500)()))
+    # Undo the mode cycle so the real assertion still runs in Split.
+    desktop.key("ctrl+shift+m")
+    desktop.settle(0.3)
+    return results
+
+
 def exercise_tables(desktop, artifacts):
     welcome = (ROOT / "src" / "welcome.md").read_bytes()
     wide_row = "|" + " cell |" * 13 + "\n"
@@ -444,7 +484,16 @@ def exercise_tables(desktop, artifacts):
     desktop.type_ascii("LEAK")
     desktop.key("ctrl+shift+m")
     desktop.screenshot(artifacts / "tables-split.png")
-    desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
+    # TEMPORARY DIAGNOSTIC (drop before merge): gated so the helper tests and a
+    # normal run keep exactly the old call sequence.
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        results = diag_copy_paths(desktop, source)
+        try:
+            desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
+        except AssertionError as error:
+            raise AssertionError(f"{error}\nDIAG {results!r}") from None
+    else:
+        desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
     desktop.key("ctrl+shift+m")
     desktop.expect_copy("Table mode cycle preserves all source including excess cells and terminal tab", source)
     desktop.key("ctrl+z")
