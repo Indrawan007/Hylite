@@ -680,6 +680,10 @@ def exercise_preview_heading(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Heading fixture: exact raw Source with closing hashes and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
+    # The action bar below is hit-tested against the frame that renders the new
+    # mode: a click sent before it lands on the block text and opens a visual
+    # text draft instead of the heading control.
+    desktop.settle()
 
     def inspect(description, expected):
         desktop.key("ctrl+shift+m")  # Preview -> Split; automatic Source focus.
@@ -691,19 +695,6 @@ def exercise_preview_heading(desktop, artifacts):
 
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        # TEMPORARY DIAGNOSTIC (drop before merge): where does the action bar
-        # start a draft instead of acting on the heading?
-        probes = []
-        for x in (820, 880, 932, 984, 1036, 1092):
-            desktop.key("Escape")
-            desktop.settle(0.3)
-            desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                            str(x), "151", "click", "1")
-            desktop.settle(0.5)
-            title = desktop.window_title() or ""
-            probes.append((x, "draft" if "[" in title else "none"))
-        raise AssertionError(f"bar-probe {probes!r}")
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
     time.sleep(0.25)
     inspect("Preview H+ changes exactly one opening hash", demoted)
@@ -742,6 +733,9 @@ def exercise_preview_setext(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Setext fixture: multiline raw Unicode body, underline indent and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
+    # Same frame guard as the heading suite: the underline control must exist
+    # before the click is hit-tested.
+    desktop.settle()
 
     def inspect(description, expected):
         desktop.key("ctrl+shift+m")  # Preview -> Split, automatic Source focus.
