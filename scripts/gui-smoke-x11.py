@@ -126,6 +126,24 @@ class Desktop:
         except subprocess.CalledProcessError:
             return None
 
+    def reap_clipboard_owners(self):
+        """Wait for the staged owners to exit once the app took the selection.
+
+        A copy ends with the app owning the selection and the marker process
+        leaving; a keystroke sent inside that window can be lost by the X
+        server. Measured on run 41268401052: the Ctrl+Shift+M right after a
+        successful copy never changed mode, so the following typing replaced
+        the still-selected document instead of being blocked by Preview.
+        """
+
+        # Bounded poll, not `wait`: a slow owner must never turn a passing copy
+        # into a failure, and the copy assertions own the only real deadline.
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            if all(owner.poll() is not None for owner in self.owners):
+                return
+            time.sleep(0.02)
+
     def put_clipboard(self, data):
         # -quiet keeps xclip in the foreground so every owner can be reaped.
         owner = subprocess.Popen(["xclip", "-selection", "clipboard", "-in", "-quiet"],
@@ -196,10 +214,7 @@ class Desktop:
             try:
                 self.wait(description, copied)
                 self.passed_check(description)
-                # The transfer itself must finish before the next gesture. A
-                # key sent while the previous copy is still being served can be
-                # dropped: the measured failure was a Ctrl+Shift+M that never
-                # changed mode, so the following typing landed in the document.
+                self.reap_clipboard_owners()
                 self.settle(0.2)
                 return
             except TimeoutError as error:
@@ -214,39 +229,12 @@ class Desktop:
                     actual[:80] if actual is not None else None,
                     self.window_title(),
                 ))
-        # TEMPORARY DIAGNOSTIC (drop before merge): is the editor focused at
-        # all (plain keys reach it) or is only Ctrl+A/C swallowed?
-        probe = None
-        if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-            def probe_copy(label):
-                self.put_clipboard(f"PROBE-{label}".encode("ascii"))
-                self.key("ctrl+c")
-                self.settle(0.4)
-                got = self.clipboard()
-                if got is None:
-                    return "none"
-                if got.startswith(b"PROBE-"):
-                    return "marker"
-                return got[:70]
-
-            self.key("shift+Home")  # Selection change only: no document edit.
-            line = probe_copy("line")
-            self.key("ctrl+a")
-            everything = probe_copy("all")
-            self.key("ctrl+shift+m")  # One mode change, as DIAG-D recovered.
-            self.settle(0.3)
-            self.command("xdotool", "mousemove", "--window", self.window, "500", "300", "click", "1")
-            self.settle(0.3)
-            self.key("ctrl+a")
-            after_cycle = probe_copy("cycle")
-            probe = {"shift+home": line, "ctrl+a": everything, "after-cycle": after_cycle}
-
         owner = self.owners[-1] if self.owners else None
         owner_exit = None if owner is None else owner.poll()
         raise AssertionError(
             f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
             f" marker-owner-exit={owner_exit!r}, window-title={self.window_title()!r},"
-            f" attempts={attempts!r}, probe={probe!r}"
+            f" attempts={attempts!r}"
         ) from timeout
 
     def paste_from_clean(self, data):
