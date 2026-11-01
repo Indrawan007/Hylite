@@ -249,6 +249,26 @@ pub fn preview_history_shortcut(
     history_keys(key, modifiers).map(Message::PreviewHistory)
 }
 
+/// Window-subscription route for the global app shortcuts. The focused Source
+/// editor publishes control chords itself (`editor::key_binding`) so they stay
+/// ordered with typed text, and iced drains widget messages before subscription
+/// messages; skipping the captured repeat keeps one gesture one command. Named
+/// keys (Escape, F3, F5, F11) keep the subscription-only route, including their
+/// native binding in the editor.
+pub fn subscription_shortcut(
+    key: keyboard::Key,
+    modifiers: keyboard::Modifiers,
+    status: iced::event::Status,
+) -> Option<Message> {
+    if status == iced::event::Status::Captured
+        && modifiers.control()
+        && matches!(&key, keyboard::Key::Character(_))
+    {
+        return None;
+    }
+    shortcut(key, modifiers)
+}
+
 /// Which single-line draft panel owns the keyboard history keys. Only one
 /// single-line panel can be open at a time, and the multiline panel never
 /// coexists with them.
@@ -500,6 +520,52 @@ mod tests {
             iced::event::Status::Ignored
         )
         .is_none());
+    }
+
+    #[test]
+    fn captured_control_chords_from_the_source_editor_are_not_repeated() {
+        let ctrl = keyboard::Modifiers::CTRL;
+        let captured = iced::event::Status::Captured;
+        for key in ["s", "n", "g", "f", "M"] {
+            assert!(
+                subscription_shortcut(keyboard::Key::Character(key.into()), ctrl, captured)
+                    .is_none()
+            );
+        }
+        assert!(matches!(
+            subscription_shortcut(
+                keyboard::Key::Character("s".into()),
+                ctrl,
+                iced::event::Status::Ignored
+            ),
+            Some(Message::SaveFile)
+        ));
+        assert!(matches!(
+            subscription_shortcut(
+                keyboard::Key::Character("M".into()),
+                ctrl | keyboard::Modifiers::SHIFT,
+                iced::event::Status::Ignored
+            ),
+            Some(Message::CycleMode)
+        ));
+        // Named app keys stay on the subscription route even when the editor
+        // captured them (Escape also unfocuses the Source widget natively).
+        assert!(matches!(
+            subscription_shortcut(
+                keyboard::Key::Named(keyboard::key::Named::Escape),
+                keyboard::Modifiers::empty(),
+                captured
+            ),
+            Some(Message::ExitZenMode)
+        ));
+        assert!(matches!(
+            subscription_shortcut(
+                keyboard::Key::Named(keyboard::key::Named::F5),
+                keyboard::Modifiers::empty(),
+                captured
+            ),
+            Some(Message::RefreshWorkspace)
+        ));
     }
 
     #[test]

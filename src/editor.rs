@@ -162,6 +162,21 @@ pub fn key_binding(press: text_editor::KeyPress) -> Option<text_editor::Binding<
             return Some(text_editor::Binding::Custom(message));
         }
     }
+    // Control chords are published from this key press instead of the window
+    // subscription, so they keep their order relative to the text around them.
+    // Iced drains widget messages before the subscription's keyboard messages,
+    // so a chord that only the subscription saw could be applied AFTER text
+    // typed later in the same batch: the X11 gate caught Ctrl+Shift+M landing
+    // after "LEAK" had already replaced the selected document. The subscription
+    // skips a chord this editor captured (`commands::subscription_shortcut`).
+    if press.status == text_editor::Status::Focused
+        && press.modifiers.control()
+        && matches!(&press.key, keyboard::Key::Character(_))
+    {
+        if let Some(message) = crate::commands::shortcut(press.key.clone(), press.modifiers) {
+            return Some(text_editor::Binding::Custom(message));
+        }
+    }
     // Global app commands (including exact-Alt confirmation accelerators) are
     // handled once by the subscription, never also inserted by native fallback.
     // AltGr combinations are not app commands and still reach native text input.
@@ -281,7 +296,12 @@ mod tests {
                 crate::text_edit::InlineStyle::Code
             )))
         ));
-        assert!(key_binding(press("b", ctrl)).is_none());
+        // Ctrl+B stays the global Sidebar command: the editor publishes that
+        // same app message synchronously instead of an editor-local binding.
+        assert!(matches!(
+            key_binding(press("b", ctrl)),
+            Some(text_editor::Binding::Custom(Message::ToggleSidebar))
+        ));
         assert!(key_binding(text_editor::KeyPress {
             status: text_editor::Status::Active,
             ..press("z", ctrl)
@@ -291,15 +311,64 @@ mod tests {
 
     #[test]
     fn global_find_and_go_to_keys_cannot_fall_through_to_character_insertion() {
-        for key in ["f", "h", "g"] {
-            let press = text_editor::KeyPress {
-                key: keyboard::Key::Character(key.into()),
-                modifiers: keyboard::Modifiers::CTRL,
-                text: Some(key.into()),
-                status: text_editor::Status::Focused,
-            };
-            assert!(key_binding(press).is_none());
-        }
+        let press = |key: &str| text_editor::KeyPress {
+            key: keyboard::Key::Character(key.into()),
+            modifiers: keyboard::Modifiers::CTRL,
+            text: Some(key.into()),
+            status: text_editor::Status::Focused,
+        };
+        assert!(matches!(
+            key_binding(press("f")),
+            Some(text_editor::Binding::Custom(Message::OpenFind(false)))
+        ));
+        assert!(matches!(
+            key_binding(press("h")),
+            Some(text_editor::Binding::Custom(Message::OpenFind(true)))
+        ));
+        assert!(matches!(
+            key_binding(press("g")),
+            Some(text_editor::Binding::Custom(Message::OpenGoTo))
+        ));
+    }
+
+    #[test]
+    fn control_chords_are_published_in_order_and_named_keys_stay_global() {
+        let press = |key: keyboard::Key, modifiers, status| text_editor::KeyPress {
+            key,
+            modifiers,
+            text: None,
+            status,
+        };
+        let ctrl = keyboard::Modifiers::CTRL;
+        let shifted = ctrl | keyboard::Modifiers::SHIFT;
+        let focused = text_editor::Status::Focused;
+        assert!(matches!(
+            key_binding(press(
+                keyboard::Key::Character("M".into()),
+                shifted,
+                focused
+            )),
+            Some(text_editor::Binding::Custom(Message::CycleMode))
+        ));
+        assert!(matches!(
+            key_binding(press(keyboard::Key::Character("s".into()), ctrl, focused)),
+            Some(text_editor::Binding::Custom(Message::SaveFile))
+        ));
+        // Unfocused keys never take a chord: the subscription owns them there.
+        assert!(key_binding(press(
+            keyboard::Key::Character("s".into()),
+            ctrl,
+            text_editor::Status::Active
+        ))
+        .is_none());
+        // Named app keys (Escape, F3, F5, F11) keep the subscription-only route
+        // so their native binding (Escape unfocuses) is unchanged.
+        assert!(key_binding(press(
+            keyboard::Key::Named(keyboard::key::Named::Escape),
+            keyboard::Modifiers::empty(),
+            focused
+        ))
+        .is_none());
     }
 
     #[test]

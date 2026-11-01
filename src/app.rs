@@ -892,7 +892,7 @@ impl Hylite {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let editing_events = event::listen_with(|event, _status, _window| {
+        let editing_events = event::listen_with(|event, status, _window| {
             if matches!(&event, event::Event::Window(window::Event::Unfocused)) {
                 return Some(Message::EndTypingGroup);
             }
@@ -907,7 +907,7 @@ impl Hylite {
             if let Some(message) = crate::commands::draft_history_shortcut(&key, modifiers) {
                 return Some(message);
             }
-            crate::commands::shortcut(key, modifiers)
+            crate::commands::subscription_shortcut(key, modifiers, status)
         });
         Subscription::batch([
             editing_events,
