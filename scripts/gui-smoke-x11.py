@@ -599,6 +599,11 @@ def exercise_navigation(desktop, artifacts):
     ]
     for name, keys, expected in cases:
         desktop.key("ctrl+f")
+        # The query input mounts one frame after Ctrl+F; a Select All or Copy
+        # sent before it exists is swallowed and nothing answers the probe
+        # (run 41301885377 still held the staged marker). Settle for the frame,
+        # then replace the previous query.
+        desktop.settle()
         # Ctrl+A replaces the query (not the document) after the focus task.
         desktop.key("ctrl+a")
         desktop.type_ascii("needle")
