@@ -213,8 +213,8 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(source.endswith(b"\n\t"))
         self.assertIn("café🙂".encode("utf-8"), source)
         copies = desktop.expect_copy.call_args_list
-        self.assertEqual([call.args[1] for call in copies[:8]], [source, source, checked, source, checked, source, checked, source])
-        self.assertEqual(len(copies), 9)
+        self.assertEqual([call.args[1] for call in copies[:6]], [source, source, checked, source, checked, source])
+        self.assertEqual(len(copies), 7)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
             ("xdotool", "mousemove", "--window", "42", "272", "153", "click", "1"),
