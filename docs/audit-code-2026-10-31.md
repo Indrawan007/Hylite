@@ -404,3 +404,20 @@ Seluruh langkah §6 (1–7) sudah dijalankan dan tercatat di §9. Satu-satunya t
 3. Ada satu penggantungan >400 dtk setelah suite cache yang belum terjelaskan; tanpa log job/artefak, penyebabnya hanya bisa ditebak.
 4. Artefak screenshot tidak bisa diunduh dari sandbox ini, sehingga pemetaan koordinat produk hanya bisa lewat anotasi (satu run per pertanyaan).
 
+### 9e. Lanjutan 1 Nov 2026: Paste yang tidak pernah sampai, dan bilah yang berpindah baris
+
+**Dua kegagalan berbeda pada suite yang sama.** Run `41293606397` dan `41295689067` mati di `exercise_preview_reveal`, tetapi bukan karena sebab yang sama.
+
+1. `TimeoutError: Window dirty title = True` sesudah `paste_from_clean()`: jendela masih berjudul `Untitled — Hylite`, jadi tidak ada `Ctrl+V` yang pernah diproses. Pemeriksaan yang ada hanya membuktikan judul **bersih**, dan judul bersih juga benar ketika tidak satu pun tombol sampai ke aplikasi — Paste yang hilang karena jendela tidak fokus dan Paste yang ditolak editor terlihat identik.
+2. `AssertionError: Preview block action revealed [], not byte 26`: tidak satu pun klik menghasilkan jawaban editable, jadi yang hilang adalah **bilahnya**, bukan offsetnya.
+
+**Perbaikan 1 (harness).** `paste_from_clean()` menegaskan fokus X (`xdotool windowfocus --sync`) lalu mengulang gestur sekali; judul kotor tetap menjadi syarat sebelum `expect_copy` mengambil alih clipboard. Suite reveal juga tidak lagi mewarisi mode dari suite sebelumnya: ia mencapai Preview lewat `cycle_to(editable=False)` (probe read-only), bukan satu `Ctrl+Shift+M` yang mengasumsikan serah-terima Source. Terbukti pada run berikutnya: judul menjadi `Untitled • — Hylite` dan kegagalan berpindah ke cek sesudahnya.
+
+**Perbaikan 2 (harness).** Baris bilah blok ditentukan tinggi toolbar di atasnya. `(800,151)` terukur pada build `e5d5d82`; setelah tutup tab memakai ikon SVG (tombol setinggi 28 px) baris itu bukan bilah blok mana pun, dan `y=139/147/157/165/175` juga tidak. Karena itu `reveal_from_preview()` menerima **kolom** calon baris (`y=104..314`, langkah 6, x=800) dan dokumen tetap satu-satunya saksi: klik meleset di Preview read-only gratis (jawaban `PROBE_MARKER`), klik yang me-reveal blok lain di-undo lalu dilaporkan offsetnya, dan assertion tetap **byte 26**. Koordinat bukan lagi bagian dari spesifikasi; awal blok yang dipindai itulah yang diuji.
+
+**Struktur UI (`f7693bc`).** Sidebar dipisah menjadi seksi `DOKUMEN` dan `WORKSPACE` dengan garis rambut, tombol `Folder` pindah dari header `FILES` ke header `WORKSPACE` yang dibukanya, dan empty state diringkas menjadi dua baris. Toolbar diberi garis pemisah (`chrome::divider_style`) antar kelompok ikon pada setiap density yang menaruhnya dalam satu baris; baris kedua sengaja tidak disentuh karena sudah berupa panel berbingkai **dan** harness menekan tombolnya di koordinat tetap (`(29,62)`, `(71,62)`, `(185,62)`, `(305,62)`).
+
+**Catatan geometri.** Struktur sidebar tidak menggeser satu pun koordinat harness: satu-satunya klik di separuh kiri adalah panel draft (`(225,364)`, `(425,364)`), dan saat draft terbuka `view()` mengganti seluruh isi jendela tanpa sidebar. Suite workspace sendiri menggerakkan pohon lewat keyboard (`Alt+J/K/Enter`), bukan klik baris.
+
+**Status gate.** Run `41295689067` (sha `4c0a65e`): langkah 6–11 hijau (1090 + 338 tes, clippy, fmt) dan langkah 12 masih merah pada sebab (2). Perbaikan (2) diuji oleh run `7f0b172`.
+
