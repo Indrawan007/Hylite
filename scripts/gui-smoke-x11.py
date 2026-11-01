@@ -333,12 +333,13 @@ class Desktop:
                 self.cycle_to(editable=False)
         raise AssertionError(f"Preview block action revealed {seen!r}, not byte {offset}")
 
-    def toolbar_history(self, point, label, expected, retries=2):
-        """Click a toolbar history button until the document answers.
+    def press_until_document(self, point, label, expected, retries=2):
+        """Press a product control until the document answers.
 
-        A press that lands before the toolbar frame is drawn is
+        A press that lands before the frame owning the control is drawn is
         indistinguishable from a miss, so the press is repeated; the document
-        decides, and a wrong result is still reported on the last attempt.
+        decides, and a wrong result is still reported on the last attempt. Used
+        for controls whose press changes the document rather than the mode.
         """
         for attempt in range(retries):
             self.command("xdotool", "mousemove", "--window", self.window,
@@ -767,9 +768,9 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+y")
     inspect("Preview Ctrl+Y redoes the task transition", checked)
     back_to_preview()
-    desktop.toolbar_history((29, 62), "Preview toolbar Undo follows task-only history guard", source)
+    desktop.press_until_document((29, 62), "Preview toolbar Undo follows task-only history guard", source)
     back_to_preview()
-    desktop.toolbar_history((71, 62), "Preview toolbar Redo follows the same task-only guard", checked)
+    desktop.press_until_document((71, 62), "Preview toolbar Redo follows the same task-only guard", checked)
     back_to_preview()
     desktop.screenshot(artifacts / "task-history-preview.png")
     desktop.key("ctrl+z")
@@ -805,41 +806,9 @@ def exercise_preview_heading(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        # TEMPORARY DIAGNOSTIC (drop before merge): a heading change keeps the
-        # app in Preview, so the mode cannot classify a press. Read the document
-        # instead, and undo whatever a press changed before the next one.
-        h_plus = b"#" + source
-        h_minus = source.replace(b"##\t", b"#\t", 1)
-        found = []
-        for x in (800, 830, 860, 890, 920, 950, 980, 1010):
-            desktop.command("xdotool", "mousemove", "--window", desktop.window,
-                            str(x), "150", "click", "1")
-            desktop.settle()
-            title = desktop.command(
-                "xdotool", "getwindowname", desktop.window).decode("utf-8")
-            if "draft" in title:
-                found.append((x, "draft"))
-                desktop.key("Escape")
-                desktop.settle()
-                desktop.cycle_to(editable=False)
-                continue
-            desktop.key("ctrl+shift+m")  # Preview -> Split to read the document.
-            copied = desktop.copy_probe()
-            kind = ("h+" if copied == h_plus else
-                    "h-" if copied == h_minus else
-                    "source" if copied == source else "other")
-            found.append((x, kind))
-            if kind in ("h+", "h-"):
-                desktop.key("ctrl+z")
-                desktop.settle()
-            desktop.cycle_to(editable=False)
-        raise AssertionError(f"heading-bar {found!r}")
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
-    time.sleep(0.25)
-    inspect("Preview H+ changes exactly one opening hash", demoted)
+    desktop.press_until_document((906, 150), "Preview H+ changes exactly one opening hash", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Undo restores raw heading without normalizing its body", source)
@@ -848,9 +817,7 @@ def exercise_preview_heading(desktop, artifacts):
     inspect("Preview Redo restores one-hash heading edit", demoted)
     back_to_preview()
     desktop.screenshot(artifacts / "heading-preview.png")
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "932", "151", "click", "1")
-    time.sleep(0.25)
-    inspect("Preview H- preserves closing hashes, raw inline markup and whitespace", source)
+    desktop.press_until_document((858, 150), "Preview H- preserves closing hashes, raw inline markup and whitespace", source)
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "1144", "151", "click", "1")
     time.sleep(0.25)
     desktop.type_ascii("X")
@@ -887,9 +854,7 @@ def exercise_preview_setext(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
-    time.sleep(0.25)
-    inspect("Preview Setext H+ changes only the underline run", demoted)
+    desktop.press_until_document((906, 150), "Preview Setext H+ changes only the underline run", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Setext Undo restores exact raw heading and underline", source)

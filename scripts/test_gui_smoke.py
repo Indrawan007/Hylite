@@ -221,7 +221,7 @@ class SmokeHelperTests(unittest.TestCase):
         ])
         # The toolbar buttons are pressed through the verified helper, which
         # presses again only when the document does not answer.
-        self.assertEqual([call.args[:2] for call in desktop.toolbar_history.call_args_list],
+        self.assertEqual([call.args[:2] for call in desktop.press_until_document.call_args_list],
                          [((29, 62), "Preview toolbar Undo follows task-only history guard"),
                           ((71, 62), "Preview toolbar Redo follows the same task-only guard")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
@@ -239,15 +239,18 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(source.startswith(b"##\t") and source.endswith(b"\n\t"))
         self.assertIn("café🙂".encode("utf-8"), source)
         copies = desktop.expect_copy.call_args_list
-        self.assertEqual([call.args[1] for call in copies[:7]],
-                         [source, demoted, source, demoted, source, demoted[:3] + b"X" + demoted[3:], source])
-        self.assertEqual(len(copies), 8)
+        self.assertEqual([call.args[1] for call in copies[:5]],
+                         [source, source, demoted, demoted[:3] + b"X" + demoted[3:], source])
+        self.assertEqual(len(copies), 6)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
-            ("xdotool", "mousemove", "--window", "42", "932", "151", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1144", "151", "click", "1"),
         ])
+        # H+/H- are pressed through the verified helper: a heading change stays
+        # in Preview, so only the document can confirm the press.
+        self.assertEqual([(call.args[0], call.args[1]) for call in desktop.press_until_document.call_args_list],
+                         [((906, 150), "Preview H+ changes exactly one opening hash"),
+                          ((858, 150), "Preview H- preserves closing hashes, raw inline markup and whitespace")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 6)
         self.assertEqual(keys.count("ctrl+y"), 1)
@@ -265,13 +268,14 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertIn("café🙂".encode("utf-8"), source)
         self.assertIn(b"continued `code`\n   =====  \t\n", source)
         copies = desktop.expect_copy.call_args_list
-        self.assertEqual([call.args[1] for call in copies[:6]], [source, demoted, source, demoted, sentinel, demoted])
-        self.assertEqual(len(copies), 7)
+        self.assertEqual([call.args[1] for call in copies[:5]], [source, source, demoted, sentinel, demoted])
+        self.assertEqual(len(copies), 6)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         self.assertEqual([call.args for call in desktop.command.call_args_list], [
-            ("xdotool", "mousemove", "--window", "42", "984", "151", "click", "1"),
             ("xdotool", "mousemove", "--window", "42", "1092", "151", "click", "1"),
         ])
+        self.assertEqual([(call.args[0], call.args[1]) for call in desktop.press_until_document.call_args_list],
+                         [((906, 150), "Preview Setext H+ changes only the underline run")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
         self.assertEqual(keys.count("ctrl+z"), 5)
         self.assertEqual(keys.count("ctrl+shift+z"), 1)
