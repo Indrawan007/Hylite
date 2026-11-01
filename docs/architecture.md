@@ -312,6 +312,15 @@ Budget test terpisah menjalankan 16 pasangan limit entri/byte × 512 operasi = 8
 
 Snapshot/revisi dan capture state di rig hanya stimulus untuk History/cache; tidak memanggil mark_saved, worker filesystem atau widget. Tidak membuktikan native grouping barrier, save acknowledgment, loader/serialisasi, code-context parser, pemulihan selection/caret/viewport atau guard UI. Tes native yang sudah ditulis dan build/Clippy aplikasi lengkap tetap belum dapat digantikan oleh hasil harness ini.
 
+## Konvensi tes
+
+Dua bentuk hidup berdampingan, dan keduanya disengaja:
+
+- **`mod tests { … }` inline** di modul yang diuji (mayoritas file) — dipakai bila tesnya butuh item privat modul dan tidak perlu dipisah.
+- **File `<modul>_tests.rs`** yang dipasang dengan `#[cfg(test)] #[path = "…"] mod …` (`block_edit_tests.rs`, `navigation_tests.rs`, `preview_task_batch_plan_tests.rs`, dan 19 modul preview di `document/state.rs`) — dipakai bila berkas tesnya besar atau dipakai bersama beberapa modul.
+
+Aturan praktisnya: modul baru mulai dengan `mod tests` inline; memindahkannya ke file terpisah hanya bila tesnya melewati ~200 baris. Migrasi massal 44 vs 30 file **tidak** dilakukan karena hanya memindahkan kode tanpa mengubah perilaku. Nama file tes harus menyebut levelnya agar tidak kembar: `preview_task_batch_plan_tests.rs` menguji planner `preview_task`, sedangkan `document/preview_task_batch_tests.rs` menguji jalur `Document`.
+
 ## Operasi baris (4h)
 
 `line_edit::edit` memakai `text_edit::line_range` untuk extent baris logis yang sama dengan indent/block formatter. Seleksi yang berhenti pada kolom nol baris berikutnya mengecualikan baris berikutnya. Input/rentang tidak valid ditolak; tidak ada gerakan visual widget untuk menghitung isi baris. Ini operasi teks literal, bukan normalisasi list/AST; tidak menyalin ke clipboard atau merapikan Markdown.

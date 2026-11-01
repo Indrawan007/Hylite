@@ -209,5 +209,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "preview_task_batch_tests.rs"]
+#[path = "preview_task_batch_plan_tests.rs"]
 mod batch_tests;
