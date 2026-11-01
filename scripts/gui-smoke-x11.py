@@ -439,21 +439,6 @@ def exercise_preview(desktop, artifacts):
     desktop.expect_copy("Preview rendering and blocked input add no undo entry", welcome, refocus=False)
 
 
-def diag_mode(desktop):
-    """TEMPORARY DIAGNOSTIC (drop before merge): is the mode editable or read-only?"""
-    marker = b"diag-mode-probe"
-    desktop.put_clipboard(marker)
-    desktop.key("ctrl+a")
-    desktop.key("ctrl+c")
-    desktop.settle(0.4)
-    got = desktop.clipboard()
-    if got is None:
-        return "no-clipboard"
-    if got == marker:
-        return "read-only"
-    return f"editable:{got[:40]!r}"
-
-
 def exercise_tables(desktop, artifacts):
     welcome = (ROOT / "src" / "welcome.md").read_bytes()
     wide_row = "|" + " cell |" * 13 + "\n"
@@ -476,18 +461,10 @@ def exercise_tables(desktop, artifacts):
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "900", "300",
                     "click", "--repeat", "6", "--delay", "70", "7")
     desktop.screenshot(artifacts / "tables-horizontal.png")
-    diag = []
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        diag.append(("after first cycle", diag_mode(desktop)))
     desktop.type_ascii("LEAK")
     desktop.key("ctrl+shift+m")
     desktop.screenshot(artifacts / "tables-split.png")
-    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
-        diag.append(("after second cycle", diag_mode(desktop)))
-    try:
-        desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
-    except AssertionError as error:
-        raise AssertionError(f"{error}\ndiag={diag!r}") from None
+    desktop.expect_copy("Native table preview and wheel input leave Split Source byte-exact", source)
     desktop.key("ctrl+shift+m")
     desktop.expect_copy("Table mode cycle preserves all source including excess cells and terminal tab", source)
     desktop.key("ctrl+z")
@@ -508,10 +485,12 @@ def exercise_preview_cache(desktop, artifacts):
     # Public navigation rebuilds the Source native buffer without changing
     # its content revision. Typing then edits the cached table's Count cell.
     desktop.key("ctrl+g")
-    # The panel seeds its query already selected, which is why typing replaces
-    # it (same pattern as the Go to Line checks above). An extra Ctrl+A here
-    # was measured to leave the field unselected: run 41267088630 copied
-    # b'11:25:119', i.e. the seed "11:2" with "5:11" and "9" appended.
+    # The panel's input mounts on the next frame and a key sent before it exists
+    # is swallowed instead of reaching the query: run 41269670022 copied
+    # b'11:2:119', i.e. the seeded "11:2" plus ":11" and "9" with the first
+    # typed character missing. Settle for the frame, then replace the seed.
+    desktop.settle()
+    desktop.key("ctrl+a")
     desktop.type_ascii("5:11")  # Unicode scalar position immediately before 3.
     desktop.key("Return")
     desktop.settle()
