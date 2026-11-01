@@ -41,7 +41,7 @@ PROBE_MARKER = b"hylite-mode-probe-not-acknowledged"
 
 
 class Desktop:
-    def __init__(self, app, env, log, arguments=()):
+    def __init__(self, app, env, log, arguments=(), trace_path=None):
         self.app = app
         self.env = env
         self.log = log
@@ -57,6 +57,9 @@ class Desktop:
         # doing instead of ending in silence (the job log cannot be downloaded
         # from every environment this runs in).
         self.trace = collections.deque(maxlen=60)
+        # The same lines go to disk as they happen: if the harness is killed
+        # rather than raised, the file still says what it was doing.
+        self.trace_path = trace_path
 
     @staticmethod
     def _elapsed(seconds, spec):
@@ -74,7 +77,14 @@ class Desktop:
             return "?"
 
     def trace_line(self, text):
-        self.trace.append(f"TRACE [{self._stamp(STARTED)}s] {text}")
+        line = f"TRACE [{self._stamp(STARTED)}s] {text}"
+        self.trace.append(line)
+        if self.trace_path is not None:
+            try:
+                with open(self.trace_path, "a", encoding="utf-8") as handle:
+                    handle.write(line + "\n")
+            except OSError:
+                pass
 
     def command(self, *args, timeout=3, **kwargs):
         started = time.monotonic()
@@ -3514,7 +3524,8 @@ def main():
             try:
                 app = subprocess.Popen([str(binary), *[str(a) for a in arguments]],
                                        env=env, stdout=log, stderr=log)
-                desktop = Desktop(app, env, log, arguments)
+                desktop = Desktop(app, env, log, arguments,
+                                  trace_path=artifacts / "harness-trace.log")
                 exercise_suite(desktop, artifacts, binary, args.suite, workspace, document)
                 status = "passed"
                 label = "smoke" if args.suite == "regression" else args.suite

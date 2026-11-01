@@ -68,6 +68,18 @@ jobs:
             echo "::error title=GUI smoke tail::$body"
             ls -la "$RUNNER_TEMP/hylite-gui-smoke" || true
           fi
+          if [ -f "$RUNNER_TEMP/hylite-gui-smoke/harness-trace.log" ]; then
+            body=$(tail -n 25 "$RUNNER_TEMP/hylite-gui-smoke/harness-trace.log" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=GUI smoke operations::$body"
+          fi
+      - name: Upload GUI smoke evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-smoke-evidence
+          path: ${{ runner.temp }}/hylite-gui-smoke
+          retention-days: 5
+          if-no-files-found: warn
       - name: Smoke test task batches on a separate isolated X11 display
         timeout-minutes: 5
         run: ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --suite task-batch --artifacts "$RUNNER_TEMP/hylite-gui-smoke/task-batch"
