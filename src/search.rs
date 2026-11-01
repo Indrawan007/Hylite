@@ -227,10 +227,10 @@ mod tests {
     #[test]
     fn matches_are_capped_and_a_truncated_result_says_so() {
         let text = "a".repeat(MAX_MATCHES + 5);
-        let search = search(&text, "a");
-        assert_eq!(search.count(), MAX_MATCHES);
-        assert!(search.truncated());
-        // Exact-cap documents are not reported as truncated.
+        let capped = search(&text, "a");
+        assert_eq!(capped.count(), MAX_MATCHES);
+        assert!(capped.truncated());
+        // A document with exactly the cap is not reported as truncated.
         let exact = "a".repeat(MAX_MATCHES);
         assert!(!search(&exact, "a").truncated());
         assert_eq!(search(&exact, "a").count(), MAX_MATCHES);
