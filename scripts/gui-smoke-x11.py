@@ -805,6 +805,36 @@ def exercise_preview_heading(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        # TEMPORARY DIAGNOSTIC (drop before merge): a heading change keeps the
+        # app in Preview, so the mode cannot classify a press. Read the document
+        # instead, and undo whatever a press changed before the next one.
+        h_plus = b"#" + source
+        h_minus = source.replace(b"##\t", b"#\t", 1)
+        found = []
+        for x in (800, 830, 860, 890, 920, 950, 980, 1010):
+            desktop.command("xdotool", "mousemove", "--window", desktop.window,
+                            str(x), "150", "click", "1")
+            desktop.settle()
+            title = desktop.command(
+                "xdotool", "getwindowname", desktop.window).decode("utf-8")
+            if "draft" in title:
+                found.append((x, "draft"))
+                desktop.key("Escape")
+                desktop.settle()
+                desktop.cycle_to(editable=False)
+                continue
+            desktop.key("ctrl+shift+m")  # Preview -> Split to read the document.
+            copied = desktop.copy_probe()
+            kind = ("h+" if copied == h_plus else
+                    "h-" if copied == h_minus else
+                    "source" if copied == source else "other")
+            found.append((x, kind))
+            if kind in ("h+", "h-"):
+                desktop.key("ctrl+z")
+                desktop.settle()
+            desktop.cycle_to(editable=False)
+        raise AssertionError(f"heading-bar {found!r}")
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
