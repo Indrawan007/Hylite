@@ -470,7 +470,10 @@ def exercise_preview_cache(desktop, artifacts):
     # Public navigation rebuilds the Source native buffer without changing
     # its content revision. Typing then edits the cached table's Count cell.
     desktop.key("ctrl+g")
-    desktop.key("ctrl+a")
+    # The panel seeds its query already selected, which is why typing replaces
+    # it (same pattern as the Go to Line checks above). An extra Ctrl+A here
+    # was measured to leave the field unselected: run 41267088630 copied
+    # b'11:25:119', i.e. the seed "11:2" with "5:11" and "9" appended.
     desktop.type_ascii("5:11")  # Unicode scalar position immediately before 3.
     desktop.key("Return")
     desktop.settle()
