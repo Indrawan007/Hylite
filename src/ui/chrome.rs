@@ -56,7 +56,10 @@ impl Colors {
             raised,
             border,
             text,
-            muted: mix(text, background, 0.42),
+            // Secondary text is 10-12px (sidebar hints, status bar); at 42%
+            // toward the background those lines read as disabled rather than
+            // as information.
+            muted: mix(text, background, 0.34),
             accent: palette.primary,
             accent_soft,
             on_accent: higher_contrast(text, background, palette.primary),
