@@ -394,8 +394,13 @@ Seluruh langkah §6 (1–7) sudah dijalankan dan tercatat di §9. Satu-satunya t
 | `toolbar_history(point, label, expected)` | klik toolbar yang dikirim sebelum frame toolbar digambar sama dengan meleset; tombol ditekan ulang hanya selama dokumen belum menjawab |
 | `settle()` setelah `cycle_to(editable=True)` pada suite tabel | widget difokuskan oleh frame sesudah siklus mode, bukan oleh siklus itu sendiri |
 
+**Peta bilah aksi Preview (terukur, fixture heading).** Probe yang mengklasifikasi lewat dokumen (bukan lewat mode, karena perubahan heading ** tetap di Preview) memberi, pada y=150: x=800 → `Show block source`, x=858 → `H-`, x=950 dan x=980 → tombol draft (`Edit visually`), x=830/890/920/1010 → tidak menjawab (tekanan hilang, kelas §9a). Konsekuensinya klik lama `932`/`984` mendarat di kontrol draft — itulah sebabnya draft teks visual terbuka saat yang diharapkan perubahan level heading. Suite heading dan setext kini menekan `(906,150)` untuk H+ dan `(858,150)` untuk H− lewat `press_until_document()`.
+
+**Anggaran waktu.** Suite kini memverifikasi setiap gestur lewat dokumen, sehingga melewati batas lama 300 dtk (batas itu sendiri pernah dinaikkan dari 180 dtk dengan alasan yang sama) dan sebuah run sehat dilaporkan sebagai `GUI smoke exceeded its … global budget`. Batas naik ke 600 dtk (langkah CI 15 mnt) dan setiap baris `PASS:` kini membawa cap waktu `[ 190.0s]` supaya biaya per cek terbaca dari anotasi. Pada run `41284531065` tidak ada `PASS:` baru selama 410 dtk setelah cek cache di 190 dtk, jadi masih ada satu titik yang benar-benar menggantung — belum teridentifikasi karena log job dan artefak tidak dapat diunduh dari sandbox.
+
 **Temuan terbuka (setelah sesi ini).**
 1. Kelas "satu gestur hilang" (§9a) tetap belum diperbaiki di aplikasi: `Ctrl+Shift+M` dan `Ctrl+A`/`Ctrl+C` masih kadang tidak sampai. Harness mengulang gestur dan memverifikasi lewat dokumen.
-2. Suite tabel/riwayat masih intermiten pada cek `Table mode cycle preserves all source…` dan `Preview toolbar Undo…`; keduanya kini memakai gestur terverifikasi, tetapi gate belum pernah hijau penuh dalam satu run.
-3. Artefak screenshot tidak bisa diunduh dari sandbox ini, sehingga pemetaan koordinat produk hanya bisa lewat anotasi (satu run per pertanyaan).
+2. Gate belum pernah hijau penuh dalam satu run. Suite yang sudah dipastikan lulus pada minimal satu run: tabel, cache, reveal, cell, task (sebagian), heading (H+/H− kini di kolom terukur).
+3. Ada satu penggantungan >400 dtk setelah suite cache yang belum terjelaskan; tanpa log job/artefak, penyebabnya hanya bisa ditebak.
+4. Artefak screenshot tidak bisa diunduh dari sandbox ini, sehingga pemetaan koordinat produk hanya bisa lewat anotasi (satu run per pertanyaan).
 
