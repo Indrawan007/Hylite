@@ -357,10 +357,11 @@ class Desktop:
         document stays the only witness, and the caret still has to arrive at
         `offset` in front of the untouched bytes.
 
-        A press that misses is free -- a read-only Preview answers the probe
-        with the staged marker, so the scan just moves on. A press that lands
-        somewhere else is a behaviour under test, not a missed press: every
-        observed offset is collected, undone, and reported.
+        Every press is followed by a full recovery: a press can open a draft or
+        move the caret while the probe still answers with the staged marker, so
+        a "miss" is not free and must not be skipped -- the sentinel is undone
+        and Preview is re-verified before the next candidate row is tried.
+        Every observed offset is collected with its context and title.
         """
         sentinel = b"X"
         expected = source[:offset] + sentinel + source[offset:]
@@ -378,8 +379,6 @@ class Desktop:
                     self.key("ctrl+z")
                     self.settle()
                     return
-                if copied == PROBE_MARKER:
-                    continue  # Read-only answer: nothing was revealed here.
                 index = copied.index(sentinel) if sentinel in copied else None
                 around = b"" if index is None else copied[max(0, index - 8):index + 8]
                 title = self.command(
@@ -726,10 +725,10 @@ def exercise_preview_reveal(desktop, artifacts):
               "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
               "```rs\n\tcode  \n```\n\t").encode("utf-8")
     # The reveal promises the caret of the block whose bar was pressed, not the
-    # top of the document. The table is the block whose source bar the measured
-    # column reaches at x=800 (the paragraph above it answers only with its
-    # visual draft), so byte 0 from the heading bar is the wrong block here and
-    # every observed answer is reported with its context.
+    # top of the document. At x=800 the measured rows y=284..302 answered with
+    # the table's provenance start while the paragraph above them answered only
+    # with its visual draft, so the table is the block this suite can press;
+    # byte 0 from the heading bar is the wrong block and is still reported.
     block_start = source.index(b"| Name")
     assert block_start == 28
     desktop.paste_from_clean(source)
@@ -745,7 +744,7 @@ def exercise_preview_reveal(desktop, artifacts):
     # of hard-coding the row the toolbar height happens to produce: the document
     # still decides (byte `block_start`), and a miss costs no undo step.
     desktop.reveal_from_preview(
-        [(800, y) for y in range(104, 340, 6)],
+        [(800, 284), (800, 290), (800, 296), (800, 302), (800, 278), (800, 308)],
         source,
         block_start,
     )

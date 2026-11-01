@@ -437,3 +437,13 @@ Jadi pada kolom x=800 yang terjangkau hanya bilah source **heading** dan **tabel
 
 **Biaya.** Satu jawaban salah = Escape + undo sentinel + `cycle_to(editable=False)` (±5–10 dtk); suite berjalan ±105 dtk pada run `41297006756`, masih jauh di bawah anggaran 780 dtk.
 
+### 9g. Penyapuan kolom bukan pendekatan yang sah (1 Nov 2026)
+
+Run `41297580672` (sha `b9030cb`) menyapu `y=104..334` dan menghasilkan data yang **tercemar**: entri pertama sudah berbunyi `XX# café` — dokumen berisi satu `X` yang tidak pernah di-undo — dan sebagian besar klik berikutnya menjawab blok heading (`X# café`) atau draft visual, bukan tabel.
+
+Sebabnya: klik bisa **berpindah ke Split dan mengetik sentinel** sementara `copy_probe()` masih menjawab dengan marker (aplikasi belum sempat menyajikan seleksi). Pada desain "klik meleset itu gratis", jawaban marker dilewati (`continue`) sehingga sentinel dan draft tidak pernah dibersihkan; setelah itu setiap koordinat menunjuk isi dokumen yang berbeda. Kesimpulan: **tidak ada klik yang gratis**, dan pemindaian yang mengandalkan asumsi itu tidak boleh dipakai.
+
+**Yang diberlakukan kembali.** `reveal_from_preview()` memulihkan state setelah **setiap** tekan yang bukan hasil yang diharapkan: `Escape` (batalkan draft), `Ctrl+Z` (hapus sentinel), lalu `cycle_to(editable=False)` (verifikasi Preview). Daftar calon baris dibatasi pada baris yang terukur pada run bersih `41297006756`: `(800,284/290/296/302)` dengan tetangga `278/308`, dan assertion menuntut caret tepat di byte 28 (awal blok tabel). Diagnostik per jawaban — byte, konteks di sekitar caret, dan judul jendela — tetap ada, jadi kegagalan berikutnya menyebut blok/draft mana yang tertangkap, bukan hanya angka.
+
+**Catatan untuk sesi berikutnya.** Bila suite ini masih gagal pada baris yang terukur, penyebabnya bukan lagi offset assertion: yang perlu diperiksa adalah apakah tinggi toolbar (dan karena itu baris bilah) masih sama seperti pada `41297006756`, dan apakah ada banner notifikasi yang menggeser isi jendela. Keduanya hanya terbaca dari screenshot, dan artefak run tidak dapat diunduh dari sandbox ini.
+
