@@ -642,6 +642,21 @@ def exercise_preview_task_history(desktop, artifacts):
     desktop.key("ctrl+shift+m")  # Split -> Source for lifecycle.
 
 
+def diag_mode(desktop):
+    """TEMPORARY DIAGNOSTIC (drop before merge): editable or read-only?"""
+    marker = b"diag-mode-probe"
+    desktop.put_clipboard(marker)
+    desktop.key("ctrl+a")
+    desktop.key("ctrl+c")
+    desktop.settle(0.4)
+    got = desktop.clipboard()
+    if got is None:
+        return "no-clipboard"
+    if got == marker:
+        return "read-only"
+    return f"editable:{got[:30]!r}"
+
+
 def exercise_preview_heading(desktop, artifacts):
     welcome = (ROOT / "src" / "welcome.md").read_bytes()
     source = ("##\tcafé🙂 **raw** &amp; ##  \n\n"
@@ -661,9 +676,18 @@ def exercise_preview_heading(desktop, artifacts):
 
     # The heading's existing provenance bar keeps its height; H-/H+ are at
     # its right edge. These are product clicks, never Source refocus clicks.
+    diag = []
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        diag.append(("title after cycle", desktop.window_title()))
+        diag.append(("mode after cycle", diag_mode(desktop)))
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "984", "151", "click", "1")
     time.sleep(0.25)
-    inspect("Preview H+ changes exactly one opening hash", demoted)
+    if os.environ.get("HYLITE_SMOKE_DIAG_COPY"):
+        diag.append(("title after click", desktop.window_title()))
+    try:
+        inspect("Preview H+ changes exactly one opening hash", demoted)
+    except AssertionError as error:
+        raise AssertionError(f"{error}\ndiag={diag!r}") from None
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Undo restores raw heading without normalizing its body", source)
