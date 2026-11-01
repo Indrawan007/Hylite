@@ -6,6 +6,7 @@ real keyboard/mouse input, and compare exact UTF-8 bytes. This is not Wayland,
 portal, pixel-layout, IME or Wayland window-close verification.
 """
 import argparse
+import collections
 import json
 import os
 from pathlib import Path
@@ -52,10 +53,41 @@ class Desktop:
         self.owners = []
         self.passed = []
         self.native_exits = 0
+        # Last operations, so a run that burns its budget says what it was
+        # doing instead of ending in silence (the job log cannot be downloaded
+        # from every environment this runs in).
+        self.trace = collections.deque(maxlen=60)
+
+    @staticmethod
+    def _elapsed(seconds, spec):
+        # Unit tests patch the clock; a trace line must never be the thing that
+        # breaks them.
+        try:
+            return format(seconds, spec)
+        except (TypeError, ValueError):
+            return "?s"
+
+    def _stamp(self, start):
+        try:
+            return self._elapsed(time.monotonic() - start, "6.1f")
+        except TypeError:  # the clock is patched by the unit tests.
+            return "?"
+
+    def trace_line(self, text):
+        self.trace.append(f"TRACE [{self._stamp(STARTED)}s] {text}")
 
     def command(self, *args, timeout=3, **kwargs):
-        return subprocess.run(args, env=self.env, check=True, timeout=timeout,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs).stdout
+        started = time.monotonic()
+        try:
+            result = subprocess.run(args, env=self.env, check=True, timeout=timeout,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+        except subprocess.SubprocessError:
+            self.trace_line(f"{' '.join(str(a) for a in args)[:110]} (failed after "
+                            f"{self._stamp(started)}s)")
+            raise
+        self.trace_line(f"{' '.join(str(a) for a in args)[:110]} "
+                        f"({self._stamp(started)}s)")
+        return result.stdout
 
     def wait(self, description, condition, seconds=12):
         deadline = time.monotonic() + seconds
@@ -65,6 +97,7 @@ class Desktop:
             if condition():
                 return
             time.sleep(0.1)
+        self.trace_line(f"WAIT TIMEOUT {seconds}s: {description[:90]}")
         raise TimeoutError(description)
 
     def passed_check(self, description):
@@ -145,7 +178,7 @@ class Desktop:
     def clipboard(self):
         try:
             return self.command("xclip", "-selection", "clipboard", "-out", "-target", "UTF8_STRING")
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return None
 
     def reap_clipboard_owners(self):
@@ -3489,12 +3522,15 @@ def main():
             except Exception as error:
                 error_message = str(error)
                 if desktop:
+                    print("TRACE: last operations before the failure", flush=True)
+                    for line in desktop.trace:
+                        print(line, flush=True)
                     try:
                         desktop.screenshot(artifacts / "failure.png")
                     except (subprocess.SubprocessError, OSError):
                         pass
-                    # TEMPORARY DIAGNOSTIC (drop before merge): show which X11
-                    # window owns the keyboard at the point of failure.
+                    # Which X11 window owns the keyboard at the point of
+                    # failure: a swallowed gesture usually shows up here.
                     try:
                         focused = subprocess.run(
                             ["xdotool", "getwindowfocus", "getwindowname"],

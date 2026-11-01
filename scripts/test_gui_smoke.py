@@ -43,7 +43,8 @@ class SmokeHelperTests(unittest.TestCase):
     def test_wait_is_bounded(self):
         app = SimpleNamespace(poll=lambda: None)
         desktop = gui.Desktop(app, {}, None)
-        with patch.object(gui.time, "monotonic", side_effect=[0, 0, 99]), patch.object(gui.time, "sleep"):
+        # The timeout also records a trace line, which reads the clock once more.
+        with patch.object(gui.time, "monotonic", side_effect=[0, 0, 99, 99, 99]), patch.object(gui.time, "sleep"):
             with self.assertRaisesRegex(TimeoutError, "never ready"):
                 desktop.wait("never ready", lambda: False)
 
