@@ -566,6 +566,7 @@ def exercise_preview_reveal(desktop, artifacts):
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
     desktop.key("ctrl+shift+m")  # Source -> Preview.
     desktop.screenshot(artifacts / "reveal-preview.png")
+    desktop.settle()  # Hit-test against the frame that already shows Preview.
     # Intentional click on the first block's explicit Show block source bar,
     # NOT a Source editor click/refocus. Fixed 1200x800 client, default config.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "600", "151", "click", "1")
@@ -591,6 +592,7 @@ def exercise_cell_reveal(desktop, artifacts):
     desktop.expect_copy("Cell fixture: exact UTF-8 Source, raw strong markup and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")
     desktop.screenshot(artifacts / "cell-preview.png")
+    desktop.settle()  # Hit-test against the frame that already shows Preview.
     # Default 1200x800 client: first body row, second column. Left click must
     # remain read-only; only the deliberate right click should navigate.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "490", "316", "click", "1")
@@ -617,6 +619,7 @@ def exercise_task_toggle(desktop, artifacts):
     desktop.paste_from_clean(source)
     desktop.expect_copy("Task fixture: UTF-8, uppercase X, fenced literal and terminal tab", source, refocus=False)
     desktop.key("ctrl+shift+m")  # Source -> Preview.
+    desktop.settle()  # Hit-test against the frame that already shows Preview.
     desktop.command("xdotool", "mousemove", "--window", desktop.window, "272", "153", "click", "1")
     time.sleep(0.25)
     desktop.screenshot(artifacts / "task-preview.png")
