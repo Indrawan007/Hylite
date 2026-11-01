@@ -301,12 +301,17 @@ Verifikasi perubahan ini:
 | 98 tes Python (`unittest discover -s scripts`) | lulus |
 | Parser Rust tree-sitter pada file yang diubah tiap langkah | 0 error sintaks |
 | `B7`: nilai `scope` 31 suite dibandingkan dengan ekspresi lama | identik, termasuk urutan |
+| Langkah 7 (B5) — run [41260341053](https://github.com/Indrawan007/Hylite/actions/runs/41260341053) (`37dd1ab`) dan [41260653002](https://github.com/Indrawan007/Hylite/actions/runs/41260653002) (`3a2e34c`) | **format, clippy `-D warnings`, build, seluruh tes Rust, dan 91 tes Python lulus**; satu-satunya merah tetap flake X11 §9a (`Native table preview and wheel input leave Split Source byte-exact` — check yang sama sudah merah pada `2b2845a`, sebelum B5) |
+| 91 tes Python setelah B5 (`unittest discover -s scripts`) | lulus (dari 98; 7 tes probe ikut dihapus) |
+| `grep -rn "spike\|probe" src/ scripts/ .github/ tools/` | tidak ada sisa |
 
 Catatan verifikasi Langkah 3: dua run di antaranya (`41250413374`, `41250584210`) merah di *Check formatting* dan satu (`41251074070`) di *Lint all targets*. Keduanya cacat nyata pada perubahan A2, bukan flake: rustfmt ingin `render_blocks(blocks, colors, snapshot, base_dir, session, &inline_edit)` dalam satu baris setelah argumen `spike`+`mode` menyusut menjadi satu `session`, dan `on_block` memindahkan `block.source` (`Range<usize>` bukan `Copy`) sehingga gagal kompilasi. Log job tidak dapat diunduh dari sandbox, jadi diff-nya dibaca lewat langkah CI sementara yang mencetak output sebagai anotasi; langkah itu sudah dihapus lagi.
 
 ### 9b. Penghapusan harness eksperimen (Langkah 7)
 
 Keputusan produk: **hapus** (bukan `cfg(feature)`), karena verdict Stage 9a/9b/probe sudah NO-GO atau terbatas dan tidak ada jalur dari harness ke fitur. Yang hilang dari binary: 5 modul (`inline_edit`, `ui/inline_spike`, `ui/inline_advanced_probe`, `app/inline_spike`, `app/inline_advanced_probe`), 9 field status, tiga konstruktor `with_inline_*_path`, `enum Experiment` + `parse_experiment` beserta flag `--inline-edit-spike`/`--inline-feasibility-probe`/`--inline-alt-widget-probe`, lima varian `Message` probe, dan tiga suite GUI. Yang tetap: seluruh jalur Preview/visual-edit, inline *preview text* (`OpenInlinePreviewText`), serta suite GUI lain (28 suite).
+
+Kerja mekanis yang tetap diperlukan setelah penghapusan: `cargo fmt --check` menolak tiga hal yang tersisa — baris kosong ekstra di akhir `app/tests.rs` (bekas pemotongan), `format!` judul dan rantai `text(...)` di Preview yang jadi terlalu panjang setelah cabang probe hilang, dan `match &block.kind` di `render_block` yang kini muat satu baris sehingga seluruh cabangnya harus di-indent ulang satu level. Ketiganya dibereskan di `37dd1ab`.
 
 Konsekuensi yang disengaja:
 - Refactor A2 (`SpikeSession`) ikut terhapus. Perbaikannya tetap tercatat sebagai temuan yang sah — invariant "dua `Option` paralel" memang nyata — tetapi objeknya kini tidak ada.
@@ -333,4 +338,4 @@ Perbaikan yang dipilih (hanya harness, kode aplikasi tidak disentuh — `git dif
 
 Hasil: gate naik dari gagal di cek ke-21 menjadi lolos 81-88 cek (seluruh cek Go to Line dan Find yang semula merah sekarang lulus). Sisa satu cek flaky di suite tabel (`Native table preview and wheel input leave Split Source byte-exact`): aplikasi tidak menyalin sama sekali dan title normal tanpa draft/konfirmasi, konsisten dengan `Ctrl+Shift+M` (Preview→Split) yang kadang tidak berefek pada iterasi itu; cek yang sama lulus di run lain. Ini **temuan terbuka** untuk langkah berikutnya, bukan bagian dari D1/B6/B7/C1/C2.
 
-Yang sengaja belum disentuh: B3-B4 (siklus draft di `app/` dan dua panel view — perlu tes regresi lebih dulu), C3 (higiene), D2-D4. B5 (probe/spike) menunggu keputusan produk: hapus, `cfg(feature = "probe")`, atau pertahankan sebagai bukti historis.
+Yang sengaja belum disentuh: B3-B4 (siklus draft di `app/` dan dua panel view — perlu tes regresi lebih dulu), C3 (higiene), D2-D4. B5 (probe/spike) sudah diputuskan pemilik repo: **hapus seluruhnya** — lihat [§9b](#9b-penghapusan-harness-eksperimen-langkah-7).
