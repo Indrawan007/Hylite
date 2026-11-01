@@ -145,12 +145,21 @@ class Desktop:
         except TimeoutError as error:
             raise TimeoutError(f"Clipboard ownership: owner status={owner.poll()}, expected {data[:300]!r}, got {observed[:300] if observed is not None else None!r}") from error
 
+    def window_title(self):
+        """The X11 window title, or None when it cannot be read."""
+        try:
+            raw = self.command("xdotool", "getwindowname", self.window)
+        except (subprocess.SubprocessError, OSError):
+            return None
+        return raw.decode("utf-8").strip() if isinstance(raw, bytes) else None
+
     def expect_copy(self, description, expected, *, refocus=True):
         # Changing ownership BEFORE Ctrl+C prevents a false pass from simply
         # reading the bytes we staged for Ctrl+V. Never strip whitespace or LF.
         marker = f"hylite-copy-not-acknowledged-{uuid.uuid4()}".encode("ascii")
         actual = None
         timeout = None
+        attempts = []
         # The X11 hand-off is asynchronous: iced serves the selection from a
         # helper thread, so a gesture sent while the previous hand-off settles
         # can copy an older buffer or be applied before the highlighted buffer
@@ -158,8 +167,17 @@ class Desktop:
         # also releases a writer that is still serving, and stops as soon as the
         # clipboard leaves the marker, so the exact-bytes assertion stays intact
         # and no extra Copy is queued after a successful one.
-        for _ in range(3):
+        for attempt in range(3):
             self.put_clipboard(marker)
+            # A visible window does not imply that the X server sends keys to
+            # it: a mode switch, a panel that has not unmounted yet, or a
+            # clipboard hand-off can leave the gesture going elsewhere. The
+            # first attempt stays byte-for-byte what it always was (a
+            # keyboard-only copy must not need refocusing); recovery attempts
+            # re-assert input focus at the server before the gesture.
+            if attempt:
+                self.command("xdotool", "windowfocus", "--sync", self.window)
+                self.settle(0.2)
             if refocus:
                 # Split puts Source in the left half, so 600 is the boundary
                 # pixel: rounding decides whether the click reaches the editor.
@@ -181,20 +199,22 @@ class Desktop:
                 return
             except TimeoutError as error:
                 timeout = error
+                # The clipboard names what Copy actually took (the staged
+                # marker means Copy never reached the document, the Find/Go To
+                # query means a panel still owned the keyboard), and the title
+                # names the mode-independent state. Keep both per attempt so a
+                # failure explains itself in the check annotation.
+                attempts.append((
+                    attempt + 1,
+                    actual[:80] if actual is not None else None,
+                    self.window_title(),
+                ))
         owner = self.owners[-1] if self.owners else None
         owner_exit = None if owner is None else owner.poll()
-        title = None
-        try:
-            # The title carries the mode-independent state that explains a copy
-            # that never happened: open drafts and pending confirmations.
-            raw_title = self.command("xdotool", "getwindowname", self.window)
-            if isinstance(raw_title, bytes):
-                title = raw_title.decode("utf-8").strip()
-        except (subprocess.SubprocessError, OSError):
-            title = None
         raise AssertionError(
             f"{description}: expected {expected[:300]!r}, got {actual[:300] if actual is not None else None!r},"
-            f" marker-owner-exit={owner_exit!r}, window-title={title!r}"
+            f" marker-owner-exit={owner_exit!r}, window-title={self.window_title()!r},"
+            f" attempts={attempts!r}"
         ) from timeout
 
     def paste_from_clean(self, data):
