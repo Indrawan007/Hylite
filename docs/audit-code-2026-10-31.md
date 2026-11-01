@@ -447,3 +447,19 @@ Sebabnya: klik bisa **berpindah ke Split dan mengetik sentinel** sementara `copy
 
 **Catatan untuk sesi berikutnya.** Bila suite ini masih gagal pada baris yang terukur, penyebabnya bukan lagi offset assertion: yang perlu diperiksa adalah apakah tinggi toolbar (dan karena itu baris bilah) masih sama seperti pada `41297006756`, dan apakah ada banner notifikasi yang menggeser isi jendela. Keduanya hanya terbaca dari screenshot, dan artefak run tidak dapat diunduh dari sandbox ini.
 
+### 9h. Perapian chrome setelah struktur (1 Nov 2026)
+
+Screenshot pengguna memperlihatkan dua cacat yang tidak terlihat dari kode: setiap tombol ikon menggambar kotaknya sendiri sehingga baris toolbar terbaca sebagai satu lajur kotak, dan panel kelompok di belakangnya praktis tidak terlihat; serta tiga glyph tidak ada di font bawaan dan dirender sebagai kotak kosong.
+
+| Perubahan | Sebab terukur | Berkas |
+|---|---|---|
+| `ButtonKind::Toolbar` — tanpa latar/border saat diam, `accent_soft` saat hover | kotak per tombol adalah struktur yang terlihat, kelompoknya bukan | `chrome.rs`, `toolbar.rs`, `editing.rs`, `tabs.rs`, `icons.rs` |
+| Token `Colors::edge` (`0.22` gelap / `0.24` terang) untuk `divider_style` dan border `SurfaceKind::Panel` | `border` (`0.14`) hanya beberapa persen di atas permukaan, jadi garis rambut hilang | `chrome.rs` |
+| Indikator kotor digambar (`dot_style`, 6 px) | `●`/`○` tidak ada di font bawaan → kotak kosong di chip status | `chrome.rs`, `statusbar.rs` |
+| `"Hyprland detected"` tanpa `✓` | alasan yang sama | `app.rs` |
+| Petunjuk pintasan di baris editing dipindah ke tepi kanan (`horizontal_space`) | baris berakhir di tengah dan menyisakan ruang kosong lebar; baris di atas sudah rata kanan | `editing.rs` |
+
+**Yang sengaja tidak diubah.** Grup `Undo/Redo` di baris editing tetap tanpa panel: membungkusnya dengan `panel_group` akan menggeser seluruh baris +4 px, dan harness menekan `(185,62)` serta `(305,62)` yang sudah berada di tepi tombol. Perapian visual tidak boleh menukar kestabilan gate dengan 4 piksel.
+
+**Status.** Langkah 6–11 hijau pada run sebelumnya; perubahan ini belum diverifikasi kompilasinya saat catatan ditulis.
+
