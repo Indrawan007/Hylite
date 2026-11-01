@@ -747,16 +747,18 @@ def exercise_preview_cache(desktop, artifacts):
 
 def exercise_preview_reveal(desktop, artifacts):
     welcome = (ROOT / "src" / "welcome.md").read_bytes()
-    source = ("# café🙂\n\nbody **bold**\n\n"
+    # The paragraph is long on purpose: the block bar is drawn over the block's
+    # own first line, so a short line never reaches the measured column and the
+    # only bar the column can press is the heading's.
+    source = ("# café🙂\n\nbody **bold** with enough words to cross the measured column"
+              " and keep going for the probe\n\n"
               "| Name | Count |\n| --- | ---: |\n| item | 3 |\n\n"
               "```rs\n\tcode  \n```\n\t").encode("utf-8")
     # The reveal promises the caret of the block whose bar was pressed, not the
-    # top of the document. At x=800 the measured rows y=284..302 answered with
-    # the table's provenance start while the paragraph above them answered only
-    # with its visual draft, so the table is the block this suite can press;
-    # byte 0 from the heading bar is the wrong block and is still reported.
-    block_start = source.index(b"| Name")
-    assert block_start == 28
+    # top of the document: the heading bar answers byte 0, the paragraph below
+    # it answers its own start, and a caret at 0 here is the wrong block.
+    block_start = source.index(b"body")
+    assert block_start == 13
     desktop.paste_from_clean(source)
     desktop.expect_copy("Reveal fixture: exact Source before preview", source, refocus=False)
     # Any editable mode pastes; the preview is then reached through the probe
@@ -774,9 +776,9 @@ def exercise_preview_reveal(desktop, artifacts):
     # rest of the column follows, because a toolbar-height change moves every
     # bar, and every press is recovered before the next one so each row is read
     # against the same document and the same frame geometry.
-    measured = (284, 290, 296, 302, 278, 308)
-    points = [(800, y) for y in measured] + [
-        (800, y) for y in range(104, 380, 6) if y not in measured
+    near = tuple(range(140, 260, 6))
+    points = [(800, y) for y in near] + [
+        (800, y) for y in range(104, 380, 6) if y not in near
     ]
     desktop.reveal_from_preview(points, source, block_start, attempts=1)
     desktop.type_ascii("X")

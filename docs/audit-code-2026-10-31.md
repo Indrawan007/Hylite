@@ -463,3 +463,25 @@ Screenshot pengguna memperlihatkan dua cacat yang tidak terlihat dari kode: seti
 
 **Status.** Langkah 6–11 hijau pada run sebelumnya; perubahan ini belum diverifikasi kompilasinya saat catatan ditulis.
 
+### 9i. Toolbar dirapikan ulang, dan bilah blok hanya selebar barisnya (1 Nov 2026)
+
+**Keluhan yang terukur dari screenshot.** Baris editing adalah deretan kotak seukuran sama: pemilih gaya paragraf terselip di tengah kontrol inline, tombol batch tugas (yang bekerja pada seluruh dokumen) memegang slot di alur utama, dan semua target 34 × 28 px dengan glyph 18 px sehingga baris terbaca berat.
+
+| Perubahan | Sebab |
+|---|---|
+| Tombol ikon 34 × 28 → **28 × 28**, glyph 18 → **16 px** | target lebih ringan, jarak antar ikon jadi 2 px sehingga satu kelompok terbaca sebagai satu kesatuan |
+| Panel kelompok → **garis rambut** yang disejajarkan tengah (`crate::ui::toolbar::divider`) | kotak panel menambah bobot visual yang tidak membawa informasi |
+| Urutan baris editing: riwayat · format · baris · navigasi · (kanan) batch · pintasan | urutan kerja, bukan urutan penambahan fitur |
+| Pemilih gaya paragraf memimpin kelompok format | konvensi editor: gaya dulu, lalu penekanan inline |
+| Batch tugas dipindah ke tepi kanan bersama petunjuk pintasan | ia bekerja pada seluruh dokumen, bukan pada pilihan |
+| Ikon mode tanpa gangguan: bintang → **kurung sudut** | bintang terbaca sebagai dekorasi, bukan kontrol |
+| Baris atas: aksi file · tab · utilitas · sakelar mode | satu kelompok aksi, satu kelompok tampilan |
+
+**Konsekuensi harness.** Koordinat `(185,62)`/`(305,62)` untuk kontrol batch tidak ada lagi. Karena kedua aksi batch **idempoten**, harness kini mencoba beberapa kandidat di klaster kanan dan membiarkan dokumen memutuskan (`press_batch_control`), jadi koordinat menjadi titik awal, bukan janji.
+
+**Yang terbaca dari sapuan bersih (run `41312312266`).** Dengan pemulihan penuh setelah setiap tekan, dokumen tidak lagi tercemar dan peta barisnya sahih: hanya `y=146` yang menjawab (offset 0, bilah blok **heading**), sisanya `None` — termasuk baris tabel yang sebelumnya "terukur" pada `284..302` ketika dokumen sudah tercemar. Kesimpulan: bilah `Show block source` digambar di atas **baris pertama blok itu sendiri**, jadi paragraf pendek (`body **bold**`) tidak pernah mencapai kolom x=800 dan tidak punya bilah yang bisa ditekan di kolom itu.
+
+**Perbaikan fixture.** Paragraf pada fixture reveal dipanjangkan sehingga barisnya melewati kolom terukur, dan assertion kembali menuntut caret di **byte 13** (awal paragraf `body`), bukan 0 milik heading. Kandidat baris dicoba lebih dulu di `140..260` (baris heading + paragraf), lalu seluruh kolom `104..380`.
+
+**Biaya.** Sapuan penuh 40 baris ≈ 285 dtk (run `41312312266`), masih di bawah anggaran 780 dtk, dan kasus normal berhenti setelah belasan baris.
+
