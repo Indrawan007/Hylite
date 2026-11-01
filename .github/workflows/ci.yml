@@ -53,7 +53,10 @@ jobs:
       - name: Run tests without a display server
         run: ./scripts/ci-cargo.sh cargo test --locked --all-targets --all-features
       - name: Smoke test actual GUI on isolated X11
-        timeout-minutes: 15
+        # The default suite now covers the sidebar, toolbar, reveal, task and
+        # paragraph paths; a slow runner needs more than 15 minutes for it, and
+        # the harness alarm (1050 s) has to stay under this ceiling.
+        timeout-minutes: 20
         run: |
           set +e
           ./scripts/ci-cargo.sh ./scripts/test-gui-x11.sh --artifacts "$RUNNER_TEMP/hylite-gui-smoke" 2>&1 | tee "$RUNNER_TEMP/gui-smoke.log"

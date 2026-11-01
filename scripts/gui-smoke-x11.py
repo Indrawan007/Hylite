@@ -3628,7 +3628,7 @@ def main():
     error_message = None
 
     def timed_out(_signum, _frame):
-        raise SmokeBudgetExceeded("GUI smoke exceeded its 780 second global budget")
+        raise SmokeBudgetExceeded("GUI smoke exceeded its 1050 second global budget")
 
     signal.signal(signal.SIGALRM, timed_out)
     # The regression suite renders a full Markdown document between every
@@ -3637,7 +3637,7 @@ def main():
     # it, so the previous 300s ceiling is reached before the last suite runs and
     # a healthy run reports a budget timeout instead of its own verdict. Keep the
     # guard (it still bounds a hang) but leave room under the 10 minute step.
-    signal.alarm(780)
+    signal.alarm(1050)
     with tempfile.TemporaryDirectory(prefix="hylite-gui-") as temp:
         env = isolated_environment(os.environ, Path(temp))
         # The tree suite boots with a folder argument; every other suite keeps
