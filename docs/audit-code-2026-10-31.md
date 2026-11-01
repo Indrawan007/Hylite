@@ -346,4 +346,33 @@ Perbaikan yang dipilih (hanya harness, kode aplikasi tidak disentuh — `git dif
 
 Hasil: gate naik dari gagal di cek ke-21 menjadi lolos 81-88 cek (seluruh cek Go to Line dan Find yang semula merah sekarang lulus). Sisa satu cek flaky di suite tabel (`Native table preview and wheel input leave Split Source byte-exact`): aplikasi tidak menyalin sama sekali dan title normal tanpa draft/konfirmasi, konsisten dengan `Ctrl+Shift+M` (Preview→Split) yang kadang tidak berefek pada iterasi itu; cek yang sama lulus di run lain. Ini **temuan terbuka** untuk langkah berikutnya, bukan bagian dari D1/B6/B7/C1/C2.
 
+### 9c. Flake X11: akar masalah urutan pesan (1 Nov 2026)
+
+Sesi lanjutan mengejar flake §9a sampai akar penyebabnya, bukan hanya titik gagalnya. Semua bukti di bawah berasal dari anotasi check-run (log job dan artefak screenshot tidak dapat diunduh dari sandbox).
+
+**Akar masalah (terbukti).** `iced` 0.13 menguras pesan widget (teks yang diketik) **sebelum** pesan keyboard dari subscription jendela (`AboutToWait` → `ui.update` → `update(messages)`; subscription masuk lewat `Action::Output` pada siklus berikutnya). Selama aplikasi sibuk merender tabel native, chord dan teks sesudahnya jatuh di batch yang sama, sehingga `Ctrl+Shift+M` diterapkan **setelah** teks. Terukur di run `41268401052`: dokumen berisi `LEAK` dan mode baru berubah sesudahnya — teksnya menggantikan seluruh seleksi yang ditinggalkan `Ctrl+A` dari cek salinan tepat sebelumnya. Karena Preview read-only hanya dijaga oleh "tidak ada widget editor", teks itu tetap masuk ke dokumen.
+
+**Perbaikan kode aplikasi (`9560c1d`).**
+- `editor::key_binding` menerbitkan chord kontrol (`Ctrl`+karakter) sebagai `Binding::Custom` dari key press widget itu sendiri, sehingga urutannya terhadap teks di batch yang sama terjaga.
+- `commands::subscription_shortcut` melewati chord yang sudah di-capture editor (status `Captured`), supaya satu gestur tetap satu perintah; tombol bernama (Escape, F3, F5, F11) tetap lewat subscription agar binding native-nya (Escape = unfocus) tidak berubah.
+- Tes unit baru di `src/editor.rs` dan `src/commands.rs`; dua tes lama disesuaikan karena `Ctrl+F/H/G` dan `Ctrl+B` kini juga berupa `Custom` (tetap bukan penyisipan karakter).
+
+**Pengerasan harness (`07d23c9`…`38403c6`, `707167a`).**
+
+| Perubahan | Alasan terukur |
+|---|---|
+| `expect_copy` mencatat per percobaan isi clipboard + window title di pesan gagal | kegagalan berikutnya menjelaskan dirinya sendiri lewat anotasi |
+| `expect_copy` menunggu owner clipboard keluar (bounded) sebelum gestur berikutnya | hand-off X11 masih berjalan saat tombol berikutnya dikirim |
+| `mode_is_editable` / `cycle_to(editable=…)` | `Ctrl+Shift+M` bisa hilang; mode diverifikasi lewat dokumen (Preview read-only tidak bisa menyalin), bukan diasumsikan |
+| `undo_until_clean()` menggantikan pasangan `Ctrl+Z` + `title_is_dirty(False)` | satu undo bisa hilang; judul yang memutuskan, bukan jumlah tombol |
+| `settle()` sebelum klik tombol action bar Preview (heading, setext, reveal, cell, task) | klik yang dikirim satu frame setelah pergantian mode di-hit-test pada frame lama dan mendarat di teks blok, membuka draft |
+| Go To Line di suite cache: `settle()` lalu `Ctrl+A` sebelum mengetik alamat | input panel baru ter-mount satu frame kemudian; karakter pertama tertelan sehingga alamat ditambahkan, bukan menggantikan seed |
+
+**Status gate.** Step 12 kini melewati seluruh suite `exercise_preview`, `exercise_tables`, dan `exercise_preview_cache` (cek "Warm Split: table cell edit is byte-exact after Go to Line" kini lulus). Titik gagal berpindah ke `exercise_preview_reveal` (`Preview source action opens Split and focuses exact block-start caret`): klik `(600,151)` pada bilah "Show block source" tidak memicu reveal, jadi aplikasi tetap di Preview dan tidak ada salinan sama sekali. Suite-suite ini tidak pernah berjalan sejak gate mulai merah di suite tabel, sehingga koordinat piksel dan asumsi jumlah tombolnya belum pernah diverifikasi pada build sekarang.
+
+**Temuan terbuka.**
+1. `Ctrl+Shift+M` yang dikirim saat Source tidak fokus (Preview) masih kadang hilang; perbaikannya saat ini hanya pemulihan di harness (`cycle_to`), bukan alasan yang terbukti di aplikasi.
+2. Koordinat produk pada suite reveal/cell/task/heading/setext perlu dipetakan ulang terhadap build sekarang; sampai itu selesai, suite-suite tersebut tidak dapat dipakai sebagai bukti regresi.
+3. Kelas "satu keystroke tertelan" (§9a) belum diperbaiki di aplikasi; harness hanya mengulang gestur.
+
 Seluruh langkah §6 (1–7) sudah dijalankan dan tercatat di §9. Satu-satunya temuan yang sengaja ditutup tanpa perubahan kode adalah C3 (konvensi tes diseragamkan lewat dokumentasi, bukan migrasi massal) dan D4 (pernyataan batas, bukan cacat).
