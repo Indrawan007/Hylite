@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -312,6 +313,82 @@ class SmokeHelperTests(unittest.TestCase):
             self.assertEqual(seen, ["exercise_task_batch"])
             with self.assertRaises(ValueError):
                 gui.exercise_suite(desktop, artifacts, binary, "unknown")
+
+    def test_suite_table_is_the_single_source_for_choices_dispatch_fixture_and_scope(self):
+        suites = gui.SUITES
+        self.assertEqual(tuple(suites), ("regression", "task-batch", "table-alignment",
+                                         "table-rows", "table-cells", "cell-navigation",
+                                         "table-insert", "table-columns", "table-column-delete",
+                                         "table-row-move", "table-column-move",
+                                         "table-column-duplicate", "cell-apply-previous",
+                                         "paragraph-draft", "paragraph-multiline",
+                                         "paragraph-draft-history", "paragraph-navigation",
+                                         "paragraph-apply-next", "paragraph-apply-previous",
+                                         "paragraph-draft-shortcuts", "paragraph-navigation-single",
+                                         "draft-history-single", "draft-history-keys", "tabs",
+                                         "workspace", "images", "pdf", "math"))
+        dispatched = set()
+        for name, suite in suites.items():
+            self.assertTrue(suite.scope.strip(), name)
+            self.assertTrue(suite.steps, name)
+            for step in suite.steps:
+                self.assertTrue(callable(getattr(gui, step.function, None)),
+                                f"{name}: {step.function}")
+                self.assertIn(step.needs, ("", "binary", "workspace", "document",
+                                           "binary-document"))
+                dispatched.add(step.function)
+            if suite.fixture:
+                self.assertIn(suite.fixture, ("images", "pdf", "math"))
+                self.assertTrue(callable(getattr(gui, gui.FIXTURES[suite.fixture])))
+            self.assertEqual(suite.workspace, name == "workspace")
+            self.assertEqual(bool(suite.fixture), name in ("images", "pdf", "math"))
+        # Every exercise helper the module still defines is reachable, so the
+        # table cannot silently drop a scenario while the function lingers.
+        helpers = {name for name in vars(gui)
+                   if name == "exercise" or (name.startswith("exercise_")
+                                             and name != "exercise_suite"
+                                             and callable(getattr(gui, name)))}
+        self.assertEqual(helpers, dispatched)
+        # Only the binary/document steps take extra launch input.
+        self.assertEqual({step.function for suite in suites.values() for step in suite.steps
+                          if step.needs == "binary"}, {"exercise_lifecycle"})
+        self.assertEqual({step.function for suite in suites.values() for step in suite.steps
+                          if step.needs == "binary-document"}, {"exercise_pdf"})
+
+    def test_each_suite_boots_with_the_launch_argument_its_table_entry_implies(self):
+        with tempfile.TemporaryDirectory() as temp:
+            binary = Path(temp) / "hylite"
+            binary.write_text("#!/bin/sh\nexit 0\n")
+            binary.chmod(0o755)
+            for suite in gui.SUITES:
+                artifacts = Path(temp) / f"artifacts-{suite}"
+                environment = {"DISPLAY": ":99", "HYLITE_SMOKE_DISPLAY": ":99"}
+                with patch.object(gui.os, "environ", environment), \
+                     patch("sys.argv", ["gui-smoke-x11.py", "--suite", suite,
+                                        "--binary", str(binary),
+                                        "--artifacts", str(artifacts)]), \
+                     patch.object(gui.subprocess, "Popen") as start, \
+                     patch.object(gui, "Desktop", return_value=SimpleNamespace(
+                         passed=[], native_exits=0, cleanup=lambda: None)), \
+                     patch.object(gui, "exercise_suite"), \
+                     patch.object(gui.signal, "signal"), \
+                     patch.object(gui.signal, "alarm"), \
+                     patch("sys.stdout", new_callable=io.StringIO):
+                    gui.main()
+                argv = start.call_args.args[0]
+                self.assertEqual(argv[0], str(binary), suite)
+                entry = gui.SUITES[suite]
+                summary = json.loads((artifacts / "summary.json").read_text())
+                self.assertEqual(summary["suite"], suite)
+                self.assertEqual(summary["scope"], entry.scope)
+                if entry.fixture:
+                    self.assertEqual(len(argv), 2, suite)
+                    self.assertEqual(Path(argv[1]).parent.name, entry.fixture, suite)
+                elif entry.workspace:
+                    self.assertEqual(len(argv), 2, suite)
+                    self.assertEqual(Path(argv[1]).name, "workspace", suite)
+                else:
+                    self.assertEqual(len(argv), 1, suite)
 
     def test_all_suites_refuse_nonprivate_displays_before_starting_a_process(self):
         for suite in ["regression", "task-batch", "table-alignment", "table-rows", "table-cells", "cell-navigation", "table-insert", "table-columns", "table-column-delete", "table-row-move", "table-column-move", "table-column-duplicate", "cell-apply-previous", "paragraph-draft", "paragraph-multiline", "paragraph-draft-history", "paragraph-navigation", "paragraph-apply-next", "paragraph-apply-previous", "paragraph-draft-shortcuts", "paragraph-navigation-single", "draft-history-single"]:

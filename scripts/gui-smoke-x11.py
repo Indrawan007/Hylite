@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from dataclasses import dataclass
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -2898,158 +2899,273 @@ DEFAULT_SCOPE = (
     "focus/exit; not inline WYSIWYG or Wayland proof"
 )
 
-# What each suite's checks and screenshots actually prove. One table keeps the
-# `--suite` choices, the dispatch and the summary `scope` in sync.
-SCOPE_BY_SUITE = {
-    "regression": (
-        "Source clipboard, navigation focus, read-only Preview/Split and "
+# Fixture factory per suite name (a module attribute, resolved at call time).
+FIXTURES = {
+    "images": "images_fixture",
+    "pdf": "pdf_fixture",
+    "math": "math_fixture",
+}
+
+
+@dataclass(frozen=True)
+class Step:
+    """One exercise function, plus the extra launch input it needs.
+
+    `function` is a module attribute name, not a callable, so the dispatch below
+    resolves it at call time and tests can still patch the exercise functions.
+    """
+
+    function: str
+    needs: str = ""
+
+
+@dataclass(frozen=True)
+class Suite:
+    """Everything one `--suite` choice implies: what it runs, what it boots with,
+    and what its checks actually prove. One table keeps the `--suite` choices,
+    the dispatch, the fixture and the summary `scope` from drifting apart."""
+
+    scope: str
+    steps: tuple[Step, ...]
+    fixture: str = ""
+    workspace: bool = False
+
+
+SUITES = {
+    "regression": Suite(
+        scope="Source clipboard, navigation focus, read-only Preview/Split and "
         "table cycles, warm Split edits/undo/redo, block/cell-source reveal, "
         "preview task edits/history, root ATX/Setext heading levels/history, "
         "New/Cancel/Discard and WM_DELETE_WINDOW lifecycle; screenshots "
-        "without pixel assertions; no file portal or Wayland"
+        "without pixel assertions; no file portal or Wayland",
+        steps=(
+            Step("exercise"),
+            Step("exercise_navigation"),
+            Step("exercise_preview"),
+            Step("exercise_tables"),
+            Step("exercise_preview_cache"),
+            Step("exercise_preview_reveal"),
+            Step("exercise_cell_reveal"),
+            Step("exercise_task_toggle"),
+            Step("exercise_preview_task_history"),
+            Step("exercise_preview_heading"),
+            Step("exercise_preview_setext"),
+            Step("exercise_lifecycle", "binary"),
+        ),
     ),
-    "task-batch": (
-        "Supported task batch check/clear, exact Source clipboard, scoped "
+    "task-batch": Suite(
+        scope="Supported task batch check/clear, exact Source clipboard, scoped "
         "history/no-op, Split focus and clean native close; no pixel or "
-        "Wayland proof"
+        "Wayland proof",
+        steps=(
+            Step("exercise_task_batch"),
+        ),
     ),
-    "table-alignment": (
-        "Root GFM column alignment, raw delimiter/cell preservation, scoped "
+    "table-alignment": Suite(
+        scope="Root GFM column alignment, raw delimiter/cell preservation, scoped "
         "history, Split focus and clean native close; no pixel or Wayland "
-        "proof"
+        "proof",
+        steps=(
+            Step("exercise_table_alignment"),
+        ),
     ),
-    "table-rows": (
-        "Root GFM body-row duplicate/delete, exact raw source, scoped "
+    "table-rows": Suite(
+        scope="Root GFM body-row duplicate/delete, exact raw source, scoped "
         "history, Split focus/caret and clean native close; no pixel or "
-        "Wayland proof"
+        "Wayland proof",
+        steps=(
+            Step("exercise_table_rows"),
+        ),
     ),
-    "table-cells": (
-        "Explicit root table cell draft input/apply/cancel, exact Unicode "
+    "table-cells": Suite(
+        scope="Explicit root table cell draft input/apply/cancel, exact Unicode "
         "raw source, validation/no-op/history, Split focus/caret and natural "
-        "close; no free typing in Preview or Wayland proof"
+        "close; no free typing in Preview or Wayland proof",
+        steps=(
+            Step("exercise_table_cells"),
+        ),
     ),
-    "cell-navigation": DEFAULT_SCOPE,
-    "table-insert": (
-        "Explicit blank table body row insertion before/after, byte-exact "
+    "cell-navigation": Suite(
+        scope=DEFAULT_SCOPE,
+        steps=(
+            Step("exercise_cell_navigation"),
+        ),
+    ),
+    "table-insert": Suite(
+        scope="Explicit blank table body row insertion before/after, byte-exact "
         "history, Split first-cell Source caret/focus and natural close; no "
-        "implicit insertion or Wayland proof"
+        "implicit insertion or Wayland proof",
+        steps=(
+            Step("exercise_table_insert"),
+        ),
     ),
-    "table-columns": (
-        "Explicit atomic blank column insertion before/after across header "
+    "table-columns": Suite(
+        scope="Explicit atomic blank column insertion before/after across header "
         "delimiter and body, exact raw segments/alignment, scoped history, "
         "Split new-header Source caret/focus and natural close; no ragged "
-        "tables or Wayland proof"
+        "tables or Wayland proof",
+        steps=(
+            Step("exercise_table_columns"),
+        ),
     ),
-    "table-column-delete": (
-        "Explicit atomic column deletion across header delimiter body, "
+    "table-column-delete": Suite(
+        scope="Explicit atomic column deletion across header delimiter body, "
         "retained raw bytes/alignment, scoped history, Split "
         "surviving-header Source caret/focus and natural close; no "
-        "last-column deletion, ragged tables or Wayland proof"
+        "last-column deletion, ragged tables or Wayland proof",
+        steps=(
+            Step("exercise_table_column_delete"),
+        ),
     ),
-    "table-row-move": (
-        "Explicit bounded raw body-row Move up/down, exact line "
+    "table-row-move": Suite(
+        scope="Explicit bounded raw body-row Move up/down, exact line "
         "bytes/header/suffix, scoped history, Split moved-row Source "
-        "caret/focus and natural close; no header movement or Wayland proof"
+        "caret/focus and natural close; no header movement or Wayland proof",
+        steps=(
+            Step("exercise_table_row_move"),
+        ),
     ),
-    "table-column-move": (
-        "Explicit bounded raw column Move left/right with header delimiter "
+    "table-column-move": Suite(
+        scope="Explicit bounded raw column Move left/right with header delimiter "
         "alignment and body, exact bytes, scoped history, Split "
         "selected-header Source caret/focus and natural close; no wrap, "
-        "ragged mutation or Wayland proof"
+        "ragged mutation or Wayland proof",
+        steps=(
+            Step("exercise_table_column_move"),
+        ),
     ),
-    "table-column-duplicate": (
-        "Explicit atomic raw column duplication including header delimiter "
+    "table-column-duplicate": Suite(
+        scope="Explicit atomic raw column duplication including header delimiter "
         "alignment and body, exact bytes, scoped history, Split new copied "
         "header Source caret/focus and natural close; no implicit creation, "
-        "ragged mutation or Wayland proof"
+        "ragged mutation or Wayland proof",
+        steps=(
+            Step("exercise_table_column_duplicate"),
+        ),
     ),
-    "cell-apply-previous": (
-        "Explicit atomic Apply and Previous cell draft transition, fresh "
+    "cell-apply-previous": Suite(
+        scope="Explicit atomic Apply and Previous cell draft transition, fresh "
         "backward/header provenance, invalid and first-cell refusal, "
         "unchanged navigation, exact bytes/history, Split Source focus/caret "
         "after Cancel and natural close; no wrap, implicit Apply or Wayland "
-        "proof"
+        "proof",
+        steps=(
+            Step("exercise_cell_apply_previous"),
+        ),
     ),
-    "paragraph-draft": (
-        "Explicit single-line root paragraph raw draft Open Cancel Apply, "
+    "paragraph-draft": Suite(
+        scope="Explicit single-line root paragraph raw draft Open Cancel Apply, "
         "full parser structural refusal, exact bytes and scoped history, "
         "Split applied-end Source caret/focus and natural close; no free "
-        "Preview typing, multiline or Wayland proof"
+        "Preview typing, multiline or Wayland proof",
+        steps=(
+            Step("exercise_paragraph_draft"),
+        ),
     ),
-    "paragraph-multiline": (
-        "Explicit bounded multiline root paragraph native draft, Enter "
+    "paragraph-multiline": Suite(
+        scope="Explicit bounded multiline root paragraph native draft, Enter "
         "stages newline, exact soft/hard break bytes, full parser split "
         "refusal, atomic history, Split last applied line Source focus/caret "
         "and natural close; no inline typing, blank blocks, EOF or Wayland "
-        "proof"
+        "proof",
+        steps=(
+            Step("exercise_paragraph_multiline"),
+        ),
     ),
-    "paragraph-draft-history": (
-        "Bounded multiline draft-only Undo Redo keyboard and button focus, "
+    "paragraph-draft-history": Suite(
+        scope="Bounded multiline draft-only Undo Redo keyboard and button focus, "
         "raw valid and invalid paste snapshots, local branching and session "
         "reset, no Source mutation before Apply, atomic Source history after "
         "Apply, natural clean close; no draft grouping, selection anchor, "
-        "pixel or Wayland proof"
+        "pixel or Wayland proof",
+        steps=(
+            Step("exercise_paragraph_draft_history"),
+        ),
     ),
-    "paragraph-navigation": (
-        "Explicit unchanged-only Previous Next between eligible multiline "
+    "paragraph-navigation": Suite(
+        scope="Explicit unchanged-only Previous Next between eligible multiline "
         "roots, skip other blocks, dirty refusal without discard, no wrap or "
         "implicit Apply, fresh local history, exact Source atomic Apply and "
         "focus caret, natural clean close; no Apply and Next, cross-kind or "
-        "Wayland proof"
+        "Wayland proof",
+        steps=(
+            Step("exercise_paragraph_navigation"),
+        ),
     ),
-    "paragraph-apply-next": (
-        "Explicit atomic multiline Apply and Next with full candidate and "
+    "paragraph-apply-next": Suite(
+        scope="Explicit atomic multiline Apply and Next with full candidate and "
         "native buffer preflight, fresh root offsets and local history, "
         "no-op transition, last boundary and structural refusal no partial "
         "commit, Source caret after Cancel, scoped Undo Redo and natural "
-        "close; no Apply Previous, implicit creation, pixel or Wayland proof"
+        "close; no Apply Previous, implicit creation, pixel or Wayland proof",
+        steps=(
+            Step("exercise_paragraph_apply_next"),
+        ),
     ),
-    "paragraph-apply-previous": (
-        "Explicit atomic multiline Apply and Previous over three roots with "
+    "paragraph-apply-previous": Suite(
+        scope="Explicit atomic multiline Apply and Previous over three roots with "
         "unchanged earlier offsets, fresh focused previous session, no-op "
         "transition, first boundary, parser refusal, Source caret after "
         "Cancel, scoped Undo Redo and natural close; no Apply shortcut, wrap "
-        "or implicit creation"
+        "or implicit creation",
+        steps=(
+            Step("exercise_paragraph_apply_previous"),
+        ),
     ),
-    "paragraph-draft-shortcuts": (
-        "Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next "
+    "paragraph-draft-shortcuts": Suite(
+        scope="Ctrl+Enter Apply, Ctrl+PageUp Ctrl+PageDown Apply and Previous Next "
         "through the same controller guards, boundary refusal without "
         "partial commit, exact bytes after each edge, scoped Source Undo and "
-        "natural close; no implicit wrap, compositor binding or Wayland proof"
+        "natural close; no implicit wrap, compositor binding or Wayland proof",
+        steps=(
+            Step("exercise_paragraph_draft_shortcuts"),
+        ),
     ),
-    "paragraph-navigation-single": (
-        "Previous Next unchanged move and atomic Apply and Previous Next "
+    "paragraph-navigation-single": Suite(
+        scope="Previous Next unchanged move and atomic Apply and Previous Next "
         "over three single-line roots with unsupported block skipping, first "
         "and last boundary refusal, parse refusal, Source caret after "
         "Cancel, scoped Undo Redo and natural close; no cross-kind "
-        "navigation or Wayland proof"
+        "navigation or Wayland proof",
+        steps=(
+            Step("exercise_single_paragraph_navigation"),
+        ),
     ),
-    "draft-history-single": (
-        "Draft-local Undo and Redo buttons for the single-line paragraph and "
+    "draft-history-single": Suite(
+        scope="Draft-local Undo and Redo buttons for the single-line paragraph and "
         "table cell panels: staged snapshots, redo after undo, redo dropped "
         "by a new edit, restored value committed by Apply as exactly one "
         "Source edge, no Source mutation while the draft is open, and "
         "natural close; no keyboard shortcut, grouping heuristic, "
-        "cross-panel history or Wayland proof"
+        "cross-panel history or Wayland proof",
+        steps=(
+            Step("exercise_draft_history_single"),
+        ),
     ),
-    "draft-history-keys": (
-        "Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line "
+    "draft-history-keys": Suite(
+        scope="Draft-local Ctrl+Z Ctrl+Y Ctrl+Shift+Z history for the single-line "
         "paragraph and table cell panels: the routed keys move only the "
         "local snapshot stack, an empty local stack is a no-op, Source bytes "
         "stay untouched until Apply, one Source Undo removes each committed "
         "edge, Esc cancels and the client closes naturally; no commit "
-        "shortcut, grouping heuristic, cross-panel history or Wayland proof"
+        "shortcut, grouping heuristic, cross-panel history or Wayland proof",
+        steps=(
+            Step("exercise_draft_history_keys"),
+        ),
     ),
-    "tabs": (
-        "Multi-buffer tabs: Ctrl+T parks the active document and opens an "
+    "tabs": Suite(
+        scope="Multi-buffer tabs: Ctrl+T parks the active document and opens an "
         "empty tab, Alt+1/Alt+2 restore parked buffers byte for byte with "
         "their own text and undo history, an undo in one tab never reaches "
         "another, Ctrl+W closes a clean tab and is refused on the last one, "
         "and the client closes naturally; no tab drag reorder, split pane, "
-        "session restore or Wayland proof"
+        "session restore or Wayland proof",
+        steps=(
+            Step("exercise_tabs"),
+        ),
     ),
-    "workspace": (
-        "Workspace folder tree: a launch folder argument is scanned once "
+    "workspace": Suite(
+        scope="Workspace folder tree: a launch folder argument is scanned once "
         "without a watcher, Alt+J Alt+K move a clamped keyboard selection "
         "over the collapsed-aware rows, Alt+Enter opens the selected "
         "document byte for byte with an exact window title, a collapsed "
@@ -3057,107 +3173,77 @@ SCOPE_BY_SUITE = {
         "and F5 is the only way a file written after the scan appears; mouse "
         "rows exist but are not clicked here, dirty per-file markers are "
         "unit-tested only, and there is no drag, rename, delete or Wayland "
-        "proof"
+        "proof",
+        steps=(
+            Step("exercise_workspace", "workspace"),
+        ),
+        workspace=True,
     ),
-    "images": (
-        "Read-only Preview images: a launch file opens a document with a "
+    "images": Suite(
+        scope="Read-only Preview images: a launch file opens a document with a "
         "real local PNG that renders in Preview and Split, a remote URL, a "
         "missing file and a file over the 4 MiB gate all stay inert markers "
         "instead of being fetched or decoded, a paste made while Preview is "
         "shown never edits the document, and the client closes naturally; "
         "screenshots are evidence without pixel assertions, so the decoded "
         "picture itself, HiDPI scaling, animated GIF, SVG, WebP and Wayland "
-        "are not verified"
+        "are not verified",
+        steps=(
+            Step("exercise_images", "document"),
+        ),
+        fixture="images",
     ),
-    "pdf": PDF_SCOPE,
-    "math": MATH_SCOPE,
+    "pdf": Suite(
+        scope=PDF_SCOPE,
+        steps=(
+            Step("exercise_pdf", "binary-document"),
+        ),
+        fixture="pdf",
+    ),
+    "math": Suite(
+        scope=MATH_SCOPE,
+        steps=(
+            Step("exercise_math", "document"),
+        ),
+        fixture="math",
+    ),
 }
+
+
+def launch_extras(needs, binary, workspace, document):
+    """The extra launch input a step needs, or a ValueError naming what is missing."""
+    if needs == "":
+        return ()
+    if needs == "binary":
+        return (binary,)
+    if needs == "workspace":
+        if workspace is None:
+            raise ValueError("The workspace suite needs a workspace folder")
+        return (workspace,)
+    if needs == "document":
+        if document is None:
+            raise ValueError("The document suite needs a document path")
+        return (document,)
+    if needs == "binary-document":
+        if document is None:
+            raise ValueError("The document suite needs a document path")
+        return (binary, document)
+    raise ValueError(f"Unknown GUI suite requirement: {needs}")
 
 
 def exercise_suite(desktop, artifacts, binary, suite="regression", workspace=None,
                    document=None):
-    if suite == "regression":
-        exercise(desktop, artifacts)
-        exercise_navigation(desktop, artifacts)
-        exercise_preview(desktop, artifacts)
-        exercise_tables(desktop, artifacts)
-        exercise_preview_cache(desktop, artifacts)
-        exercise_preview_reveal(desktop, artifacts)
-        exercise_cell_reveal(desktop, artifacts)
-        exercise_task_toggle(desktop, artifacts)
-        exercise_preview_task_history(desktop, artifacts)
-        exercise_preview_heading(desktop, artifacts)
-        exercise_preview_setext(desktop, artifacts)
-        exercise_lifecycle(desktop, artifacts, binary)
-    elif suite == "task-batch":
-        exercise_task_batch(desktop, artifacts)
-    elif suite == "table-alignment":
-        exercise_table_alignment(desktop, artifacts)
-    elif suite == "table-rows":
-        exercise_table_rows(desktop, artifacts)
-    elif suite == "table-cells":
-        exercise_table_cells(desktop, artifacts)
-    elif suite == "cell-navigation":
-        exercise_cell_navigation(desktop, artifacts)
-    elif suite == "table-insert":
-        exercise_table_insert(desktop, artifacts)
-    elif suite == "table-columns":
-        exercise_table_columns(desktop, artifacts)
-    elif suite == "table-column-delete":
-        exercise_table_column_delete(desktop, artifacts)
-    elif suite == "table-row-move":
-        exercise_table_row_move(desktop, artifacts)
-    elif suite == "table-column-move":
-        exercise_table_column_move(desktop, artifacts)
-    elif suite == "table-column-duplicate":
-        exercise_table_column_duplicate(desktop, artifacts)
-    elif suite == "cell-apply-previous":
-        exercise_cell_apply_previous(desktop, artifacts)
-    elif suite == "paragraph-draft":
-        exercise_paragraph_draft(desktop, artifacts)
-    elif suite == "paragraph-multiline":
-        exercise_paragraph_multiline(desktop, artifacts)
-    elif suite == "paragraph-draft-history":
-        exercise_paragraph_draft_history(desktop, artifacts)
-    elif suite == "paragraph-navigation":
-        exercise_paragraph_navigation(desktop, artifacts)
-    elif suite == "paragraph-apply-next":
-        exercise_paragraph_apply_next(desktop, artifacts)
-    elif suite == "paragraph-apply-previous":
-        exercise_paragraph_apply_previous(desktop, artifacts)
-    elif suite == "paragraph-draft-shortcuts":
-        exercise_paragraph_draft_shortcuts(desktop, artifacts)
-    elif suite == "paragraph-navigation-single":
-        exercise_single_paragraph_navigation(desktop, artifacts)
-    elif suite == "draft-history-single":
-        exercise_draft_history_single(desktop, artifacts)
-    elif suite == "draft-history-keys":
-        exercise_draft_history_keys(desktop, artifacts)
-    elif suite == "tabs":
-        exercise_tabs(desktop, artifacts)
-    elif suite == "workspace":
-        if workspace is None:
-            raise ValueError("The workspace suite needs a workspace folder")
-        exercise_workspace(desktop, artifacts, workspace)
-    elif suite == "images":
-        if document is None:
-            raise ValueError("The images suite needs a document path")
-        exercise_images(desktop, artifacts, document)
-    elif suite == "pdf":
-        if document is None:
-            raise ValueError("The pdf suite needs a document path")
-        exercise_pdf(desktop, artifacts, binary, document)
-    elif suite == "math":
-        if document is None:
-            raise ValueError("The math suite needs a document path")
-        exercise_math(desktop, artifacts, document)
-    else:
+    entry = SUITES.get(suite)
+    if entry is None:
         raise ValueError(f"Unknown GUI suite: {suite}")
+    for step in entry.steps:
+        extras = launch_extras(step.needs, binary, workspace, document)
+        globals()[step.function](desktop, artifacts, *extras)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--suite", choices=tuple(SCOPE_BY_SUITE),
+    parser.add_argument("--suite", choices=tuple(SUITES),
                      default="regression")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/hylite")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "target/gui-smoke")
@@ -3171,6 +3257,7 @@ def main():
     artifacts.mkdir(parents=True, exist_ok=True)
     if any(artifacts.iterdir()):
         parser.error("Evidence directory must be empty; use --artifacts with a fresh directory")
+    entry = SUITES[args.suite]
     status = "failed"
     desktop = None
     error_message = None
@@ -3187,15 +3274,12 @@ def main():
         env = isolated_environment(os.environ, Path(temp))
         # The tree suite boots with a folder argument; every other suite keeps
         # the exact single-argument launch the older gates rely on.
-        workspace = Path(temp) / "workspace" if args.suite == "workspace" else None
+        workspace = Path(temp) / "workspace" if entry.workspace else None
         arguments = [workspace] if workspace else []
         if workspace:
             workspace.mkdir()
-        document = images_fixture(Path(temp) / "images") if args.suite == "images" else None
-        if args.suite == "pdf":
-            document = pdf_fixture(Path(temp) / "pdf")
-        if args.suite == "math":
-            document = math_fixture(Path(temp) / "math")
+        document = (globals()[FIXTURES[entry.fixture]](Path(temp) / entry.fixture)
+                    if entry.fixture else None)
         if document is not None:
             arguments = [document]
         with (artifacts / "application.log").open("wb") as log:
@@ -3232,7 +3316,7 @@ def main():
                     "status": status, "suite": args.suite, "backend": "X11 / Xvfb / tiny-skia",
                     "checks": desktop.passed if desktop else [], "error": error_message,
                     "native_exits": desktop.native_exits if desktop else 0,
-                    "scope": SCOPE_BY_SUITE.get(args.suite, DEFAULT_SCOPE),
+                    "scope": entry.scope,
                 }, ensure_ascii=False, indent=2) + "\n")
                 if status != "passed":
                     log.flush()
