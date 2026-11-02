@@ -2,7 +2,7 @@
 //!
 //! Keep the shell responsive to the configured Iced theme instead of baking a
 //! dark palette into every toolbar, tab, and sidebar widget.
-use iced::widget::{button, container, pick_list};
+use iced::widget::{button, checkbox, container, pick_list};
 use iced::{Border, Color, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,6 +197,34 @@ pub fn pick_list_style() -> impl Fn(&Theme, pick_list::Status) -> pick_list::Sty
                 width: 1.0,
                 radius: 4.0.into(),
             },
+        }
+    }
+}
+
+/// A checkbox drawn with the shell's neutral tokens. The theme default fills a
+/// checked box with the primary colour, which turned every checked task in the
+/// preview into a blue square.
+pub fn checkbox_style() -> impl Fn(&Theme, checkbox::Status) -> checkbox::Style {
+    move |theme, status| {
+        let colors = Colors::from_theme(theme);
+        let (checked, touched, disabled) = match status {
+            checkbox::Status::Active { is_checked } => (is_checked, false, false),
+            checkbox::Status::Hovered { is_checked } => (is_checked, true, false),
+            checkbox::Status::Disabled { is_checked } => (is_checked, false, true),
+        };
+        checkbox::Style {
+            background: if checked {
+                colors.raised.into()
+            } else {
+                colors.surface.into()
+            },
+            icon_color: if disabled { colors.muted } else { colors.text },
+            border: Border {
+                color: if touched { colors.edge } else { colors.border },
+                width: 1.0,
+                radius: 3.0.into(),
+            },
+            text_color: Some(if disabled { colors.muted } else { colors.text }),
         }
     }
 }

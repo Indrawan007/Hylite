@@ -289,7 +289,7 @@ fn render_block<'a>(
         .style(move |_| container::Style {
             background: Some(colors.surface.into()),
             border: Border {
-                color: colors.accent,
+                color: colors.border,
                 width: 1.0,
                 ..Border::default()
             },
@@ -311,8 +311,7 @@ fn render_block<'a>(
                             Kind::Item(task) => {
                                 let mut prefix = row![text(marker).color(colors.text)].spacing(6);
                                 if let Some(task) = task {
-                                    let mut control =
-                                        checkbox("", task.checked).size(16).spacing(0);
+                                    let mut control = task_checkbox(task.checked);
                                     if let Some(action) = task_action(item, snapshot) {
                                         control = control.on_toggle(move |_| action.clone());
                                     }
@@ -471,6 +470,11 @@ fn render_block<'a>(
 /// block, so the whole row uses the quiet style instead.
 fn action_button<'a>(label: &str) -> button::Button<'a, Message> {
     button(text(label.to_owned()).size(11)).style(chrome::button_style(ButtonKind::Quiet))
+}
+
+/// Task checkboxes use the shell's neutral tokens instead of the theme fill.
+fn task_checkbox<'a>(checked: bool) -> checkbox::Checkbox<'a, Message> {
+    checkbox("", checked).size(16).spacing(0).style(chrome::checkbox_style())
 }
 
 fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
@@ -891,7 +895,7 @@ fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a
     let Some(run) = block.runs.first() else {
         return text("[math source unavailable]")
             .size(13)
-            .color(colors.accent)
+            .color(colors.muted)
             .into();
     };
     let error = run.math.as_ref().and_then(|math| math.error.as_ref());
@@ -905,7 +909,7 @@ fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a
             .font(Font::MONOSPACE)
             .size(13)
             .shaping(text::Shaping::Advanced)
-            .color(colors.accent)
+            .color(colors.muted)
     } else {
         text(run.text.as_str())
             .font(Font {
@@ -917,14 +921,14 @@ fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a
             .shaping(text::Shaping::Advanced)
             .color(colors.text)
     };
-    container(column![text(label).size(11).color(colors.accent), body].spacing(6))
+    container(column![text(label).size(11).color(colors.muted), body].spacing(6))
         .padding(12)
         .width(Length::Fill)
         .style(move |_| container::Style {
             background: Some(colors.surface.into()),
             border: Border {
                 radius: 5.0.into(),
-                color: colors.accent,
+                color: colors.border,
                 width: 1.0,
             },
             ..container::Style::default()
@@ -935,7 +939,7 @@ fn math_panel<'a>(block: &'a Block, display: bool, colors: Colors) -> Element<'a
 fn code_panel(label: String, payload: &str, colors: Colors) -> Element<'_, Message> {
     container(
         column![
-            text(label).size(11).color(colors.accent),
+            text(label).size(11).color(colors.muted),
             text(payload)
                 .font(Font::MONOSPACE)
                 .size(14)
