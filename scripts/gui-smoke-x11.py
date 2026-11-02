@@ -978,7 +978,7 @@ def exercise_preview_setext(desktop, artifacts):
         desktop.key("ctrl+shift+m")  # Split -> Source.
         desktop.key("ctrl+shift+m")  # Source -> Preview.
 
-    desktop.press_until_document((906, 103), "Preview Setext H+ changes only the underline run", demoted)
+    press_block_bar(desktop, 906, "Preview Setext H+ changes only the underline run", demoted)
     back_to_preview()
     desktop.key("ctrl+z")
     inspect("Preview Setext Undo restores exact raw heading and underline", source)
@@ -1009,6 +1009,25 @@ def exercise_preview_setext(desktop, artifacts):
 # candidate instead of being reported as a pixel miss.
 TASK_CHECK_POINTS = [(1314, 17), (1311, 17), (1317, 17), (1308, 17), (1320, 17)]
 TASK_CLEAR_POINTS = [(1344, 17), (1341, 17), (1347, 17), (1338, 17), (1350, 17)]
+
+
+# Every block draws its action bar above itself, and the exact row depends on
+# the block that opens the document: a setext heading was measured a few pixels
+# below the ATX heading this suite pins first. A miss leaves the document
+# untouched, so the rows just below the chrome are swept and the document
+# decides which one answered.
+BAR_ROWS = (103, 107, 111, 99, 95, 115)
+
+
+def press_block_bar(desktop, x, description, expected):
+    last = None
+    for y in BAR_ROWS:
+        try:
+            desktop.press_until_document((x, y), description, expected, attempts=1)
+            return
+        except (AssertionError, TimeoutError) as error:
+            last = error
+    raise last
 
 
 def press_batch_control(desktop, points, verify, recover):
