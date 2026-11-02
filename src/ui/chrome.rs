@@ -230,6 +230,36 @@ pub fn checkbox_style() -> impl Fn(&Theme, checkbox::Status) -> checkbox::Style 
     }
 }
 
+/// A tab. The active one is a slightly raised surface with a hairline, never an
+/// accent fill: a document tab should not be the loudest thing on screen.
+pub fn tab_style(active: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
+    move |theme, status| {
+        let colors = Colors::from_theme(theme);
+        let hovered = matches!(status, button::Status::Hovered);
+        let background = if active {
+            colors.raised
+        } else if hovered {
+            colors.surface
+        } else {
+            Color::TRANSPARENT
+        };
+        button::Style {
+            background: Some(background.into()),
+            text_color: if active { colors.text } else { colors.muted },
+            border: Border {
+                color: if active {
+                    colors.edge
+                } else {
+                    Color::TRANSPARENT
+                },
+                width: if active { 1.0 } else { 0.0 },
+                radius: 5.0.into(),
+            },
+            ..Default::default()
+        }
+    }
+}
+
 /// The shell's task checkbox. The theme default fills a checked box with the
 /// primary colour, which turned every checked task in the preview blue.
 pub fn task_checkbox<'a>(checked: bool) -> checkbox::Checkbox<'a, Message> {

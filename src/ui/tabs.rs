@@ -71,11 +71,7 @@ pub fn view(app: &Hylite) -> Element<'_, Message> {
         strip = strip.push(tooltip(
             button(content)
                 .on_press(Message::SwitchTab(index))
-                .style(chrome::button_style(if active {
-                    ButtonKind::Selected
-                } else {
-                    ButtonKind::Toolbar
-                }))
+                .style(chrome::tab_style(active))
                 .padding([4, 10]),
             text(title),
             tooltip::Position::Bottom,
