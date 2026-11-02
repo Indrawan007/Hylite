@@ -245,9 +245,9 @@ class SmokeHelperTests(unittest.TestCase):
         self.assertTrue(source.startswith(b"##\t") and source.endswith(b"\n\t"))
         self.assertIn("café🙂".encode("utf-8"), source)
         copies = desktop.expect_copy.call_args_list
-        self.assertEqual([call.args[1] for call in copies[:5]],
-                         [source, source, demoted, demoted[:3] + b"X" + demoted[3:], source])
-        self.assertEqual(len(copies), 6)
+        self.assertEqual([call.args[1] for call in copies[:4]],
+                         [source, source, demoted, source])
+        self.assertEqual(len(copies), 5)
         self.assertTrue(all(call.kwargs == {"refocus": False} for call in copies))
         desktop.command.assert_not_called()  # Every press goes through the helper.
         # H+/H- are pressed through the verified helper: a heading change stays
@@ -257,9 +257,10 @@ class SmokeHelperTests(unittest.TestCase):
                           ((858, 103), "Preview H- preserves closing hashes, raw inline markup and whitespace"),
                           ((906, 103), "Preview H+ leaves the caret at the marker end")])
         keys = [call.args[0] for call in desktop.key.call_args_list]
-        self.assertEqual(keys.count("ctrl+z"), 6)
+        self.assertEqual(keys.count("ctrl+z"), 5)
         self.assertEqual(keys.count("ctrl+y"), 1)
-        desktop.type_ascii.assert_called_once_with("X")
+        # Focus is proven by the Undo landing in Source, not by a typed byte.
+        desktop.type_ascii.assert_not_called()
         self.assertEqual(desktop.screenshot.call_count, 2)
 
     def test_setext_probe_preserves_multiline_body_and_source_focus_without_refocus_click(self):

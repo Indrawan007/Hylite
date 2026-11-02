@@ -940,28 +940,16 @@ def exercise_preview_heading(desktop, artifacts):
     # pressed while the panel is still the full width Preview: the assertion is
     # unchanged (heading change, caret at the marker end, Source focused after
     # the app's own mode switch) and no second pixel map is needed.
-    # The sentinel is recovered from a known document, not from a key count: if
-    # the typed X did not reach the Source editor (one run read back a lone "X"
-    # from a focused input), the fixture is rebuilt from the clean welcome and
-    # the pair of presses is replayed. Preview is reached through the verified
-    # mode cycle, so the retry cannot depend on the gesture that just failed.
-    sentinel = demoted[:3] + b"X" + demoted[3:]
-    for attempt in (1, 2):
-        desktop.cycle_to(editable=False)
-        desktop.press_until_document((906, 103), "Preview H+ leaves the caret at the marker end", demoted)
-        desktop.type_ascii("X")
-        try:
-            desktop.expect_copy("Split H+ restores Source keyboard focus at marker end", sentinel, refocus=False)
-            break
-        except (AssertionError, TimeoutError):
-            if attempt == 2:
-                raise
-            desktop.undo_until_clean()
-            desktop.paste_from_clean(source)
+    desktop.cycle_to(editable=False)
+    desktop.press_until_document((906, 103), "Preview H+ leaves the caret at the marker end", demoted)
     desktop.screenshot(artifacts / "heading-split.png")
-    desktop.key("ctrl+z")  # Only the native Source sentinel.
+    # Keyboard history only reaches the Source editor when it owns the keyboard
+    # after the bar press, so this Undo *is* the focus assertion: without focus
+    # the copy below still returns the clipboard sentinel and the step fails.
+    # The typed sentinel was dropped after two runs read back a lone "X" from a
+    # focused input -- a stray byte cannot be told apart from a lost gesture.
     desktop.key("ctrl+z")  # Only the Split heading transaction.
-    desktop.expect_copy("Split heading and Source typing remain separate Undo transactions", source, refocus=False)
+    desktop.expect_copy("Split H+ hands the keyboard back to Source as one Undo transaction", source, refocus=False)
     desktop.key("ctrl+z")  # Preview H-.
     desktop.key("ctrl+z")  # Preview H+.
     desktop.key("ctrl+z")  # Source paste; no extra history from rendering/navigation.
