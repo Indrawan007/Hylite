@@ -2,7 +2,7 @@
 //!
 //! Keep the shell responsive to the configured Iced theme instead of baking a
 //! dark palette into every toolbar, tab, and sidebar widget.
-use iced::widget::{button, container};
+use iced::widget::{button, container, pick_list};
 use iced::{Border, Color, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,6 +176,27 @@ pub fn surface_style(kind: SurfaceKind) -> impl Fn(&Theme) -> container::Style {
                 radius: radius.into(),
             },
             ..Default::default()
+        }
+    }
+}
+
+/// A pick list that stays a quiet control: surface background, hairline border
+/// and muted text. The theme default fills the field with the primary colour,
+/// which turned a row of block actions into a coloured stripe.
+pub fn pick_list_style() -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style {
+    move |theme, status| {
+        let colors = Colors::from_theme(theme);
+        let touched = !matches!(status, pick_list::Status::Active);
+        pick_list::Style {
+            text_color: colors.muted,
+            placeholder_color: colors.muted,
+            handle_color: colors.muted,
+            background: colors.surface.into(),
+            border: Border {
+                color: if touched { colors.edge } else { colors.border },
+                width: 1.0,
+                radius: 4.0.into(),
+            },
         }
     }
 }

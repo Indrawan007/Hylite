@@ -4,6 +4,7 @@ use super::preview_model::{Block, Kind, Run, Style};
 use super::Snapshot;
 use crate::commands::Message;
 use crate::preview_navigation::Target;
+use crate::ui::chrome::{self, ButtonKind};
 use iced::widget::{
     button, checkbox, column, container, horizontal_rule, pick_list, rich_text, row, text, tooltip,
 };
@@ -372,6 +373,7 @@ fn render_block<'a>(
         element
     } else if let Some(action) = source_action(block, snapshot) {
         let mut actions = row![button(text("Show block source").size(11))
+            .style(chrome::button_style(ButtonKind::Quiet))
             .padding([2, 6])
             .height(24)
             .width(Length::Fill)
@@ -385,6 +387,7 @@ fn render_block<'a>(
             ] {
                 actions = actions.push(
                     button(text(label).size(11))
+                    .style(chrome::button_style(ButtonKind::Quiet))
                         .padding([2, 6])
                         .height(24)
                         .width(48)
@@ -398,6 +401,7 @@ fn render_block<'a>(
         if let Some(target) = visual_target.filter(|_| inline_edit.enabled) {
             actions = actions.push(
                 button(text("Edit visually").size(11))
+                .style(chrome::button_style(ButtonKind::Quiet))
                     .padding([2, 6])
                     .height(24)
                     .on_press(Message::OpenPreviewVisualText(target)),
@@ -407,6 +411,7 @@ fn render_block<'a>(
         {
             actions = actions.push(
                 button(text("Edit text").size(11))
+                .style(chrome::button_style(ButtonKind::Quiet))
                     .padding([2, 6])
                     .height(24)
                     .on_press(action),
@@ -415,6 +420,7 @@ fn render_block<'a>(
         if let Some(action) = paragraph_action(block, snapshot) {
             actions = actions.push(
                 button(text("Edit paragraph…").size(11))
+                .style(chrome::button_style(ButtonKind::Quiet))
                     .padding([2, 6])
                     .height(24)
                     .width(136)
@@ -424,6 +430,7 @@ fn render_block<'a>(
         if let Some(action) = multiline_paragraph_action(block, snapshot) {
             actions = actions.push(
                 button(text("Edit multiline…").size(11))
+                .style(chrome::button_style(ButtonKind::Quiet))
                     .padding([2, 6])
                     .height(24)
                     .width(136)
@@ -441,6 +448,7 @@ fn render_block<'a>(
                     None::<TableActionChoice>,
                     TableActionChoice::message,
                 )
+                .style(chrome::pick_list_style())
                 .placeholder("Table actions…")
                 .width(168)
                 .text_size(11)
