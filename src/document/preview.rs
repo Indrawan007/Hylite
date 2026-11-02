@@ -372,8 +372,7 @@ fn render_block<'a>(
     let element = if inline_session {
         element
     } else if let Some(action) = source_action(block, snapshot) {
-        let mut actions = row![button(text("Show block source").size(11))
-            .style(chrome::button_style(ButtonKind::Quiet))
+        let mut actions = row![action_button("Show block source")
             .padding([2, 6])
             .height(24)
             .width(Length::Fill)
@@ -386,8 +385,7 @@ fn render_block<'a>(
                 ("H+", crate::preview_heading::Direction::Demote),
             ] {
                 actions = actions.push(
-                    button(text(label).size(11))
-                    .style(chrome::button_style(ButtonKind::Quiet))
+                    action_button(label)
                         .padding([2, 6])
                         .height(24)
                         .width(48)
@@ -400,8 +398,7 @@ fn render_block<'a>(
         }
         if let Some(target) = visual_target.filter(|_| inline_edit.enabled) {
             actions = actions.push(
-                button(text("Edit visually").size(11))
-                .style(chrome::button_style(ButtonKind::Quiet))
+                action_button("Edit visually")
                     .padding([2, 6])
                     .height(24)
                     .on_press(Message::OpenPreviewVisualText(target)),
@@ -410,8 +407,7 @@ fn render_block<'a>(
             inline_text_action(block, snapshot).filter(|_| inline_edit.enabled)
         {
             actions = actions.push(
-                button(text("Edit text").size(11))
-                .style(chrome::button_style(ButtonKind::Quiet))
+                action_button("Edit text")
                     .padding([2, 6])
                     .height(24)
                     .on_press(action),
@@ -419,8 +415,7 @@ fn render_block<'a>(
         }
         if let Some(action) = paragraph_action(block, snapshot) {
             actions = actions.push(
-                button(text("Edit paragraph…").size(11))
-                .style(chrome::button_style(ButtonKind::Quiet))
+                action_button("Edit paragraph…")
                     .padding([2, 6])
                     .height(24)
                     .width(136)
@@ -429,8 +424,7 @@ fn render_block<'a>(
         }
         if let Some(action) = multiline_paragraph_action(block, snapshot) {
             actions = actions.push(
-                button(text("Edit multiline…").size(11))
-                .style(chrome::button_style(ButtonKind::Quiet))
+                action_button("Edit multiline…")
                     .padding([2, 6])
                     .height(24)
                     .width(136)
@@ -470,6 +464,13 @@ fn render_block<'a>(
         tooltip::Position::FollowCursor,
     )
     .into()
+}
+
+/// A block-action text button. The theme's default button paints the primary
+/// colour as its background, and at this width that read as one blue stripe per
+/// block, so the whole row uses the quiet style instead.
+fn action_button<'a>(label: &str) -> button::Button<'a, Message> {
+    button(text(label.to_owned()).size(11)).style(chrome::button_style(ButtonKind::Quiet))
 }
 
 fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
