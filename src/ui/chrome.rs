@@ -2,6 +2,7 @@
 //!
 //! Keep the shell responsive to the configured Iced theme instead of baking a
 //! dark palette into every toolbar, tab, and sidebar widget.
+use crate::commands::Message;
 use iced::widget::{button, checkbox, container, pick_list};
 use iced::{Border, Color, Theme};
 
@@ -227,6 +228,15 @@ pub fn checkbox_style() -> impl Fn(&Theme, checkbox::Status) -> checkbox::Style 
             text_color: Some(if disabled { colors.muted } else { colors.text }),
         }
     }
+}
+
+/// The shell's task checkbox. The theme default fills a checked box with the
+/// primary colour, which turned every checked task in the preview blue.
+pub fn task_checkbox<'a>(checked: bool) -> checkbox::Checkbox<'a, Message> {
+    checkbox("", checked)
+        .size(16)
+        .spacing(0)
+        .style(checkbox_style())
 }
 
 /// A six-pixel status dot.

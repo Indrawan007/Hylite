@@ -24,6 +24,7 @@ struct Colors {
     text: Color,
     accent: Color,
     surface: Color,
+    border: Color,
 }
 
 struct InlineTextEditor<'a> {
@@ -40,6 +41,7 @@ impl Colors {
         Self {
             text: palette.text,
             accent: palette.primary,
+            border: theme.extended_palette().background.strong.color,
             surface: Color::from_rgb(
                 mix(palette.background.r, palette.text.r),
                 mix(palette.background.g, palette.text.g),
@@ -311,7 +313,7 @@ fn render_block<'a>(
                             Kind::Item(task) => {
                                 let mut prefix = row![text(marker).color(colors.text)].spacing(6);
                                 if let Some(task) = task {
-                                    let mut control = task_checkbox(task.checked);
+                                    let mut control = chrome::task_checkbox(task.checked);
                                     if let Some(action) = task_action(item, snapshot) {
                                         control = control.on_toggle(move |_| action.clone());
                                     }
@@ -470,11 +472,6 @@ fn render_block<'a>(
 /// block, so the whole row uses the quiet style instead.
 fn action_button<'a>(label: &str) -> button::Button<'a, Message> {
     button(text(label.to_owned()).size(11)).style(chrome::button_style(ButtonKind::Quiet))
-}
-
-/// Task checkboxes use the shell's neutral tokens instead of the theme fill.
-fn task_checkbox<'a>(checked: bool) -> checkbox::Checkbox<'a, Message> {
-    checkbox("", checked).size(16).spacing(0).style(chrome::checkbox_style())
 }
 
 fn source_action(block: &Block, snapshot: Snapshot) -> Option<Message> {
