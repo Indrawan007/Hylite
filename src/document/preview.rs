@@ -6,7 +6,7 @@ use crate::commands::Message;
 use crate::preview_navigation::Target;
 use crate::ui::chrome::{self, ButtonKind};
 use iced::widget::{
-    button, checkbox, column, container, horizontal_rule, pick_list, rich_text, row, text, tooltip,
+    button, column, container, horizontal_rule, pick_list, rich_text, row, text, tooltip,
 };
 use iced::{font, Border, Color, Element, Font, Length, Theme};
 use std::path::Path;
@@ -23,6 +23,7 @@ mod table;
 struct Colors {
     text: Color,
     accent: Color,
+    muted: Color,
     surface: Color,
     border: Color,
 }
@@ -38,10 +39,16 @@ impl Colors {
     fn new(theme: &Theme) -> Self {
         let palette = theme.palette();
         let mix = |bg: f32, ink: f32| bg * 0.94 + ink * 0.06;
+        let faded = |bg: f32, ink: f32| bg * 0.66 + ink * 0.34;
         Self {
             text: palette.text,
             accent: palette.primary,
             border: theme.extended_palette().background.strong.color,
+            muted: Color::from_rgb(
+                faded(palette.background.r, palette.text.r),
+                faded(palette.background.g, palette.text.g),
+                faded(palette.background.b, palette.text.b),
+            ),
             surface: Color::from_rgb(
                 mix(palette.background.r, palette.text.r),
                 mix(palette.background.g, palette.text.g),
